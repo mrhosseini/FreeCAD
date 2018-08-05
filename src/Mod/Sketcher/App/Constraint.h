@@ -55,6 +55,8 @@ enum ConstraintType {
     Symmetric = 14,
     InternalAlignment = 15,
     SnellsLaw = 16,
+    Block = 17,
+    Diameter = 18,
     NumConstraintTypes // must be the last item!
 };
 
@@ -63,7 +65,13 @@ enum InternalAlignmentType {
     EllipseMajorDiameter    = 1,
     EllipseMinorDiameter    = 2,
     EllipseFocus1           = 3,
-    EllipseFocus2           = 4
+    EllipseFocus2           = 4,
+    HyperbolaMajor          = 5,
+    HyperbolaMinor          = 6,
+    HyperbolaFocus          = 7,
+    ParabolaFocus           = 8,
+    BSplineControlPoint     = 9,
+    BSplineKnotPoint        = 10,
 };
 
 /// define if you want to use the end or start point
@@ -88,12 +96,15 @@ public:
     virtual void Restore(Base::XMLReader &/*reader*/);
 
     virtual PyObject *getPyObject(void);
-
-    void setValue(double newValue);
+    
     Base::Quantity getPresentationValue() const;
-    double getValue() const;
+    inline void setValue(double newValue) {
+        Value = newValue;
+    }
+    inline double getValue() const {
+        return Value;
+    }
 
-    friend class Sketch;
     friend class PropertyConstraintList;
 
 private:
@@ -111,6 +122,8 @@ public:
     float LabelDistance;
     float LabelPosition;
     bool isDriving;
+    int InternalAlignmentIndex; // Note: for InternalAlignment Type this index indexes equal internal geometry elements (e.g. index of pole in a bspline). It is not a GeoId!! 
+    bool isInVirtualSpace;
 
 protected:
     boost::uuids::uuid tag;

@@ -26,7 +26,7 @@
 options: importWebGL.wireframeStyle = "faceloop" (can also be "multimaterial" or None)
 importWebGL.template = a complete html file, where $CameraData is a placeholder for the 
 FreeCAD camera, and $ObjectsData a placeholder for the FreeCAD objects.
-importWebGL.linewidth = an integer, specifyig the width of lines in "faceloop" mode"""
+importWebGL.linewidth = an integer, specifying the width of lines in "faceloop" mode"""
 
 import FreeCAD,Draft,Part,DraftGeomUtils
 
@@ -35,11 +35,20 @@ if FreeCAD.GuiUp:
     from DraftTools import translate
 else:
     FreeCADGui = None
+    # \cond
     def translate(ctxt,txt):
         return txt
+    # \endcond
+
+## @package importWebGL
+#  \ingroup ARCH
+#  \brief WebGL file format exporter
+#
+#  This module provides tools to export HTML files containing the 
+#  exported objects in WebGL format and a simple three.js-based viewer.
 
 tab = "                " # the tab size
-wireframeStyle = "faceloop" # this can be "faceloop", "multimaterial" or None
+wireframeStyle = "faceloop" # this can be "faceloop", "multimaterial", or None
 cameraPosition = None # set this to a tuple to change, for ex. (0,0,0)
 linewidth = 1
 template = """<!DOCTYPE html>
@@ -107,17 +116,17 @@ template = """<!DOCTYPE html>
         </html>"""
 
 
-if open.__module__ == '__builtin__':
+if open.__module__ in ['__builtin__','io']:
     pythonopen = open
     
 def export(exportList,filename):
-    "exports the given objects to a .html file"
+    "exports the given objects to an .html file"
 
     html = getHTML(exportList)
     outfile = pythonopen(filename,"wb")
     outfile.write(html)
     outfile.close()
-    FreeCAD.Console.PrintMessage(translate("Arch","successfully written ").decode("utf8")+filename+"\n")
+    FreeCAD.Console.PrintMessage(translate("Arch","Successfully written", utf8_decode=True) + ' ' + filename + "\n")
     
 def getHTML(objectsList):
     "returns the complete HTML code of a viewer for the given objects"
@@ -146,12 +155,12 @@ def getCameraData():
     else:
         result += "camera.position.set(0,0,1000);\n"
     result += tab+"camera.lookAt( scene.position );\n"+tab
-    # print result
+    # print(result)
     return result
     
 def getObjectData(obj,wireframeMode=wireframeStyle):
-    """returns the geometry data of an object as three.js snippet. wireframeMode
-    can be multimaterial, faceloop or None"""
+    """returns the geometry data of an object as three.js snippet. 
+    wireframeMode can be multimaterial, faceloop, or None"""
     
     result = ""
     wires = []
@@ -168,7 +177,7 @@ def getObjectData(obj,wireframeMode=wireframeStyle):
             result += tab+"geom.vertices.push(v"+str(i)+");\n"
         # adding facets data
         for f in fcmesh[1]:
-            result += tab+"geom.faces.push( new THREE.Face3"+str(f)+" );\n"
+            result += tab+"geom.faces.push( new THREE.Face3"+str(f).replace("L","")+" );\n"
         for f in obj.Shape.Faces:
             for w in f.Wires:
                 wo = Part.Wire(Part.__sortEdges__(w.Edges))
@@ -187,7 +196,8 @@ def getObjectData(obj,wireframeMode=wireframeStyle):
             result += tab+"geom.vertices.push(v"+str(p.Index)+");\n"
         # adding facets data
         for f in mesh.Facets:
-            result += tab+"geom.faces.push( new THREE.Face3"+str(f.PointIndices)+" );\n"
+            pointIndices = tuple([ int(i) for i in f.PointIndices ])
+            result += tab+"geom.faces.push( new THREE.Face3"+str(pointIndices).replace("L","")+" );\n"
             
     if result:
         # adding a base material

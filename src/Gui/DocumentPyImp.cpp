@@ -42,6 +42,7 @@
 #include "Tree.h"
 #include "ViewProviderDocumentObject.h"
 #include "ViewProviderPy.h"
+#include "ViewProviderDocumentObjectPy.h"
 
 
 using namespace Gui;
@@ -308,6 +309,18 @@ PyObject* DocumentPy::toggleTreeItem(PyObject *args)
     Py_Return;
 }
 
+PyObject* DocumentPy::scrollToTreeItem(PyObject *args)
+{
+    PyObject *view;
+    if (!PyArg_ParseTuple(args,"O!",&(Gui::ViewProviderDocumentObjectPy::Type), &view))
+        return 0;
+
+    Gui::ViewProviderDocumentObject* vp = static_cast<ViewProviderDocumentObjectPy*>
+            (view)->getViewProviderDocumentObjectPtr();
+    getDocumentPtr()->signalScrollToObject(*vp);
+    Py_Return;
+}
+
 Py::Object DocumentPy::getActiveObject(void) const
 {
     App::DocumentObject *object = getDocumentPtr()->getDocument()->getActiveObject();
@@ -319,7 +332,7 @@ Py::Object DocumentPy::getActiveObject(void) const
     }
 }
 
-void  DocumentPy::setActiveObject(Py::Object arg)
+void  DocumentPy::setActiveObject(Py::Object /*arg*/)
 {
     throw Py::AttributeError("'Document' object attribute 'ActiveObject' is read-only");
 }
@@ -335,7 +348,7 @@ Py::Object DocumentPy::getActiveView(void) const
     }
 }
 
-void  DocumentPy::setActiveView(Py::Object arg)
+void  DocumentPy::setActiveView(Py::Object /*arg*/)
 {
     throw Py::AttributeError("'Document' object attribute 'ActiveView' is read-only");
 }

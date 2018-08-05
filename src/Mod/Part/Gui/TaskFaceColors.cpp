@@ -32,8 +32,10 @@
 # include <TopExp_Explorer.hxx>
 # include <TopoDS.hxx>
 # include <TopTools_IndexedMapOfShape.hxx>
+# include <QFontMetrics>
 # include <QMessageBox>
 # include <QSet>
+# include <Python.h>
 # include <Inventor/SoPickedPoint.h>
 # include <Inventor/actions/SoRayPickAction.h>
 # include <Inventor/actions/SoSearchAction.h>
@@ -74,10 +76,10 @@ namespace PartGui {
         const App::DocumentObject* object;
     public:
         FaceSelection(const App::DocumentObject* obj)
-            : Gui::SelectionFilterGate((Gui::SelectionFilter*)0), object(obj)
+            : Gui::SelectionFilterGate(), object(obj)
         {
         }
-        bool allow(App::Document*pDoc, App::DocumentObject*pObj, const char*sSubName)
+        bool allow(App::Document* /*pDoc*/, App::DocumentObject*pObj, const char*sSubName)
         {
             if (pObj != this->object)
                 return false;
@@ -100,6 +102,7 @@ public:
     Gui::Document* doc;
     std::vector<App::Color> current,perface;
     QSet<int> index;
+    bool boxSelection;
     Connection connectDelDoc;
     Connection connectDelObj;
 
@@ -121,6 +124,8 @@ public:
             current.push_back(vp->ShapeColor.getValue());
         perface = current;
         perface.resize(mapOfShape.Extent(), perface.front());
+
+        boxSelection = false;
     }
     ~Private()
     {
@@ -161,9 +166,9 @@ public:
 
         return false;
     }
-    void addFacesToSelection(Gui::View3DInventorViewer* viewer,
+    void addFacesToSelection(Gui::View3DInventorViewer* /*viewer*/,
                              const Gui::ViewVolumeProjection& proj,
-                             const Base::Polygon2D& polygon,
+                             const Base::Polygon2d& polygon,
                              const TopoDS_Shape& shape)
     {
         try {
@@ -184,7 +189,7 @@ public:
                     gp_Pnt p = BRep_Tool::Pnt(TopoDS::Vertex(xp_vertex.Current()));
                     Base::Vector3d pt2d;
                     pt2d = proj(Base::Vector3d(p.X(), p.Y(), p.Z()));
-                    if (polygon.Contains(Base::Vector2D(pt2d.x, pt2d.y))) {
+                    if (polygon.Contains(Base::Vector2d(pt2d.x, pt2d.y))) {
 #if 0
                         // TODO
                         if (isVisibleFace(k-1, SbVec2f(pt2d.x, pt2d.y), viewer))
@@ -204,7 +209,7 @@ public:
                 //gp_Pnt c = props.CentreOfMass();
                 //Base::Vector3d pt2d;
                 //pt2d = proj(Base::Vector3d(c.X(), c.Y(), c.Z()));
-                //if (polygon.Contains(Base::Vector2D(pt2d.x, pt2d.y))) {
+                //if (polygon.Contains(Base::Vector2d(pt2d.x, pt2d.y))) {
                 //    if (isVisibleFace(k-1, SbVec2f(pt2d.x, pt2d.y), viewer)) {
                 //        std::stringstream str;
                 //        str << "Face" << k;
@@ -227,18 +232,18 @@ public:
         SoCamera* cam = view->getSoRenderManager()->getCamera();
         SbViewVolume vv = cam->getViewVolume();
         Gui::ViewVolumeProjection proj(vv);
-        Base::Polygon2D polygon;
+        Base::Polygon2d polygon;
         if (picked.size() == 2) {
             SbVec2f pt1 = picked[0];
             SbVec2f pt2 = picked[1];
-            polygon.Add(Base::Vector2D(pt1[0], pt1[1]));
-            polygon.Add(Base::Vector2D(pt1[0], pt2[1]));
-            polygon.Add(Base::Vector2D(pt2[0], pt2[1]));
-            polygon.Add(Base::Vector2D(pt2[0], pt1[1]));
+            polygon.Add(Base::Vector2d(pt1[0], pt1[1]));
+            polygon.Add(Base::Vector2d(pt1[0], pt2[1]));
+            polygon.Add(Base::Vector2d(pt2[0], pt2[1]));
+            polygon.Add(Base::Vector2d(pt2[0], pt1[1]));
         }
         else {
             for (std::vector<SbVec2f>::const_iterator it = picked.begin(); it != picked.end(); ++it)
-                polygon.Add(Base::Vector2D((*it)[0],(*it)[1]));
+                polygon.Add(Base::Vector2d((*it)[0],(*it)[1]));
         }
 
         FaceColors* self = reinterpret_cast<FaceColors*>(ud);
@@ -246,7 +251,10 @@ public:
         if (self->d->obj && self->d->obj->getTypeId().isDerivedFrom(Part::Feature::getClassTypeId())) {
             cb->setHandled();
             const TopoDS_Shape& shape = static_cast<Part::Feature*>(self->d->obj)->Shape.getValue();
+            self->d->boxSelection = true;
             self->d->addFacesToSelection(view, proj, polygon, shape);
+            self->d->boxSelection = false;
+            self->updatePanel();
             view->redraw();
         }
     }
@@ -257,6 +265,7 @@ public:
 FaceColors::FaceColors(ViewProviderPartExt* vp, QWidget* parent)
   : d(new Private(vp))
 {
+    Q_UNUSED(parent);
     d->ui->setupUi(this);
     d->ui->groupBox->setTitle(QString::fromUtf8(vp->getObject()->Label.getValue()));
     d->ui->colorButton->setDisabled(true);
@@ -368,18 +377,30 @@ void FaceColors::onSelectionChanged(const Gui::SelectionChanges& msg)
         selection_changed = true;
     }
 
-    if (selection_changed) {
-        QString faces = QString::fromLatin1("[");
-        int size = d->index.size();
-        for (QSet<int>::iterator it = d->index.begin(); it != d->index.end(); ++it) {
-            faces += QString::number(*it + 1);
-            if (--size > 0)
-                faces += QString::fromLatin1(",");
-        }
-        faces += QString::fromLatin1("]");
-        d->ui->labelElement->setText(faces);
-        d->ui->colorButton->setDisabled(d->index.isEmpty());
+    if (selection_changed && !d->boxSelection) {
+        updatePanel();
     }
+}
+
+void FaceColors::updatePanel()
+{
+    QString faces = QString::fromLatin1("[");
+    int size = d->index.size();
+    for (QSet<int>::iterator it = d->index.begin(); it != d->index.end(); ++it) {
+        faces += QString::number(*it + 1);
+        if (--size > 0)
+            faces += QString::fromLatin1(",");
+    }
+    faces += QString::fromLatin1("]");
+
+    int maxWidth = d->ui->labelElement->width();
+    QFontMetrics fm(d->ui->labelElement->font());
+    if (fm.width(faces) > maxWidth) {
+        faces = fm.elidedText(faces, Qt::ElideMiddle, maxWidth);
+    }
+
+    d->ui->labelElement->setText(faces);
+    d->ui->colorButton->setDisabled(d->index.isEmpty());
 }
 
 bool FaceColors::accept()

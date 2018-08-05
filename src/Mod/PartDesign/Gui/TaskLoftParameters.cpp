@@ -54,7 +54,7 @@ using namespace Gui;
 
 /* TRANSLATOR PartDesignGui::TaskLoftParameters */
 
-TaskLoftParameters::TaskLoftParameters(ViewProviderLoft *LoftView,bool newObj, QWidget *parent)
+TaskLoftParameters::TaskLoftParameters(ViewProviderLoft *LoftView,bool /*newObj*/, QWidget *parent)
     : TaskSketchBasedParameters(LoftView, parent, "PartDesign_Additive_Loft",tr("Loft parameters"))
 {
     // we need a separate container widget to add all controls to
@@ -97,6 +97,7 @@ TaskLoftParameters::TaskLoftParameters(ViewProviderLoft *LoftView,bool newObj, Q
 
 void TaskLoftParameters::updateUI(int index)
 {
+    Q_UNUSED(index);
 }
 
 void TaskLoftParameters::onSelectionChanged(const Gui::SelectionChanges& msg)
@@ -194,7 +195,7 @@ TaskLoftParameters::~TaskLoftParameters()
     delete ui;
 }
 
-void TaskLoftParameters::changeEvent(QEvent *e)
+void TaskLoftParameters::changeEvent(QEvent * /*e*/)
 {/*
     TaskBox::changeEvent(e);
     if (e->type() == QEvent::LanguageChange) {
@@ -285,6 +286,12 @@ TaskDlgLoftParameters::~TaskDlgLoftParameters()
 bool TaskDlgLoftParameters::accept()
 {
     // TODO Fill this with commands (2015-09-11, Fat-Zer)
+    PartDesign::Loft* pcLoft = static_cast<PartDesign::Loft*>(vp->getObject());
+
+    for(App::DocumentObject* obj : pcLoft->Sections.getValues()) {
+        Gui::Command::doCommand(Gui::Command::Gui,"Gui.activeDocument().hide(\"%s\")", obj->getNameInDocument());
+    }
+
 
     return TaskDlgSketchBasedParameters::accept ();
 }

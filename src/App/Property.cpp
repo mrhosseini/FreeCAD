@@ -47,7 +47,7 @@ TYPESYSTEM_SOURCE_ABSTRACT(App::Property , Base::Persistence);
 //**************************************************************************
 // Construction/Destruction
 
-// here the implemataion! description should take place in the header file!
+// Here is the implementation! Description should take place in the header file!
 Property::Property()
   :father(0)
 {
@@ -108,7 +108,7 @@ void Property::touch()
 {
     if (father)
         father->onChanged(this);
-    StatusBits.set(0);
+    StatusBits.set(Touched);
 }
 
 void Property::setReadOnly(bool readOnly)
@@ -123,7 +123,7 @@ void Property::hasSetValue(void)
 {
     if (father)
         father->onChanged(this);
-    StatusBits.set(0);
+    StatusBits.set(Touched);
 }
 
 void Property::aboutToSetValue(void)
@@ -135,11 +135,11 @@ void Property::aboutToSetValue(void)
 void Property::verifyPath(const ObjectIdentifier &p) const
 {
     if (p.numSubComponents() != 1)
-        throw Base::Exception("Invalid property path: single component expected");
+        throw Base::ValueError("Invalid property path: single component expected");
     if (!p.getPropertyComponent(0).isSimple())
-        throw Base::Exception("Invalid property path: simple component expected");
+        throw Base::ValueError("Invalid property path: simple component expected");
     if (p.getPropertyComponent(0).getName() != getName())
-        throw Base::Exception("Invalid property path: name mismatch");
+        throw Base::ValueError("Invalid property path: name mismatch");
 }
 
 Property *Property::Copy(void) const 
@@ -153,31 +153,6 @@ void Property::Paste(const Property& /*from*/)
 {
     // have to be reimplemented by a subclass!
     assert(0);
-}
-
-std::string Property::encodeAttribute(const std::string& str)
-{
-    std::string tmp;
-    for (std::string::const_iterator it = str.begin(); it != str.end(); ++it) {
-        if (*it == '<')
-            tmp += "&lt;";
-        else if (*it == '"')
-            tmp += "&quot;";
-        else if (*it == '\'')
-            tmp += "&apos;";
-        else if (*it == '&')
-            tmp += "&amp;";
-        else if (*it == '>')
-            tmp += "&gt;";
-        else if (*it == '\r')
-            tmp += "&#xD;";
-        else if (*it == '\n')
-            tmp += "&#xA;";
-        else
-            tmp += *it;
-    }
-
-    return tmp;
 }
 
 //**************************************************************************

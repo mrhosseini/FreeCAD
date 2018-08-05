@@ -354,7 +354,7 @@ bool Gui::GUIApplicationNativeEventAware::Is3dmouseAttached()
 
 
 /*!
-	Initialize the window to recieve raw-input messages
+	Initialize the window to receive raw-input messages
 
 	This needs to be called initially so that Windows will send the messages from the 3D mouse to the window.
 */
@@ -623,7 +623,7 @@ void Gui::GUIApplicationNativeEventAware::OnRawInput(UINT nInputCode, HRAWINPUT 
 		nCount = this->GetRawInputBuffer(pRawInput, &cbSize, sizeof(RAWINPUTHEADER));
 	}
 
-	// If we have mouse input data for the app then tell tha app about it
+	// If we have mouse input data for the app then tell the app about it
 	if (b3dmouseInput) {
 		On3dmouseInput();
 	}
@@ -703,7 +703,7 @@ bool Gui::GUIApplicationNativeEventAware::TranslateRawInputData(UINT nInputCode,
 #endif
 						return true;
 					}
-				} else { // Zero out the data if the app is not in forground
+				} else { // Zero out the data if the app is not in foreground
 					deviceData.fAxes.assign(6, 0.f);
 				}
 			} else if (pRawInput->data.hid.bRawData[0] == 0x02) { // Rotation vector

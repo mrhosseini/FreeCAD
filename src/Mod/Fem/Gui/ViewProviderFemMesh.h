@@ -26,6 +26,7 @@
 
 #include <Gui/ViewProviderGeometryObject.h>
 #include <Gui/ViewProviderBuilder.h>
+#include <Gui/ViewProviderPythonFeature.h>
 
 #include <CXX/Objects.hxx>
 
@@ -52,7 +53,8 @@ public:
                     std::vector<unsigned long>&,
                     std::vector<unsigned long>&,
                     bool &edgeOnly,
-                    bool ShowInner
+                    bool ShowInner,
+                    int MaxFacesShowInner
                    ) const;
 };
 
@@ -73,6 +75,7 @@ public:
     App::PropertyFloatConstraint LineWidth;
     App::PropertyBool     BackfaceCulling;
     App::PropertyBool     ShowInner;
+    App::PropertyInteger  MaxFacesShowInner;
 
     void attach(App::DocumentObject *pcObject);
     void setDisplayMode(const char* ModeName);
@@ -80,7 +83,7 @@ public:
     void updateData(const App::Property*);
 
       /** @name Selection handling
-      * This group of methodes do the selection handling.
+      * This group of methods do the selection handling.
       * Here you can define how the selection for your ViewProvider
       * works.
      */
@@ -90,11 +93,11 @@ public:
     /// return a hit element to the selection path or 0
     virtual std::string getElement(const SoDetail*) const;
     virtual SoDetail* getDetail(const char*) const;
-    /// return the higlight lines for a given element or the whole shape
+    /// return the highlight lines for a given element or the whole shape
     virtual std::vector<Base::Vector3d> getSelectionShape(const char* Element) const;
     //@}
 
-    // interface methodes
+    // interface methods
     void setHighlightNodes(const std::set<long>&);
     void resetHighlightNodes(void);
 
@@ -162,6 +165,9 @@ protected:
 private:
     class Private;
 };
+
+typedef Gui::ViewProviderPythonFeatureT<ViewProviderFemMesh> ViewProviderFemMeshPython;
+
 
 } //namespace FemGui
 

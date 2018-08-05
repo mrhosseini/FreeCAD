@@ -31,13 +31,13 @@
 namespace PartDesign
 {
 
-/*This feature is not realy a classical datum. It is a fully defined shape and not
- *infinit geometrie like a plane and a line. Also it is not calculated by references and hence
- *is not "attaced" to anything. Furthermore real shapes must be visualized. This makes it hard
- *to reuse the existing datum infrastructure and a special handling for this type is
- *created.
+/* This feature is not really a classical datum. It is a fully defined shape and not
+ * infinite geometry like a plane and a line. Also it is not calculated by references and hence
+ * is not "attached" to anything. Furthermore real shapes must be visualized. This makes it hard
+ * to reuse the existing datum infrastructure and a special handling for this type is
+ * created.
  */
-// TODO Add a better documentation (2015-09-11, Fat-Zer)
+// TODO Add better documentation (2015-09-11, Fat-Zer)
 
 class PartDesignExport ShapeBinder : public Part::Feature
 {
@@ -47,7 +47,7 @@ public:
     ShapeBinder();
     virtual ~ShapeBinder();
 
-    App::PropertyLinkSubList    Support;
+    App::PropertyLinkSubListGlobal    Support;
 
     static void getFilteredReferences(App::PropertyLinkSubList* prop, Part::Feature*& object, std::vector< std::string >& subobjects);
     static Part::TopoShape buildShapeFromReferences(Feature* obj, std::vector< std::string > subs);
@@ -57,6 +57,7 @@ public:
     }
 
 protected:
+    virtual void handleChangedPropertyType(Base::XMLReader &reader, const char * TypeName, App::Property * prop);
     virtual short int mustExecute(void) const;
     virtual App::DocumentObjectExecReturn* execute(void);
 };

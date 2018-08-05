@@ -41,6 +41,10 @@ using namespace Base;
  * A more elaborate description of the constructor.
  */
 ClassTemplate::ClassTemplate()
+  : enumPtr(0)
+  , enumVar(TVal1)
+  , publicVar(0)
+  , handler(0)
 {
 }
 
@@ -54,7 +58,7 @@ ClassTemplate::~ClassTemplate()
 
 
 //**************************************************************************
-// separator for other implemetation aspects
+// separator for other implementation aspects
 
 /**
  * a normal member taking two arguments and returning an integer value.
@@ -79,7 +83,7 @@ int ClassTemplate::testMe(int /*a*/,const char* /*s*/)
 
 //**************************************************************************
 //**************************************************************************
-// Seperator for additional classes
+// Separator for additional classes
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 

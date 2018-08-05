@@ -50,7 +50,7 @@ CmdWebOpenWebsite::CmdWebOpenWebsite()
     sGroup          = QT_TR_NOOP("Web");
     sMenuText       = QT_TR_NOOP("Open website...");
     sToolTipText    = QT_TR_NOOP("Opens a website in FreeCAD");
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Web_OpenWebsite";
     sStatusTip      = sToolTipText;
     sPixmap         = "actions/web-browser";
 }
@@ -58,6 +58,7 @@ CmdWebOpenWebsite::CmdWebOpenWebsite()
 
 void CmdWebOpenWebsite::activated(int iMsg)
 {
+    Q_UNUSED(iMsg);
     doCommand(Doc,"import WebGui");
     doCommand(Command::Gui,"WebGui.openBrowser('http://www.freecadweb.org/')");
 }
@@ -75,13 +76,14 @@ CmdWebBrowserBack::CmdWebBrowserBack()
     sGroup          = QT_TR_NOOP("Web");
     sMenuText       = QT_TR_NOOP("Previous page");
     sToolTipText    = QT_TR_NOOP("Go back to the previous page");
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Web_BrowserBack";
     sStatusTip      = sToolTipText;
     sPixmap         = "actions/web-previous";
 }
 
 void CmdWebBrowserBack::activated(int iMsg)
 {
+    Q_UNUSED(iMsg);
     doCommand(Command::Gui,"Gui.SendMsgToActiveView('Back')");
 }
 
@@ -103,13 +105,14 @@ CmdWebBrowserNext::CmdWebBrowserNext()
     sGroup          = QT_TR_NOOP("Web");
     sMenuText       = QT_TR_NOOP("Next page");
     sToolTipText    = QT_TR_NOOP("Go to the next page");
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Web_BrowserNext";
     sStatusTip      = sToolTipText;
     sPixmap         = "actions/web-next";
 }
 
 void CmdWebBrowserNext::activated(int iMsg)
 {
+    Q_UNUSED(iMsg);
     doCommand(Command::Gui,"Gui.SendMsgToActiveView('Next')");
 }
 
@@ -131,13 +134,14 @@ CmdWebBrowserRefresh::CmdWebBrowserRefresh()
     sGroup          = QT_TR_NOOP("Web");
     sMenuText       = QT_TR_NOOP("Refresh web page");
     sToolTipText    = QT_TR_NOOP("Refresh web page");
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Web_BrowserRefresh";
     sStatusTip      = sToolTipText;
     sPixmap         = "actions/web-refresh";
 }
 
 void CmdWebBrowserRefresh::activated(int iMsg)
 {
+    Q_UNUSED(iMsg);
     doCommand(Command::Gui,"Gui.SendMsgToActiveView('Refresh')");
 }
 
@@ -158,7 +162,7 @@ CmdWebBrowserStop::CmdWebBrowserStop()
     sGroup          = QT_TR_NOOP("Web");
     sMenuText       = QT_TR_NOOP("Stop loading");
     sToolTipText    = QT_TR_NOOP("Stop the current loading");
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Web_BrowserStop";
     sStatusTip      = sToolTipText;
     sPixmap         = "actions/web-stop";
 }
@@ -166,6 +170,7 @@ CmdWebBrowserStop::CmdWebBrowserStop()
 
 void CmdWebBrowserStop::activated(int iMsg)
 {
+    Q_UNUSED(iMsg);
     doCommand(Command::Gui,"Gui.SendMsgToActiveView('Stop')");
 }
 
@@ -187,13 +192,14 @@ CmdWebBrowserZoomIn::CmdWebBrowserZoomIn()
     sGroup          = QT_TR_NOOP("Web");
     sMenuText       = QT_TR_NOOP("Zoom in");
     sToolTipText    = QT_TR_NOOP("Zoom into the page");
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Web_BrowserZoomIn";
     sStatusTip      = sToolTipText;
     sPixmap         = "actions/web-zoom-in";
 }
 
 void CmdWebBrowserZoomIn::activated(int iMsg)
 {
+    Q_UNUSED(iMsg);
     doCommand(Command::Gui,"Gui.SendMsgToActiveView('ZoomIn')");
 }
 
@@ -215,13 +221,14 @@ CmdWebBrowserZoomOut::CmdWebBrowserZoomOut()
     sGroup          = QT_TR_NOOP("Web");
     sMenuText       = QT_TR_NOOP("Zoom out");
     sToolTipText    = QT_TR_NOOP("Zoom out of the page");
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Web_BrowserZoomOut";
     sStatusTip      = sToolTipText;
     sPixmap         = "actions/web-zoom-out";
 }
 
 void CmdWebBrowserZoomOut::activated(int iMsg)
 {
+    Q_UNUSED(iMsg);
     doCommand(Command::Gui,"Gui.SendMsgToActiveView('ZoomOut')");
 }
 

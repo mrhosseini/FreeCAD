@@ -24,6 +24,7 @@
 #include "PreCompiled.h"
 
 #ifndef _PreComp_
+# include <Python.h>
 # include <Inventor/nodes/SoCamera.h>
 # include <Inventor/nodes/SoCoordinate3.h>
 # include <Inventor/nodes/SoDrawStyle.h>
@@ -288,16 +289,20 @@ QIcon ViewProviderPoints::getIcon() const
     return px;
 }
 
-bool ViewProviderPoints::setEdit(int)
+bool ViewProviderPoints::setEdit(int ModNum)
 {
-    return true;
+    if (ModNum == ViewProvider::Transform)
+        return ViewProviderGeometryObject::setEdit(ModNum);
+    return false;
 }
 
-void ViewProviderPoints::unsetEdit(int)
+void ViewProviderPoints::unsetEdit(int ModNum)
 {
+    if (ModNum == ViewProvider::Transform)
+        ViewProviderGeometryObject::unsetEdit(ModNum);
 }
 
-void ViewProviderPoints::clipPointsCallback(void * ud, SoEventCallback * n)
+void ViewProviderPoints::clipPointsCallback(void *, SoEventCallback * n)
 {
     // When this callback function is invoked we must in either case leave the edit mode
     Gui::View3DInventorViewer* view  = reinterpret_cast<Gui::View3DInventorViewer*>(n->getUserData());
@@ -347,7 +352,7 @@ void ViewProviderScattered::attach(App::DocumentObject* pcObj)
     pcHighlight->documentName = pcObj->getDocument()->getName();
     pcHighlight->subElementName = "Main";
 
-    // Hilight for selection
+    // Highlight for selection
     pcHighlight->addChild(pcPointsCoord);
     pcHighlight->addChild(pcPoints);
 
@@ -408,9 +413,9 @@ void ViewProviderScattered::updateData(const App::Property* prop)
 void ViewProviderScattered::cut(const std::vector<SbVec2f>& picked, Gui::View3DInventorViewer &Viewer)
 {
     // create the polygon from the picked points
-    Base::Polygon2D cPoly;
+    Base::Polygon2d cPoly;
     for (std::vector<SbVec2f>::const_iterator it = picked.begin(); it != picked.end(); ++it) {
-        cPoly.Add(Base::Vector2D((*it)[0],(*it)[1]));
+        cPoly.Add(Base::Vector2d((*it)[0],(*it)[1]));
     }
 
     // get a reference to the point feature
@@ -430,7 +435,7 @@ void ViewProviderScattered::cut(const std::vector<SbVec2f>& picked, Gui::View3DI
 
         // project from 3d to 2d
         vol.projectToScreen(pt, pt);
-        if (cPoly.Contains(Base::Vector2D(pt[0],pt[1])))
+        if (cPoly.Contains(Base::Vector2d(pt[0],pt[1])))
             removeIndices.push_back(index);
     }
 
@@ -508,7 +513,7 @@ void ViewProviderStructured::attach(App::DocumentObject* pcObj)
     pcHighlight->documentName = pcObj->getDocument()->getName();
     pcHighlight->subElementName = "Main";
 
-    // Hilight for selection
+    // Highlight for selection
     pcHighlight->addChild(pcPointsCoord);
     pcHighlight->addChild(pcPoints);
 
@@ -560,9 +565,9 @@ void ViewProviderStructured::updateData(const App::Property* prop)
 void ViewProviderStructured::cut(const std::vector<SbVec2f>& picked, Gui::View3DInventorViewer &Viewer)
 {
     // create the polygon from the picked points
-    Base::Polygon2D cPoly;
+    Base::Polygon2d cPoly;
     for (std::vector<SbVec2f>::const_iterator it = picked.begin(); it != picked.end(); ++it) {
-        cPoly.Add(Base::Vector2D((*it)[0],(*it)[1]));
+        cPoly.Add(Base::Vector2d((*it)[0],(*it)[1]));
     }
 
     // get a reference to the point feature
@@ -586,7 +591,7 @@ void ViewProviderStructured::cut(const std::vector<SbVec2f>& picked, Gui::View3D
 
             // project from 3d to 2d
             vol.projectToScreen(pt, pt);
-            if (cPoly.Contains(Base::Vector2D(pt[0],pt[1]))) {
+            if (cPoly.Contains(Base::Vector2d(pt[0],pt[1]))) {
                 invalidatePoints = true;
                 vec.Set(nan, nan, nan);
             }

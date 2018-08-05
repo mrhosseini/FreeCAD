@@ -78,7 +78,7 @@ int SMDS_Mesh::chunkSize = 1024;
  */
 //================================================================================
 
-int SMDS_Mesh::CheckMemory(const bool doNotRaise) throw (std::bad_alloc)
+int SMDS_Mesh::CheckMemory(const bool doNotRaise)
 {
 #if 0
 #if (defined(__MACH__) && defined(__APPLE__))
@@ -4836,7 +4836,7 @@ void SMDS_Mesh::Modified()
 }
 
 //! get last modification timeStamp
-unsigned long SMDS_Mesh::GetMTime() const
+VTK_MTIME_TYPE SMDS_Mesh::GetMTime() const
 {
   return this->myModifTime;
 }

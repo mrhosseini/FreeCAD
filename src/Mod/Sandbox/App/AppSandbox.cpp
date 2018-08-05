@@ -151,12 +151,12 @@ public:
         // len(x)
         return m_array.size();
     }
-    virtual Py::Object sequence_concat(const Py::Object & i)
+    virtual Py::Object sequence_concat(const Py::Object &)
     {
         // x + y
         throw Py::NotImplementedError("not yet implemented");
     }
-    virtual Py::Object sequence_repeat(Py_ssize_t i)
+    virtual Py::Object sequence_repeat(Py_ssize_t)
     {
         // x * 3
         throw Py::NotImplementedError("not yet implemented");
@@ -168,7 +168,7 @@ public:
             throw Py::IndexError("index out of range");
         return m_array[i];
     }
-    virtual Py::Object sequence_slice(Py_ssize_t i, Py_ssize_t j)
+    virtual Py::Object sequence_slice(Py_ssize_t, Py_ssize_t)
     {
         // x[0:3]
         throw Py::NotImplementedError("not yet implemented");
@@ -181,7 +181,7 @@ public:
         m_array[i] = o;
         return 0;
     }
-    virtual int sequence_ass_slice(Py_ssize_t i, Py_ssize_t j, const Py::Object & o)
+    virtual int sequence_ass_slice(Py_ssize_t, Py_ssize_t, const Py::Object &)
     {
         // x[0:3] = y
         throw Py::NotImplementedError("not yet implemented");
@@ -236,17 +236,23 @@ private:
     }
 };
 
+PyObject* initModule()
+{
+    return (new Module)->module().ptr();
+}
+
 } // namespace Sandbox
 
 
 /* Python entry */
-PyMODINIT_FUNC initSandbox() {
-
+PyMOD_INIT_FUNC(Sandbox)
+{
     Sandbox::DocumentProtector  ::init();
     Sandbox::SandboxObject      ::init();
 
     // the following constructor call registers our extension module
     // with the Python runtime system
-    (void)new Sandbox::Module;
+    PyObject* mod = Sandbox::initModule();
     Base::Console().Log("Loading Sandbox module... done\n");
+    PyMOD_Return(mod);
 }

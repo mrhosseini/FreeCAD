@@ -40,6 +40,7 @@
 
 #include "ViewProviderSketch.h"
 #include "GeometryCreationMode.h"
+#include "CommandConstraints.h"
 
 using namespace std;
 using namespace SketcherGui;
@@ -88,10 +89,13 @@ CmdSketcherToggleConstruction::CmdSketcherToggleConstruction()
     rcCmdMgr.addCommandMode("ToggleConstruction", "Sketcher_CompCreateConic");
     rcCmdMgr.addCommandMode("ToggleConstruction", "Sketcher_CompCreateCircle");
     rcCmdMgr.addCommandMode("ToggleConstruction", "Sketcher_CompCreateRegularPolygon");
+    rcCmdMgr.addCommandMode("ToggleConstruction", "Sketcher_CompCreateBSpline");
+    rcCmdMgr.addCommandMode("ToggleConstruction", "Sketcher_CarbonCopy");
 }
 
 void CmdSketcherToggleConstruction::activated(int iMsg)
 {
+    Q_UNUSED(iMsg);
     // Option A: nothing is selected change creation mode from/to construction
     if(Gui::Selection().countObjectsOfType(Sketcher::SketchObject::getClassTypeId()) == 0){
 
@@ -140,12 +144,8 @@ void CmdSketcherToggleConstruction::activated(int iMsg)
         }
         // finish the transaction and update
         commitCommand();
-        
-        ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
-        bool autoRecompute = hGrp->GetBool("AutoRecompute",false);
-        
-        if(autoRecompute) // toggling does not modify the DoF of the solver, however it may affect features depending on the sketch
-            Gui::Command::updateActive();
+
+        tryAutoRecompute();
 
         // clear the selection (convenience)
         getSelection().clearSelection();

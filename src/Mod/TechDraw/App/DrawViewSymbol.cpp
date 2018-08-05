@@ -35,7 +35,10 @@
 #include <Base/FileInfo.h>
 #include <Base/Console.h>
 
+#include "DrawPage.h"
 #include "DrawViewSymbol.h"
+
+#include <Mod/TechDraw/App/DrawViewSymbolPy.h>  // generated from DrawViewSymbolPy.xml
 
 using namespace TechDraw;
 using namespace std;
@@ -61,11 +64,12 @@ DrawViewSymbol::~DrawViewSymbol()
 {
 }
 
-/// get called by the container when a Property was changed
 void DrawViewSymbol::onChanged(const App::Property* prop)
 {
     if (prop == &Symbol) {
         if (!isRestoring()) {
+            //this pulls the initial values from svg into editabletexts
+            // should only happen first time?? extra loop onChanged->execute->onChanged
             std::vector<string> eds;
             std::string svg = Symbol.getValue();
             if (!svg.empty()) {
@@ -79,6 +83,7 @@ void DrawViewSymbol::onChanged(const App::Property* prop)
                     tbegin = twhat[0].second;
                 }
                 EditableTexts.setValues(eds);
+                requestPaint();
             }
         }
     }
@@ -87,38 +92,97 @@ void DrawViewSymbol::onChanged(const App::Property* prop)
 
 App::DocumentObjectExecReturn *DrawViewSymbol::execute(void)
 {
+    if (!keepUpdated()) {
+        return App::DocumentObject::StdReturn;
+    }
+
     std::string svg = Symbol.getValue();
     const std::vector<std::string>& editText = EditableTexts.getValues();
 
+    //this pushes the editabletexts into the svg
+    std::string newsvg = svg;
     if (!editText.empty()) {
-        //TODO: has this ever been run? 
         boost::regex e1 ("<text.*?freecad:editable=\"(.*?)\".*?<tspan.*?>(.*?)</tspan>");
         string::const_iterator begin, end;
         begin = svg.begin();
         end = svg.end();
         boost::match_results<std::string::const_iterator> what;
         std::size_t count = 0;
-        std::string newsvg;
-        newsvg.reserve(svg.size());
 
         while (boost::regex_search(begin, end, what, e1)) {
             if (count < editText.size()) {
-                // change values of editable texts. Also strip the "freecad:editable"
-                // attribute so it isn't detected by the page
-                boost::regex e2 ("(<text.*?)(freecad:editable=\""+what[1].str()+"\")(.*?<tspan.*?)>(.*?)(</tspan>)");
-                std::back_insert_iterator<std::string> out(newsvg);
-                boost::regex_replace(out, begin, what[0].second, e2, "$1$3>"+editText[count]+"$5");
+                boost::regex e2 ("(<text.*?freecad:editable=\"" + what[1].str() + "\".*?<tspan.*?)>(.*?)(</tspan>)");
+                newsvg = boost::regex_replace(newsvg, e2, "$1>" + editText[count] + "$3");
             }
             count++;
             begin = what[0].second;
         }
 
-        // now copy the rest
-        newsvg.insert(newsvg.end(), begin, end);
-        svg = newsvg;
     }
-    //TODO: shouldn't there be a Symbol.setValue(svg) here??? -wf
+    Symbol.setValue(newsvg);
+    requestPaint();
     return DrawView::execute();
+}
+
+QRectF DrawViewSymbol::getRect() const
+{
+        double w = 64.0;         //must default to something
+        double h = 64.0;
+        return (QRectF(0,0,w,h));
+//        std::string svg = Symbol.getValue();
+//        string::const_iterator begin, end;
+//        begin = svg.begin();
+//        end = svg.end();
+//        boost::match_results<std::string::const_iterator> what;
+
+//        boost::regex e1 ("width=\"([0-9.]*?)[a-zA-Z]*?\"");
+//        if (boost::regex_search(begin, end, what, e1)) {
+//            //std::string wText = what[0].str();             //this is the whole match 'width="100"'
+//            std::string wNum  = what[1].str();               //this is just the number 100
+//            w = std::stod(wNum);
+//        }
+//        
+//        boost::regex e2 ("height=\"([0-9.]*?)[a-zA-Z]*?\"");
+//        if (boost::regex_search(begin, end, what, e2)) {
+//            //std::string hText = what[0].str();
+//            std::string hNum  = what[1].str();
+//            h = std::stod(hNum);
+//        }
+//        return (QRectF(0,0,getScale() * w,getScale() * h));
+//we now have a w x h, but we don't really know what it means - px,mm,in,...
+        
+}
+
+//!Assume all svg files fit the page and/or the user will scale manually
+//see getRect() above
+bool DrawViewSymbol::checkFit(TechDraw::DrawPage* p) const
+{
+    (void)p;
+    bool result = true;
+    return result;
+}
+
+short DrawViewSymbol::mustExecute() const
+{
+    short result = 0;
+    if (!isRestoring()) {
+        result  =  (Scale.isTouched()  ||
+                    EditableTexts.isTouched());
+    }
+    if ((bool) result) {
+        return result;
+    }
+    return DrawView::mustExecute();
+}
+
+
+PyObject *DrawViewSymbol::getPyObject(void)
+{
+    if (PythonObject.is(Py::_None())) {
+        // ref counter is set to 1
+        PythonObject = Py::Object(new DrawViewSymbolPy(this),true);
+    }
+    return Py::new_reference_to(PythonObject);
 }
 
 // Python Drawing feature ---------------------------------------------------------

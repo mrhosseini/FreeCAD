@@ -191,7 +191,11 @@ void MenuManager::setup(MenuItem* menuItems) const
         return; // empty menu bar
 
     QMenuBar* menuBar = getMainWindow()->menuBar();
-    //menuBar->setUpdatesEnabled(false);
+
+#if defined(FC_OS_MACOSX) && QT_VERSION >= 0x050900
+    // Unknown Qt macOS bug observed with Qt >= 5.9.4 causes random crashes when viewing reused top level menus.
+    menuBar->clear();
+#endif
 
     QList<MenuItem*> items = menuItems->getItems();
     QList<QAction*> actions = menuBar->actions();
@@ -210,8 +214,7 @@ void MenuManager::setup(MenuItem* menuItems) const
                 // create a new menu
                 std::string menuName = (*it)->command();
                 QMenu* menu = menuBar->addMenu(
-                    QApplication::translate("Workbench", menuName.c_str(),
-                                            0, QApplication::UnicodeUTF8));
+                    QApplication::translate("Workbench", menuName.c_str()));
                 action = menu->menuAction();
                 menu->setObjectName(QString::fromLatin1(menuName.c_str()));
                 action->setObjectName(QString::fromLatin1(menuName.c_str()));
@@ -264,8 +267,7 @@ void MenuManager::setup(MenuItem* item, QMenu* menu) const
                     // Creste a submenu
                     std::string menuName = (*it)->command();
                     QMenu* submenu = menu->addMenu(
-                        QApplication::translate("Workbench", menuName.c_str(),
-                                                0, QApplication::UnicodeUTF8));
+                        QApplication::translate("Workbench", menuName.c_str()));
                     QAction* action = submenu->menuAction();
                     submenu->setObjectName(QString::fromLatin1((*it)->command().c_str()));
                     action->setObjectName(QString::fromLatin1((*it)->command().c_str()));
@@ -326,7 +328,7 @@ void MenuManager::retranslate(QMenu* menu) const
     // titles. To ease the translation for each menu the native name is set
     // as user data. However, there are special menus that are created by
     // actions for which the name of the according command name is set. For
-    // such menus we have to use the command's menu text instaed. Examples
+    // such menus we have to use the command's menu text instead. Examples
     // for such actions are Std_RecentFiles, Std_Workbench or Std_FreezeViews.
     CommandManager& mgr = Application::Instance->commandManager();
     QByteArray menuName = menu->menuAction()->data().toByteArray();
@@ -334,14 +336,12 @@ void MenuManager::retranslate(QMenu* menu) const
     if (cmd) {
         menu->setTitle(
             QApplication::translate(cmd->className(),
-                                    cmd->getMenuText(),
-                                    0, QCoreApplication::CodecForTr));
+                                    cmd->getMenuText()));
     }
     else {
         menu->setTitle(
             QApplication::translate("Workbench",
-                                    (const char*)menuName,
-                                    0, QApplication::UnicodeUTF8));
+                                    (const char*)menuName));
     }
     QList<QAction*> actions = menu->actions();
     for (QList<QAction*>::Iterator it = actions.begin(); it != actions.end(); ++it) {

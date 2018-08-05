@@ -11,7 +11,6 @@ include_directories(
     ${Boost_INCLUDE_DIRS}
     ${OCC_INCLUDE_DIR}
     ${COIN3D_INCLUDE_DIRS}
-    ${QT_INCLUDE_DIR}
     ${ZLIB_INCLUDE_DIR}
     ${PYTHON_INCLUDE_DIRS}
     ${XercesC_INCLUDE_DIRS}
@@ -44,7 +43,7 @@ target_link_libraries(ImportGui ${ImportGui_LIBS})
 fc_target_copy_resource(ImportGui 
     ${CMAKE_SOURCE_DIR}/src/Mod/Import
     ${CMAKE_BINARY_DIR}/Mod/Import
-    Init.py InitGui.py)
+    Init.py InitGui.py gzip_utf8.py stepZ.py)
 
 SET_BIN_DIR(ImportGui ImportGui /Mod/Import)
 SET_PYTHON_PREFIX_SUFFIX(ImportGui)

@@ -50,6 +50,7 @@
 #include <Base/Parameter.h>
 
 #include <Mod/TechDraw/App/DrawViewAnnotation.h>
+#include "Rez.h"
 #include "QGIViewAnnotation.h"
 #include "QGCustomText.h"
 
@@ -86,10 +87,9 @@ void QGIViewAnnotation::setViewAnnoFeature(TechDraw::DrawViewAnnotation *obj)
 
 void QGIViewAnnotation::updateView(bool update)
 {
-    if(getViewObject() == 0 || !getViewObject()->isDerivedFrom(TechDraw::DrawViewAnnotation::getClassTypeId()))
+    auto viewAnno( dynamic_cast<TechDraw::DrawViewAnnotation *>(getViewObject()) );
+    if( viewAnno == nullptr)
         return;
-
-    TechDraw::DrawViewAnnotation *viewAnno = dynamic_cast<TechDraw::DrawViewAnnotation *>(getViewObject());
 
     if (update ||
         viewAnno->isTouched() ||
@@ -111,26 +111,27 @@ void QGIViewAnnotation::draw()
     }
 
     drawAnnotation();
-    if (borderVisible) {
-        drawBorder();
-    }
+    QGIView::draw();
+
 }
+
+//TODO: text is positioned slightly high (and left??) on page save to SVG file
 
 void QGIViewAnnotation::drawAnnotation()
 {
-    if(getViewObject() == 0 || !getViewObject()->isDerivedFrom(TechDraw::DrawViewAnnotation::getClassTypeId()))
+    auto viewAnno( dynamic_cast<TechDraw::DrawViewAnnotation *>(getViewObject()) );
+    if( viewAnno == nullptr ) {
         return;
-
-    TechDraw::DrawViewAnnotation *viewAnno = dynamic_cast<TechDraw::DrawViewAnnotation *>(getViewObject());
+    }
 
     const std::vector<std::string>& annoText = viewAnno->Text.getValues();
 
-    //build HTML/CSS formating around Text lines
+    //build HTML/CSS formatting around Text lines
     std::stringstream ss;
     ss << "<html>\n<head>\n<style>\n";
     ss << "p {";
     ss << "font-family:" << viewAnno->Font.getValue() << "; ";
-    ss << "font-size:" << viewAnno->TextSize.getValue() << "pt; ";               //units compatibility???
+    ss << "font-size:" << Rez::guiX(viewAnno->TextSize.getValue()) << "pt; ";   //not really pts???
     if (viewAnno->TextStyle.isValue("Normal")) {
         ss << "font-weight:normal; font-style:normal; ";
     } else if (viewAnno->TextStyle.isValue("Bold")) {
@@ -157,9 +158,18 @@ void QGIViewAnnotation::drawAnnotation()
     ss << "</p>\n</body>\n</html> ";
 
     prepareGeometryChange();
-    m_textItem->setTextWidth(viewAnno->MaxWidth.getValue());
+    m_textItem->setTextWidth(Rez::guiX(viewAnno->MaxWidth.getValue()));
     QString qs = QString::fromUtf8(ss.str().c_str());
     m_textItem->setHtml(qs);
-    m_textItem->setPos(0.,0.);
+    m_textItem->centerAt(0.,0.);
 }
+
+void QGIViewAnnotation::rotateView(void)
+{
+    QRectF r = m_textItem->boundingRect();
+    m_textItem->setTransformOriginPoint(r.center());
+    double rot = getViewObject()->Rotation.getValue();
+    m_textItem->setRotation(-rot);
+}
+
 

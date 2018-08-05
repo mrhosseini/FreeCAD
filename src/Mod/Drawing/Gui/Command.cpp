@@ -64,9 +64,9 @@ CmdDrawingOpen::CmdDrawingOpen()
     sPixmap         = "actions/document-new";
 }
 
-
 void CmdDrawingOpen::activated(int iMsg)
 {
+    Q_UNUSED(iMsg);
     // Reading an image
     QString filename = Gui::FileDialog::getOpenFileName(Gui::getMainWindow(), QObject::tr("Choose an SVG file to open"), QString::null,
         QString::fromLatin1("%1 (*.svg *.svgz)").arg(QObject::tr("Scalable Vector Graphic")));
@@ -160,12 +160,10 @@ Gui::Action * CmdDrawingNewPage::createAction(void)
             lastPaper = paper;
             lastId = id;
 
-            QFile file(QString::fromLatin1(":/icons/actions/drawing-landscape-A0.svg"));
+            QFile file(QString::fromLatin1(":/icons/actions/drawing-%1-%2%3.svg").arg(orientation.toLower()).arg(paper).arg(id));
             QAction* a = pcAction->addAction(QString());
             if (file.open(QFile::ReadOnly)) {
-                QString s = QString::fromLatin1("style=\"font-size:22px\">%1%2</tspan></text>").arg(paper).arg(id);
                 QByteArray data = file.readAll();
-                data.replace("style=\"font-size:22px\">A0</tspan></text>", s.toLatin1());
                 a->setIcon(Gui::BitmapFactory().pixmapFromSvg(data, QSize(64,64)));
             }
 
@@ -215,36 +213,32 @@ void CmdDrawingNewPage::languageChange()
         int id = (*it)->property("TemplateId").toInt();
         QString orientation = (*it)->property("TemplateOrientation").toString();
         if (orientation.compare(QLatin1String("landscape"), Qt::CaseInsensitive) == 0)
-            orientation = QCoreApplication::translate("Drawing_NewPage", "Landscape", 0, QCoreApplication::CodecForTr);
+            orientation = QCoreApplication::translate("Drawing_NewPage", "Landscape");
         else if (orientation.compare(QLatin1String("portrait"), Qt::CaseInsensitive) == 0)
-            orientation = QCoreApplication::translate("Drawing_NewPage", "Portrait", 0, QCoreApplication::CodecForTr);
+            orientation = QCoreApplication::translate("Drawing_NewPage", "Portrait");
         QString info = (*it)->property("TemplateInfo").toString();
 
         if (info.isEmpty()) {
             (*it)->setText(QCoreApplication::translate(
-                "Drawing_NewPage", "%1%2 %3", 0,
-                QCoreApplication::CodecForTr)
+                "Drawing_NewPage", "%1%2 %3")
                 .arg(paper)
                 .arg(id)
                 .arg(orientation));
             (*it)->setToolTip(QCoreApplication::translate(
-                "Drawing_NewPage", "Insert new %1%2 %3 drawing", 0,
-                QCoreApplication::CodecForTr)
+                "Drawing_NewPage", "Insert new %1%2 %3 drawing")
                 .arg(paper)
                 .arg(id)
                 .arg(orientation));
         }
         else {
             (*it)->setText(QCoreApplication::translate(
-                "Drawing_NewPage", "%1%2 %3 (%4)", 0,
-                QCoreApplication::CodecForTr)
+                "Drawing_NewPage", "%1%2 %3 (%4)")
                 .arg(paper)
                 .arg(id)
                 .arg(orientation)
                 .arg(info));
             (*it)->setToolTip(QCoreApplication::translate(
-                "Drawing_NewPage", "Insert new %1%2 %3 (%4) drawing", 0,
-                QCoreApplication::CodecForTr)
+                "Drawing_NewPage", "Insert new %1%2 %3 (%4) drawing")
                 .arg(paper)
                 .arg(id)
                 .arg(orientation)
@@ -281,6 +275,7 @@ CmdDrawingNewA3Landscape::CmdDrawingNewA3Landscape()
 
 void CmdDrawingNewA3Landscape::activated(int iMsg)
 {
+    Q_UNUSED(iMsg);
     std::string FeatName = getUniqueObjectName("Page");
 
     openCommand("Create page");
@@ -319,6 +314,7 @@ CmdDrawingNewView::CmdDrawingNewView()
 
 void CmdDrawingNewView::activated(int iMsg)
 {
+    Q_UNUSED(iMsg);
     std::vector<App::DocumentObject*> shapes = getSelection().getObjectsOfType(Part::Feature::getClassTypeId());
     if (shapes.empty()) {
         QMessageBox::warning(Gui::getMainWindow(), QObject::tr("Wrong selection"),
@@ -343,7 +339,7 @@ void CmdDrawingNewView::activated(int iMsg)
     float newRotation = 0.0;
     Base::Vector3d newDirection(0.0, 0.0, 1.0);
     if (!selectedProjections.empty()) {
-        const Drawing::FeatureView* const myView = dynamic_cast<Drawing::FeatureView*>(selectedProjections.front());
+        const Drawing::FeatureView* const myView = static_cast<Drawing::FeatureView*>(selectedProjections.front());
 
         newX = myView->X.getValue();
         newY = myView->Y.getValue();
@@ -397,6 +393,7 @@ CmdDrawingOrthoViews::CmdDrawingOrthoViews()
 
 void CmdDrawingOrthoViews::activated(int iMsg)
 {
+    Q_UNUSED(iMsg);
     const std::vector<App::DocumentObject*> shapes = getSelection().getObjectsOfType(Part::Feature::getClassTypeId());
     if (shapes.size() != 1) {
         QMessageBox::warning(Gui::getMainWindow(), QObject::tr("Wrong selection"),
@@ -435,7 +432,7 @@ DEF_STD_CMD_A(CmdDrawingOpenBrowserView);
 CmdDrawingOpenBrowserView::CmdDrawingOpenBrowserView()
   : Command("Drawing_OpenBrowserView")
 {
-    // seting the
+    // setting the
     sGroup        = QT_TR_NOOP("Drawing");
     sMenuText     = QT_TR_NOOP("Open &browser view");
     sToolTipText  = QT_TR_NOOP("Opens the selected page in a browser view");
@@ -446,6 +443,7 @@ CmdDrawingOpenBrowserView::CmdDrawingOpenBrowserView()
 
 void CmdDrawingOpenBrowserView::activated(int iMsg)
 {
+    Q_UNUSED(iMsg);
     unsigned int n = getSelection().countObjectsOfType(Drawing::FeaturePage::getClassTypeId());
     if (n != 1) {
         QMessageBox::warning(Gui::getMainWindow(), QObject::tr("Wrong selection"),
@@ -472,7 +470,7 @@ DEF_STD_CMD_A(CmdDrawingAnnotation);
 CmdDrawingAnnotation::CmdDrawingAnnotation()
   : Command("Drawing_Annotation")
 {
-    // seting the
+    // setting the
     sGroup        = QT_TR_NOOP("Drawing");
     sMenuText     = QT_TR_NOOP("&Annotation");
     sToolTipText  = QT_TR_NOOP("Inserts an Annotation view in the active drawing");
@@ -483,7 +481,7 @@ CmdDrawingAnnotation::CmdDrawingAnnotation()
 
 void CmdDrawingAnnotation::activated(int iMsg)
 {
-
+    Q_UNUSED(iMsg);
     std::vector<App::DocumentObject*> pages = getSelection().getObjectsOfType(Drawing::FeaturePage::getClassTypeId());
     if (pages.empty()) {
         pages = this->getDocument()->getObjectsOfType(Drawing::FeaturePage::getClassTypeId());
@@ -520,7 +518,7 @@ DEF_STD_CMD_A(CmdDrawingClip);
 CmdDrawingClip::CmdDrawingClip()
   : Command("Drawing_Clip")
 {
-    // seting the
+    // setting the
     sGroup        = QT_TR_NOOP("Drawing");
     sMenuText     = QT_TR_NOOP("&Clip");
     sToolTipText  = QT_TR_NOOP("Inserts a clip group in the active drawing");
@@ -531,7 +529,7 @@ CmdDrawingClip::CmdDrawingClip()
 
 void CmdDrawingClip::activated(int iMsg)
 {
-
+    Q_UNUSED(iMsg);
     std::vector<App::DocumentObject*> pages = getSelection().getObjectsOfType(Drawing::FeaturePage::getClassTypeId());
     if (pages.empty()) {
         pages = this->getDocument()->getObjectsOfType(Drawing::FeaturePage::getClassTypeId());
@@ -565,7 +563,7 @@ DEF_STD_CMD_A(CmdDrawingSymbol);
 CmdDrawingSymbol::CmdDrawingSymbol()
   : Command("Drawing_Symbol")
 {
-    // seting the
+    // setting the
     sGroup        = QT_TR_NOOP("Drawing");
     sMenuText     = QT_TR_NOOP("&Symbol");
     sToolTipText  = QT_TR_NOOP("Inserts a symbol from a svg file in the active drawing");
@@ -576,7 +574,7 @@ CmdDrawingSymbol::CmdDrawingSymbol()
 
 void CmdDrawingSymbol::activated(int iMsg)
 {
-
+    Q_UNUSED(iMsg);
     std::vector<App::DocumentObject*> pages = getSelection().getObjectsOfType(Drawing::FeaturePage::getClassTypeId());
     if (pages.empty()) {
         pages = this->getDocument()->getObjectsOfType(Drawing::FeaturePage::getClassTypeId());
@@ -621,7 +619,7 @@ DEF_STD_CMD_A(CmdDrawingExportPage);
 CmdDrawingExportPage::CmdDrawingExportPage()
   : Command("Drawing_ExportPage")
 {
-    // seting the
+    // setting the
     sGroup        = QT_TR_NOOP("File");
     sMenuText     = QT_TR_NOOP("&Export page...");
     sToolTipText  = QT_TR_NOOP("Export a page to an SVG file");
@@ -632,6 +630,7 @@ CmdDrawingExportPage::CmdDrawingExportPage()
 
 void CmdDrawingExportPage::activated(int iMsg)
 {
+    Q_UNUSED(iMsg);
     unsigned int n = getSelection().countObjectsOfType(Drawing::FeaturePage::getClassTypeId());
     if (n != 1) {
         QMessageBox::warning(Gui::getMainWindow(), QObject::tr("Wrong selection"),
@@ -672,7 +671,7 @@ DEF_STD_CMD_A(CmdDrawingProjectShape);
 CmdDrawingProjectShape::CmdDrawingProjectShape()
   : Command("Drawing_ProjectShape")
 {
-    // seting the
+    // setting the
     sGroup        = QT_TR_NOOP("Drawing");
     sMenuText     = QT_TR_NOOP("Project shape...");
     sToolTipText  = QT_TR_NOOP("Project shape onto a user-defined plane");
@@ -682,6 +681,7 @@ CmdDrawingProjectShape::CmdDrawingProjectShape()
 
 void CmdDrawingProjectShape::activated(int iMsg)
 {
+    Q_UNUSED(iMsg);
     Gui::TaskView::TaskDialog* dlg = Gui::Control().activeDialog();
     if (!dlg) {
         dlg = new DrawingGui::TaskProjection();
@@ -707,7 +707,7 @@ DEF_STD_CMD_A(CmdDrawingDraftView);
 CmdDrawingDraftView::CmdDrawingDraftView()
   : Command("Drawing_DraftView")
 {
-    // seting the
+    // setting the
     sGroup        = QT_TR_NOOP("Drawing");
     sMenuText     = QT_TR_NOOP("&Draft View");
     sToolTipText  = QT_TR_NOOP("Inserts a Draft view of the selected object(s) in the active drawing");
@@ -718,6 +718,7 @@ CmdDrawingDraftView::CmdDrawingDraftView()
 
 void CmdDrawingDraftView::activated(int iMsg)
 {
+    Q_UNUSED(iMsg);
     addModule(Gui,"Draft");
     doCommand(Gui,"Gui.runCommand(\"Draft_Drawing\")");
 }
@@ -737,7 +738,7 @@ DEF_STD_CMD_A(CmdDrawingSpreadsheetView);
 CmdDrawingSpreadsheetView::CmdDrawingSpreadsheetView()
   : Command("Drawing_SpreadsheetView")
 {
-    // seting the
+    // setting the
     sGroup        = QT_TR_NOOP("Drawing");
     sMenuText     = QT_TR_NOOP("&Spreadsheet View");
     sToolTipText  = QT_TR_NOOP("Inserts a view of a selected spreadsheet in the active drawing");
@@ -748,6 +749,7 @@ CmdDrawingSpreadsheetView::CmdDrawingSpreadsheetView()
 
 void CmdDrawingSpreadsheetView::activated(int iMsg)
 {
+    Q_UNUSED(iMsg);
     const std::vector<App::DocumentObject*> spreads = getSelection().getObjectsOfType(Spreadsheet::Sheet::getClassTypeId());
     if (spreads.size() != 1) {
         QMessageBox::warning(Gui::getMainWindow(), QObject::tr("Wrong selection"),

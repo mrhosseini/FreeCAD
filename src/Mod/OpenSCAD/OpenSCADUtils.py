@@ -20,25 +20,31 @@
 #*                                                                         *
 #***************************************************************************
 
-__title__="FreeCAD OpenSCAD Workbench - Utility Fuctions"
+__title__="FreeCAD OpenSCAD Workbench - Utility Functions"
 __author__ = "Sebastian Hoogen"
 __url__ = ["http://www.freecadweb.org"]
 
 '''
-This Script includes various pyhton helper functions that are shared across
+This Script includes various python helper functions that are shared across
 the module
 '''
 
-def translate(context,text):
-    "convenience function for Qt translator"
+try:
     from PySide import QtGui
-    return QtGui.QApplication.translate(context, text, None, \
-        QtGui.QApplication.UnicodeUTF8)
+    _encoding = QtGui.QApplication.UnicodeUTF8
+    def translate(context, text):
+        "convenience function for Qt translator"
+        return QtGui.QApplication.translate(context, text, None, _encoding)
+except AttributeError:
+    def translate(context, text):
+        "convenience function for Qt translator"
+        from PySide import QtGui
+        return QtGui.QApplication.translate(context, text, None)
 
 try:
     import FreeCAD
     BaseError = FreeCAD.Base.FreeCADError
-except ImportError,AttributeError:
+except (ImportError, AttributeError):
     BaseError = RuntimeError
 
 class OpenSCADError(BaseError):
@@ -79,11 +85,14 @@ def searchforopenscadexe():
     else: #unix
         p1=subprocess.Popen(['which','openscad'],stdout=subprocess.PIPE)
         if p1.wait() == 0:
-            opath=p1.stdout.read().split('\n')[0]
+            output = p1.stdout.read()
+            if sys.version_info.major >= 3:
+                output = output.decode("utf-8")
+            opath = output.split('\n')[0]
             return opath
 
 def workaroundforissue128needed():
-    '''sets the import path depending on the OpenSCAD Verion
+    '''sets the import path depending on the OpenSCAD Version
     for versions <= 2012.06.23 to the current working dir
     for versions above to the inputfile dir
     see https://github.com/openscad/openscad/issues/128'''
@@ -151,11 +160,11 @@ def callopenscad(inputfilename,outputfilename=None,outputext='csg',keepname=Fals
                     inputfilename)[1].rsplit('.',1)[0],outputext))
             else:
                 outputfilename=os.path.join(dir1,'%s.%s' % \
-                    (tempfilenamegen.next(),outputext))
+                    (next(tempfilenamegen),outputext))
         check_output2([osfilename,'-o',outputfilename, inputfilename])
         return outputfilename
     else:
-        raise OpenSCADError('OpenSCAD executeable unavailable')
+        raise OpenSCADError('OpenSCAD executable unavailable')
 
 def callopenscadstring(scadstr,outputext='csg'):
     '''create a tempfile and call the open scad binary
@@ -163,7 +172,7 @@ def callopenscadstring(scadstr,outputext='csg'):
     please delete the file afterwards'''
     import os,tempfile,time
     dir1=tempfile.gettempdir()
-    inputfilename=os.path.join(dir1,'%s.scad' % tempfilenamegen.next())
+    inputfilename=os.path.join(dir1,'%s.scad' % next(tempfilenamegen))
     inputfile = open(inputfilename,'w')
     inputfile.write(scadstr)
     inputfile.close()
@@ -211,7 +220,7 @@ def multiplymat(l,r):
     return mat
 
 def isorthogonal(submatrix,precision=4):
-    """checking if 3x3 Matrix is ortogonal (M*Transp(M)==I)"""
+    """checking if 3x3 Matrix is orthogonal (M*Transp(M)==I)"""
     prod=multiplymat(submatrix,zip(*submatrix))
     return [[round(f,precision) for f in line] \
         for line in prod]==[[1,0,0],[0,1,0],[0,0,1]]
@@ -418,7 +427,7 @@ def meshoptempfile(opname,iterable1):
     dir1=tempfile.gettempdir()
     filenames = []
     for mesh in iterable1:
-        outputfilename=os.path.join(dir1,'%s.stl' % tempfilenamegen.next())
+        outputfilename=os.path.join(dir1,'%s.stl' % next(tempfilenamegen))
         mesh.write(outputfilename)
         filenames.append(outputfilename)
     #absolute path causes error. We rely that the scad file will be in the dame tmpdir
@@ -470,21 +479,28 @@ def meshoponobjs(opname,inobjs):
 def process2D_ObjectsViaOpenSCADShape(ObjList,Operation,doc):
     import FreeCAD,importDXF
     import os,tempfile
+    # Mantis 3419
+    params = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/OpenSCAD")
+    fn  = params.GetInt('fnForImport',32)
+    fnStr = ",$fn=" + str(fn)
+    #
     dir1=tempfile.gettempdir()
     filenames = []
     for item in ObjList :
-        outputfilename=os.path.join(dir1,'%s.dxf' % tempfilenamegen.next())
+        outputfilename=os.path.join(dir1,'%s.dxf' % next(tempfilenamegen))
         importDXF.export([item],outputfilename,True,True)
         filenames.append(outputfilename)
-    dxfimports = ' '.join("import(file = \"%s\");" % \
+    # Mantis 3419
+    dxfimports = ' '.join("import(file = \"%s\" %s);" % \
         #filename \
-        os.path.split(filename)[1] for filename in filenames)
+        (os.path.split(filename)[1], fnStr) for filename in filenames)
+    #
     tmpfilename = callopenscadstring('%s(){%s}' % (Operation,dxfimports),'dxf')
     from OpenSCAD2Dgeom import importDXFface
     # TBD: assure the given doc is active
     face = importDXFface(tmpfilename,None,None)
     #clean up
-    filenames.append(tmpfilename) #delete the ouptut file as well
+    filenames.append(tmpfilename) #delete the output file as well
     try:
         os.unlink(tmpfilename)
     except OSError:

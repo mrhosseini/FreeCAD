@@ -514,7 +514,7 @@ void Approximate::ParameterBoundary()
 }
 /*! \brief Parameterizing the Inner Points
 
- This function will parameterize the inner points. Using the algorithim based on paper from
+ This function will parameterize the inner points. Using the algorithm based on paper from
  Michael S. Floater, published in Computer Aided Design 14(1997) page 231 - 250,
  entitled Parametrization and smooth approximation of surface triangulation
 */
@@ -849,7 +849,7 @@ void Approximate::ErrorApprox()
     
 	anOutputFile << "Constructing" << std::endl;
     ublas::matrix<double> C_Temp(NumOfPoints,3);
-    anOutputFile << "C_Temp succesfully constructed" << std::endl;
+    anOutputFile << "C_Temp successfully constructed" << std::endl;
     //Time saving... C_Temp matrix is constant for all time
 
 	anOutputFile << "number of points: " << NumOfPoints << std::endl;
@@ -868,7 +868,7 @@ void Approximate::ErrorApprox()
 		anOutputFile << "size(B_Matrix): " <<  NumOfPoints << " x " << (MainNurb.MaxU+1)*(MainNurb.MaxV+1) << std::endl;
         ublas::matrix<double> B_Matrix(NumOfPoints,(MainNurb.MaxU+1)*(MainNurb.MaxV+1));
 		anOutputFile << "********************************" << endl;
-        anOutputFile << "B_Matrix succesfully constructed" << std::endl;
+        anOutputFile << "B_Matrix successfully constructed" << std::endl;
         anOutputFile << "Preparing B-Matrix..." << std::endl;
 
         std::vector<double> N_u(MainNurb.MaxU+1, 0.0);
@@ -941,7 +941,7 @@ void Approximate::ErrorApprox()
         G_Matrix.resize(1,1, false);
         G_Matrix.clear();
         ublas::compressed_matrix<double> E_Matrix((MainNurb.MaxU+1)*(MainNurb.MaxV+1), (MainNurb.MaxU+1)*(MainNurb.MaxV+1));
-        anOutputFile << "E_Matrix succesfully constructed" << std::endl;
+        anOutputFile << "E_Matrix successfully constructed" << std::endl;
         anOutputFile << "Smoothing..." << std::endl;
         eFair2(E_Matrix);
 		
@@ -1447,7 +1447,7 @@ double Approximate::Reparam()
 
 /*! \brief Extend the Nurb
 
-    Once error is computed and the generated nurb is stil not satisfactory (i.e max_err > tolerance), this function will extend
+ Once error is computed and the generated nurb is still not satisfactory (i.e max_err > tolerance), this function will extend
  the given Nurb by extending the Knot vectors by 2 and, because the degree is held constant, the control points
 */
 void Approximate::ExtendNurb(double c2, int h)
@@ -1466,9 +1466,9 @@ void Approximate::ExtendNurb(double c2, int h)
 
 /*! \brief Reorder the neighbour list
 
-  This function will reorder the list in one-direction. Clockwise or counter clockwise is depending on the
-  facet list and will not be checked by this function. (i.e the third vertex i.e vertex in first facet that
-  is not the CurIndex or the first neighbour in pnt[Ok, I am also lost with this..., just debug and step to see what I mean...])
+ This function will reorder the list in one-direction. Clockwise or counter clockwise is dependent on the
+ facet list and will not be checked by this function. (i.e the third vertex i.e vertex in first facet that
+ is not the CurIndex or the first neighbour in pnt[Ok, I am also lost with this... just debug and step to see what I mean...])
 */
 void Approximate::ReorderNeighbourList(std::set<unsigned long> &pnt,
                                        std::set<unsigned long> &face, std::vector<unsigned long> &nei, unsigned long CurInd)

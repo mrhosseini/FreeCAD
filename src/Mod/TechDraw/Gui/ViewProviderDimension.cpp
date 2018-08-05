@@ -35,10 +35,10 @@
 #include <App/Application.h>
 #include <App/Document.h>
 #include <App/DocumentObject.h>
-#include <Gui/SoFCSelection.h>
-#include <Gui/Selection.h>
 
-#include <Mod/TechDraw/App/DrawViewDimension.h>
+#include <Mod/TechDraw/App/LineGroup.h>
+
+
 #include "ViewProviderDimension.h"
 
 using namespace TechDrawGui;
@@ -51,6 +51,32 @@ PROPERTY_SOURCE(TechDrawGui::ViewProviderDimension, TechDrawGui::ViewProviderDra
 ViewProviderDimension::ViewProviderDimension()
 {
     sPixmap = "TechDraw_Dimension";
+
+    static const char *group = "Dim Format";
+
+    Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter()
+                                         .GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("Mod/TechDraw/Labels");
+    std::string fontName = hGrp->GetASCII("LabelFont", "osifont");
+    hGrp = App::GetApplication().GetUserParameter()
+                                         .GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("Mod/TechDraw/Dimensions");
+    double fontSize = hGrp->GetFloat("FontSize", 3.5);
+
+    ADD_PROPERTY_TYPE(Font ,(fontName.c_str()),group,App::Prop_None, "The name of the font to use");
+    ADD_PROPERTY_TYPE(Fontsize,(fontSize)    ,group,(App::PropertyType)(App::Prop_None),"Dimension text size in units");
+
+    hGrp = App::GetApplication().GetUserParameter().GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("Mod/TechDraw/Decorations");
+    std::string lgName = hGrp->GetASCII("LineGroup","FC 0.70mm");
+    auto lg = TechDraw::LineGroup::lineGroupFactory(lgName);
+    double weight = lg->getWeight("Thin");
+    delete lg;                                   //Coverity CID 174670
+    ADD_PROPERTY_TYPE(LineWidth,(weight)    ,group,(App::PropertyType)(App::Prop_None),"Dimension line weight");
+
+    hGrp = App::GetApplication().GetUserParameter()
+                                        .GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("Mod/TechDraw/Dimensions");
+    App::Color fcColor;
+    fcColor.setPackedValue(hGrp->GetUnsigned("Color", 0x00000000));
+    ADD_PROPERTY_TYPE(Color,(fcColor),group,App::Prop_None,"The color of the Dimension");
+
 }
 
 ViewProviderDimension::~ViewProviderDimension()
@@ -91,7 +117,20 @@ void ViewProviderDimension::updateData(const App::Property* p)
             sPixmap = "TechDraw_Dimension_Angle";
         }
     }
-    Gui::ViewProviderDocumentObject::updateData(p);
+    ViewProviderDrawingView::updateData(p);
+}
+
+void ViewProviderDimension::onChanged(const App::Property* p)
+{
+    if ((p == &Font)  ||
+        (p == &Fontsize) ||
+        (p == &LineWidth) ) {
+        QGIView* qgiv = getQView();
+        if (qgiv) {
+            qgiv->updateView(true);
+        }
+    }
+    Gui::ViewProviderDocumentObject::onChanged(p);
 }
 
 TechDraw::DrawViewDimension* ViewProviderDimension::getViewObject() const

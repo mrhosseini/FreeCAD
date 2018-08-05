@@ -30,6 +30,8 @@
 #endif
 
 #include "Workbench.h"
+#include <Gui/Application.h>
+#include <Gui/Command.h>
 #include <Gui/MenuManager.h>
 #include <Gui/ToolBarManager.h>
 #include <Gui/Selection.h>
@@ -72,7 +74,7 @@ public:
         numFacets = new QLabel();
 
         labelMin = new QLabel();
-        labelMin->setText(QString::fromLatin1("Minumum bound:"));
+        labelMin->setText(QString::fromLatin1("Minimum bound:"));
 
         labelMax = new QLabel();
         labelMax->setText(QString::fromLatin1("Maximum bound:"));
@@ -103,7 +105,7 @@ public:
     {
         return true;
     }
-    void onSelectionChanged(const Gui::SelectionChanges& msg)
+    void onSelectionChanged(const Gui::SelectionChanges&)
     {
         Base::BoundBox3d bbox;
         unsigned long countPoints=0, countFacets=0;
@@ -188,10 +190,17 @@ Gui::MenuItem* Workbench::setupMenuBar() const
     *mesh << "Mesh_Import" << "Mesh_Export" << "Mesh_FromPartShape" << "Separator"
           << analyze << "Mesh_HarmonizeNormals" << "Mesh_FlipNormals" << "Separator" 
           << "Mesh_FillupHoles" << "Mesh_FillInteractiveHole" << "Mesh_RemoveComponents"
-          << "Mesh_RemoveCompByHand" << "Mesh_AddFacet" << "Mesh_Smoothing" << "Separator" 
-          << "Mesh_BuildRegularSolid" << boolean << "Separator" << "Mesh_Merge" << "Mesh_PolySelect" << "Mesh_PolyCut"
-          << "Mesh_PolySplit" << "Mesh_PolySegm" << "Mesh_PolyTrim" << "Mesh_TrimByPlane" << "Mesh_Segmentation"
+          << "Mesh_RemoveCompByHand" << "Mesh_AddFacet" << "Mesh_Smoothing" << "Mesh_Scale"
+          << "Separator" << "Mesh_BuildRegularSolid" << boolean << "Separator"
+          << "Mesh_Merge" << "Mesh_PolySelect" << "Mesh_PolyCut"
+          << "Mesh_PolySplit" << "Mesh_PolySegm" << "Mesh_PolyTrim" << "Separator"
+          << "Mesh_TrimByPlane" << "Mesh_SectionByPlane" << "Mesh_Segmentation"
           << "Mesh_VertexCurvature";
+    Gui::CommandManager& mgr = Gui::Application::Instance->commandManager();
+    if (mgr.getCommandByName("MeshPart_CreateFlatMesh"))
+        *mesh << "MeshPart_CreateFlatMesh";
+    if (mgr.getCommandByName("MeshPart_CreateFlatFace"))
+        *mesh << "MeshPart_CreateFlatFace";
     return root;
 }
 

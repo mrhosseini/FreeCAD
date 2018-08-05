@@ -25,6 +25,7 @@
 
 #ifndef _PreComp_
 # include <QMessageBox>
+# include <QAction>
 # include <QTimer>
 #endif
 
@@ -137,10 +138,14 @@ void TaskLinearPatternParameters::setupUI()
     std::vector<App::DocumentObject*> originals = pcLinearPattern->Originals.getValues();
 
     // Fill data into dialog elements
-    for (std::vector<App::DocumentObject*>::const_iterator i = originals.begin(); i != originals.end(); ++i)
-    {
-        if ((*i) != NULL)
-            ui->listWidgetFeatures->addItem(QString::fromLatin1((*i)->getNameInDocument()));
+    for (std::vector<App::DocumentObject*>::const_iterator i = originals.begin(); i != originals.end(); ++i) {
+        const App::DocumentObject* obj = *i;
+        if (obj != NULL) {
+            QListWidgetItem* item = new QListWidgetItem();
+            item->setText(QString::fromUtf8(obj->Label.getValue()));
+            item->setData(Qt::UserRole, QString::fromLatin1(obj->getNameInDocument()));
+            ui->listWidgetFeatures->addItem(item);
+        }
     }
     // ---------------------
 
@@ -159,7 +164,10 @@ void TaskLinearPatternParameters::setupUI()
     dirLinks.setCombo(*(ui->comboDirection));
     App::DocumentObject* sketch = getSketchObject();
     if (sketch && sketch->isDerivedFrom(Part::Part2DObject::getClassTypeId())) {
-        this->fillAxisCombo(dirLinks,static_cast<Part::Part2DObject*>(sketch));
+        this->fillAxisCombo(dirLinks, static_cast<Part::Part2DObject*>(sketch));
+    }
+    else {
+        this->fillAxisCombo(dirLinks, nullptr);
     }
 
     //show the parts coordinate system axis for selection
@@ -191,8 +199,9 @@ void TaskLinearPatternParameters::updateUI()
     unsigned occurrences = pcLinearPattern->Occurrences.getValue();
 
     if (dirLinks.setCurrentLink(pcLinearPattern->Direction) == -1){
-        //failed to set current, because the link isnt in the list yet
-        dirLinks.addLink(pcLinearPattern->Direction, getRefStr(pcLinearPattern->Direction.getValue(),pcLinearPattern->Direction.getSubValues()));
+        //failed to set current, because the link isn't in the list yet
+        dirLinks.addLink(pcLinearPattern->Direction, getRefStr(pcLinearPattern->Direction.getValue(),
+                                                               pcLinearPattern->Direction.getSubValues()));
         dirLinks.setCurrentLink(pcLinearPattern->Direction);
     }
 
@@ -219,25 +228,41 @@ void TaskLinearPatternParameters::onSelectionChanged(const Gui::SelectionChanges
 {
     if (msg.Type == Gui::SelectionChanges::AddSelection) {
         if (originalSelected(msg)) {
-            if (selectionMode == addFeature)
-                ui->listWidgetFeatures->addItem(QString::fromLatin1(msg.pObjectName));
-            else
-                removeItemFromListWidget(ui->listWidgetFeatures, msg.pObjectName);
+            Gui::SelectionObject selObj(msg);
+            App::DocumentObject* obj = selObj.getObject();
+            Q_ASSERT(obj);
+
+            QString label = QString::fromUtf8(obj->Label.getValue());
+            QString objectName = QString::fromLatin1(msg.pObjectName);
+
+            if (selectionMode == addFeature) {
+                QListWidgetItem* item = new QListWidgetItem();
+                item->setText(label);
+                item->setData(Qt::UserRole, objectName);
+                ui->listWidgetFeatures->addItem(item);
+            }
+            else {
+                removeItemFromListWidget(ui->listWidgetFeatures, label);
+            }
 
             exitSelectionMode();
         } else {
             // TODO check if this works correctly (2015-09-01, Fat-Zer)
             exitSelectionMode();
             std::vector<std::string> directions;
-            App::DocumentObject* selObj;
+            App::DocumentObject* selObj = nullptr;
             PartDesign::LinearPattern* pcLinearPattern = static_cast<PartDesign::LinearPattern*>(getObject());
-            getReferencedSelection(pcLinearPattern, msg, selObj, directions);
-            // Note: ReferenceSelection has already checked the selection for validity
-            if ( selectionMode == reference || selObj->isDerivedFrom ( App::Line::getClassTypeId () ) ) {
-                pcLinearPattern->Direction.setValue(selObj, directions);
+            if (pcLinearPattern) {
+                getReferencedSelection(pcLinearPattern, msg, selObj, directions);
 
-                recomputeFeature();
-                updateUI();
+                // Note: ReferenceSelection has already checked the selection for validity
+                if (selObj && (selectionMode == reference ||
+                               selObj->isDerivedFrom(App::Line::getClassTypeId()))) {
+                    pcLinearPattern->Direction.setValue(selObj, directions);
+
+                    recomputeFeature();
+                    updateUI();
+                }
             }
         }
     }
@@ -279,7 +304,8 @@ void TaskLinearPatternParameters::onOccurrences(const uint n) {
     kickUpdateViewTimer();
 }
 
-void TaskLinearPatternParameters::onDirectionChanged(int num) {
+void TaskLinearPatternParameters::onDirectionChanged(int /*num*/)
+{
     if (blockUpdate)
         return;
     PartDesign::LinearPattern* pcLinearPattern = static_cast<PartDesign::LinearPattern*>(getObject());
@@ -338,37 +364,37 @@ void TaskLinearPatternParameters::getDirection(App::DocumentObject*& obj, std::v
     sub = lnk.getSubValues();
 }
 
-const bool TaskLinearPatternParameters::getReverse(void) const
+bool TaskLinearPatternParameters::getReverse(void) const
 {
     return ui->checkReverse->isChecked();
 }
 
-const double TaskLinearPatternParameters::getLength(void) const
+double TaskLinearPatternParameters::getLength(void) const
 {
     return ui->spinLength->value().getValue();
 }
 
-const unsigned TaskLinearPatternParameters::getOccurrences(void) const
+unsigned TaskLinearPatternParameters::getOccurrences(void) const
 {
     return ui->spinOccurrences->value();
 }
 
-
 TaskLinearPatternParameters::~TaskLinearPatternParameters()
 {
-    //hide the parts coordinate system axis for selection
-    PartDesign::Body * body = PartDesign::Body::findBodyOf ( getObject() );
-    if(body) {
-        try {
+    try {
+        //hide the parts coordinate system axis for selection
+        PartDesign::Body * body = PartDesign::Body::findBodyOf(getObject());
+        if (body) {
             App::Origin *origin = body->getOrigin();
             ViewProviderOrigin* vpOrigin;
             vpOrigin = static_cast<ViewProviderOrigin*>(Gui::Application::Instance->getViewProvider(origin));
             vpOrigin->resetTemporaryVisibility();
-        } catch (const Base::Exception &ex) {
-            Base::Console().Error ("%s\n", ex.what () );
         }
     }
-    
+    catch (const Base::Exception &ex) {
+        Base::Console().Error ("%s\n", ex.what () );
+    }
+
     delete ui;
     if (proxy)
         delete proxy;

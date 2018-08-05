@@ -51,6 +51,8 @@ class TestCmd:
         QtUnitGui.addTest("TestSketcherApp")
         QtUnitGui.addTest("TestPartApp")
         QtUnitGui.addTest("TestPartDesignApp")
+        QtUnitGui.addTest("TestPartDesignGui")
+        QtUnitGui.addTest("TestPathApp")
         QtUnitGui.addTest("TestSpreadsheet")
         QtUnitGui.addTest("TestDraft")
         QtUnitGui.addTest("TestArch")
@@ -59,6 +61,7 @@ class TestCmd:
         QtUnitGui.addTest("Menu")
         QtUnitGui.addTest("Menu.MenuDeleteCases")
         QtUnitGui.addTest("Menu.MenuCreateCases")
+        QtUnitGui.addTest("TestPythonSyntax")
 
     def GetResources(self):
         return {'MenuText': 'Self-test...', 'ToolTip': 'Runs a self-test to check if the application works properly'}
@@ -142,7 +145,7 @@ class TestWorkbenchCmd:
             FreeCADGui.updateGui()
             FreeCADGui.activateWorkbench("PartWorkbench")
             FreeCADGui.updateGui()
-            print i
+            print(i)
             i=i+1
         FreeCADGui.activateWorkbench("TestWorkbench")
 

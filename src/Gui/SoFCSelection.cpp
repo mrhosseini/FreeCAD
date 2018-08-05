@@ -25,7 +25,6 @@
 #ifndef _PreComp_
 # include <qstatusbar.h>
 # include <qstring.h>
-# include <QGLWidget>
 # include <Inventor/details/SoFaceDetail.h>
 # include <Inventor/details/SoLineDetail.h>
 #endif
@@ -345,7 +344,7 @@ SoFCSelection::handleEvent(SoHandleEventAction * action)
                                            ,pp->getPoint()[1]
                                            ,pp->getPoint()[2]);
 
-                getMainWindow()->showMessage(QString::fromLatin1(buf),3000);
+                getMainWindow()->showMessage(QString::fromLatin1(buf));
             }
             else { // picked point
                 if (highlighted) {
@@ -404,7 +403,7 @@ SoFCSelection::handleEvent(SoHandleEventAction * action)
                                                        ,pp->getPoint()[1]
                                                        ,pp->getPoint()[2]);
 
-                            getMainWindow()->showMessage(QString::fromLatin1(buf),3000);
+                            getMainWindow()->showMessage(QString::fromLatin1(buf));
                         }
                     }
                 }
@@ -438,7 +437,7 @@ SoFCSelection::handleEvent(SoHandleEventAction * action)
                                                    ,pp->getPoint()[1]
                                                    ,pp->getPoint()[2]);
 
-                        getMainWindow()->showMessage(QString::fromLatin1(buf),3000);
+                        getMainWindow()->showMessage(QString::fromLatin1(buf));
                     }
                 }
 
@@ -569,7 +568,7 @@ SoFCSelection::handleEvent(SoHandleEventAction * action)
                                                        ,pp->getPoint()[1]
                                                        ,pp->getPoint()[2]);
 
-                            getMainWindow()->showMessage(QString::fromLatin1(buf),3000);
+                            getMainWindow()->showMessage(QString::fromLatin1(buf));
                         }
                     }
                 }
@@ -603,7 +602,7 @@ SoFCSelection::handleEvent(SoHandleEventAction * action)
                                                    ,pp->getPoint()[1]
                                                    ,pp->getPoint()[2]);
 
-                        getMainWindow()->showMessage(QString::fromLatin1(buf),3000);
+                        getMainWindow()->showMessage(QString::fromLatin1(buf));
                     }
                 }
 
@@ -748,6 +747,8 @@ SoFCSelection::preRender(SoGLRenderAction *action, GLint &oldDepthFunc)
 void
 SoFCSelection::redrawHighlighted(SoAction *  action , SbBool  doHighlight )
 {
+    Q_UNUSED(action); 
+    Q_UNUSED(doHighlight); 
     //Base::Console().Log("SoFCSelection::redrawHighlighted() (%p) doHigh=%d \n",this,doHighlight?1:0);
 
 #ifdef NO_FRONTBUFFER
@@ -802,7 +803,7 @@ SoFCSelection::redrawHighlighted(SoAction *  action , SbBool  doHighlight )
     //void* window;
     //void* context;
     //void *display;
-    QGLWidget* window;
+    QtGLWidget* window;
     SoGLRenderAction *glAction;
     //SoWindowElement::get(state, window, context, display, glAction);
     SoGLWidgetElement::get(state, window);
@@ -839,7 +840,7 @@ SoFCSelection::redrawHighlighted(SoAction *  action , SbBool  doHighlight )
 SbBool 
 SoFCSelection::readInstance  (  SoInput *  in, unsigned short  flags )
 {
-    // Note: The read in document name can be false, so the caller must ensure pointing to the correct documemt
+    // Note: The read in document name can be false, so the caller must ensure pointing to the correct document
     SbBool ret = inherited::readInstance(in, flags);
     return ret;
 }

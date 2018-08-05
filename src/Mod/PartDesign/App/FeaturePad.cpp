@@ -225,21 +225,32 @@ App::DocumentObjectExecReturn *Pad::execute(void)
             // lets check if the result is a solid
             if (solRes.IsNull())
                 return new App::DocumentObjectExecReturn("Pad: Resulting shape is not a solid");
+
+            int solidCount = countSolids(result);
+            if (solidCount > 1) {
+                return new App::DocumentObjectExecReturn("Pad: Result has multiple solids. This is not supported at this time.");
+            }
+
             solRes = refineShapeIfActive(solRes);
             this->Shape.setValue(getSolid(solRes));
         } else {
-            this->Shape.setValue(getSolid(prism));
+            int solidCount = countSolids(prism);
+            if (solidCount > 1) {
+                return new App::DocumentObjectExecReturn("Pad: Result has multiple solids. This is not supported at this time.");
+            }
+
+           this->Shape.setValue(getSolid(prism));
         }
 
         return App::DocumentObject::StdReturn;
     }
-    catch (Standard_Failure) {
-        Handle_Standard_Failure e = Standard_Failure::Caught();
-        if (std::string(e->GetMessageString()) == "TopoDS::Face")
+    catch (Standard_Failure& e) {
+
+        if (std::string(e.GetMessageString()) == "TopoDS::Face")
             return new App::DocumentObjectExecReturn("Could not create face from sketch.\n"
                 "Intersecting sketch entities or multiple faces in a sketch are not allowed.");
         else
-            return new App::DocumentObjectExecReturn(e->GetMessageString());
+            return new App::DocumentObjectExecReturn(e.GetMessageString());
     }
     catch (Base::Exception& e) {
         return new App::DocumentObjectExecReturn(e.what());

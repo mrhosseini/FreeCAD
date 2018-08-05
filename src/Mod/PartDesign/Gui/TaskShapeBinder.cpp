@@ -56,7 +56,7 @@ using namespace Gui;
 
 // TODO Review and cleanup the file (2015-09-11, Fat-Zer)
 
-TaskShapeBinder::TaskShapeBinder(ViewProviderShapeBinder *view,bool newObj, QWidget *parent)
+TaskShapeBinder::TaskShapeBinder(ViewProviderShapeBinder *view, bool /*newObj*/, QWidget *parent)
     : Gui::TaskView::TaskBox(Gui::BitmapFactory().pixmap("PartDesign_ShapeBinder"),
                              tr("Datum shape parameters"), true, parent)
 {
@@ -91,7 +91,7 @@ TaskShapeBinder::TaskShapeBinder(ViewProviderShapeBinder *view,bool newObj, QWid
         ui->listWidgetReferences->addItem(QString::fromStdString(sub));
  
     //make sure th euser sees al important things: the base feature to select edges and the 
-    //spine/auxillery spine he already selected 
+    //spine/auxiliary spine he already selected
     if(obj) {
         auto* svp = doc->getViewProvider(obj);
         if(svp) {
@@ -148,7 +148,7 @@ TaskShapeBinder::~TaskShapeBinder()
     Gui::Document* doc = Gui::Application::Instance->activeDocument(); 
     
     //make sure th euser sees al important things: the base feature to select edges and the 
-    //spine/auxillery spine he already selected 
+    //spine/auxiliary spine he already selected
     if(pipe->BaseFeature.getValue())
         doc->getViewProvider(pipe->BaseFeature.getValue())->hide();
     if(pipe->Spine.getValue()) {
@@ -161,7 +161,7 @@ TaskShapeBinder::~TaskShapeBinder()
     delete ui;
 }
 
-void TaskShapeBinder::changeEvent(QEvent *e)
+void TaskShapeBinder::changeEvent(QEvent *)
 {
 }
 
@@ -226,18 +226,34 @@ bool TaskShapeBinder::referenceSelected(const SelectionChanges& msg) const {
         //change the references 
         std::string subName(msg.pSubName);
 
+        Part::Feature* selectedObj = nullptr;
         Part::Feature* obj = nullptr;
         std::vector<std::string> refs;
                 
         PartDesign::ShapeBinder::getFilteredReferences(&static_cast<PartDesign::ShapeBinder*>(vp->getObject())->Support, obj, refs);
-    
-        //if we already have a object we need to ensure th new selected subref belongs to it
-        if(obj && strcmp(msg.pObjectName, obj->getNameInDocument()) != 0)
+
+        // get selected object
+        auto docObj = vp->getObject()->getDocument()->getObject(msg.pObjectName);
+        if (docObj && docObj->isDerivedFrom(Part::Feature::getClassTypeId())) {
+            selectedObj = static_cast<Part::Feature*>(docObj);
+        }
+
+        // ensure we have a valid object
+        if (!selectedObj) {
             return false;
-        
-        std::vector<std::string>::iterator f = std::find(refs.begin(), refs.end(), subName);
+        }
+        if (!obj) {
+            // Support has not been set before
+            obj = selectedObj;
+        }
 
         if(selectionMode != refObjAdd) {
+            // ensure the new selected subref belongs to the same object
+            if (strcmp(msg.pObjectName, obj->getNameInDocument()) != 0)
+                return false;
+
+            std::vector<std::string>::iterator f = std::find(refs.begin(), refs.end(), subName);
+
             if (selectionMode == refAdd) {
                 if (f == refs.end())
                     refs.push_back(subName);
@@ -251,7 +267,9 @@ bool TaskShapeBinder::referenceSelected(const SelectionChanges& msg) const {
             }
         }
         else {
+            // change object
             refs.clear();
+            obj = selectedObj;
         }
         
         static_cast<PartDesign::ShapeBinder*>(vp->getObject())->Support.setValue(obj, refs);
@@ -317,35 +335,13 @@ bool TaskDlgShapeBinder::accept()
     return true;
 }
 
-//bool TaskDlgShapeBinder::reject()
-//{
-//    // get the support and Sketch
-//    PartDesign::Pipe* pcPipe = static_cast<PartDesign::Pipe*>(PipeView->getObject()); 
-//    Sketcher::SketchObject *pcSketch = 0;
-//    App::DocumentObject    *pcSupport = 0;
-//    if (pcPipe->Sketch.getValue()) {
-//        pcSketch = static_cast<Sketcher::SketchObject*>(pcPipe->Sketch.getValue()); 
-//        pcSupport = pcSketch->Support.getValue();
-//    }
-//
-//    // roll back the done things
-//    Gui::Command::abortCommand();
-//    Gui::Command::doCommand(Gui::Command::Gui,"Gui.activeDocument().resetEdit()");
-//    
-//    // if abort command deleted the object the support is visible again
-//    if (!Gui::Application::Instance->getViewProvider(pcPipe)) {
-//        if (pcSketch && Gui::Application::Instance->getViewProvider(pcSketch))
-//            Gui::Application::Instance->getViewProvider(pcSketch)->show();
-//        if (pcSupport && Gui::Application::Instance->getViewProvider(pcSupport))
-//            Gui::Application::Instance->getViewProvider(pcSupport)->show();
-//    }
-//
-//    //Gui::Command::doCommand(Gui::Command::Doc,"App.ActiveDocument.recompute()");
-//    //Gui::Command::commitCommand();
-//
-//    return true;
-//}
-
-
+bool TaskDlgShapeBinder::reject()
+{
+  // roll back the done things
+  Gui::Command::abortCommand();
+  Gui::Command::doCommand(Gui::Command::Gui, "Gui.activeDocument().resetEdit()");
+  Gui::Command::doCommand(Gui::Command::Doc, "App.ActiveDocument.recompute()");
+  return true;
+}
 
 #include "moc_TaskShapeBinder.cpp"

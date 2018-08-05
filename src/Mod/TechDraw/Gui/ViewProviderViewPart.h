@@ -24,11 +24,13 @@
 #ifndef DRAWINGGUI_VIEWPROVIDERVIEWPART_H
 #define DRAWINGGUI_VIEWPROVIDERVIEWPART_H
 
-#include "ViewProviderDrawingView.h"
+#include <App/PropertyLinks.h>
+#include <App/PropertyStandard.h>
+#include <App/PropertyUnits.h>
 
-namespace TechDraw{
-    class DrawViewPart;
-}
+#include "ViewProviderDrawingView.h"
+#include <Mod/TechDraw/App/DrawView.h>
+#include <Mod/TechDraw/App/DrawViewPart.h>
 
 namespace TechDrawGui {
 
@@ -42,6 +44,16 @@ public:
     /// destructor
     virtual ~ViewProviderViewPart();
 
+    App::PropertyFloat  LineWidth;
+    App::PropertyFloat  HiddenWidth;
+    App::PropertyFloat  IsoWidth;
+    App::PropertyFloat  ExtraWidth;
+    App::PropertyBool   ArcCenterMarks;
+    App::PropertyFloat  CenterScale;
+    App::PropertyBool   HorizCenterLine;
+    App::PropertyBool   VertCenterLine;
+    App::PropertyBool   ShowSectionLine;
+
     virtual void attach(App::DocumentObject *);
     virtual void setDisplayMode(const char* ModeName);
     virtual bool useNewSelectionModel(void) const {return false;}
@@ -49,8 +61,12 @@ public:
     virtual std::vector<std::string> getDisplayModes(void) const;
 
 public:
+    virtual void onChanged(const App::Property *prop);
+    virtual void updateData(const App::Property*);
+
     virtual std::vector<App::DocumentObject*> claimChildren(void) const;
 
+    virtual TechDraw::DrawViewPart* getViewObject() const;
     TechDraw::DrawViewPart* getViewPart() const;
 };
 

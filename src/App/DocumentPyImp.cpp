@@ -83,11 +83,14 @@ PyObject*  DocumentPy::save(PyObject * args)
 PyObject*  DocumentPy::saveAs(PyObject * args)
 {
     char* fn;
-    if (!PyArg_ParseTuple(args, "s", &fn))     // convert args: Python->C
-        return NULL;                    // NULL triggers exception
+    if (!PyArg_ParseTuple(args, "et", "utf-8", &fn))
+        return NULL;
+
+    std::string utf8Name = fn;
+    PyMem_Free(fn);
 
     try {
-        if (!getDocumentPtr()->saveAs(fn)) {
+        if (!getDocumentPtr()->saveAs(utf8Name.c_str())) {
             PyErr_SetString(PyExc_ValueError, "Object attribute 'FileName' is not set");
             return NULL;
         }
@@ -101,9 +104,9 @@ PyObject*  DocumentPy::saveAs(PyObject * args)
         return 0;
     }
 
-    Base::FileInfo fi(fn);
+    Base::FileInfo fi(utf8Name);
     if (!fi.isReadable()) {
-        PyErr_Format(PyExc_IOError, "No such file or directory: '%s'", fn);
+        PyErr_Format(PyExc_IOError, "No such file or directory: '%s'", utf8Name.c_str());
         return NULL;
     }
 
@@ -208,7 +211,11 @@ PyObject*  DocumentPy::exportGraphviz(PyObject * args)
     else {
         std::stringstream str;
         getDocumentPtr()->exportGraphviz(str);
+#if PY_MAJOR_VERSION >= 3
+        return PyUnicode_FromString(str.str().c_str());
+#else
         return PyString_FromString(str.str().c_str());
+#endif
     }
 }
 
@@ -272,7 +279,7 @@ PyObject*  DocumentPy::removeObject(PyObject *args)
 
     DocumentObject *pcFtr = getDocumentPtr()->getObject(sName);
     if(pcFtr) {
-        getDocumentPtr()->remObject( sName );
+        getDocumentPtr()->removeObject( sName );
         Py_Return;
     } else {
         std::stringstream str;
@@ -319,19 +326,35 @@ PyObject*  DocumentPy::moveObject(PyObject *args)
 
 PyObject*  DocumentPy::openTransaction(PyObject *args)
 {
-    PyObject *value;
+    PyObject *value = 0;
     if (!PyArg_ParseTuple(args, "|O",&value))
         return NULL;    // NULL triggers exception
-    char *pstr=0;
-    if (PyUnicode_Check(value)) {
-        PyObject* unicode = PyUnicode_AsLatin1String(value);
-        pstr = PyString_AsString(unicode);
+    std::string cmd;
+
+
+    if (!value) {
+        cmd = "<empty>";
+    }
+#if PY_MAJOR_VERSION >= 3
+    else if (PyUnicode_Check(value)) {
+        cmd = PyUnicode_AsUTF8(value);
+    }
+#else
+    else if (PyUnicode_Check(value)) {
+        PyObject* unicode = PyUnicode_AsUTF8String(value);
+        cmd = PyString_AsString(unicode);
         Py_DECREF(unicode);
     }
     else if (PyString_Check(value)) {
-        pstr = PyString_AsString(value);
+        cmd = PyString_AsString(value);
     }
-    getDocumentPtr()->openTransaction(pstr); 
+#endif
+    else {
+        PyErr_SetString(PyExc_TypeError, "string or unicode expected");
+        return NULL;
+    }
+
+    getDocumentPtr()->openTransaction(cmd.c_str());
     Py_Return; 
 }
 
@@ -380,9 +403,15 @@ PyObject*  DocumentPy::clearUndos(PyObject * args)
 PyObject*  DocumentPy::recompute(PyObject * args)
 {
     if (!PyArg_ParseTuple(args, ""))     // convert args: Python->C 
-        return NULL;                    // NULL triggers exception 
-    getDocumentPtr()->recompute();
-    Py_Return;
+        return NULL;                    // NULL triggers exception
+    try {
+        int objectCount = getDocumentPtr()->recompute();
+        return Py::new_reference_to(Py::Int(objectCount));
+    }
+    catch (const Base::RuntimeError& e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        return 0;
+    }
 }
 
 PyObject*  DocumentPy::getObject(PyObject *args)
@@ -487,6 +516,30 @@ Py::List DocumentPy::getObjects(void) const
     return res;
 }
 
+Py::List DocumentPy::getTopologicalSortedObjects(void) const
+{
+    std::vector<DocumentObject*> objs = getDocumentPtr()->topologicalSort();
+    Py::List res;
+
+    for (std::vector<DocumentObject*>::const_iterator It = objs.begin(); It != objs.end(); ++It)
+        //Note: Here we must force the Py::Object to own this Python object as getPyObject() increments the counter
+        res.append(Py::Object((*It)->getPyObject(), true));
+
+    return res;
+}
+
+Py::List DocumentPy::getRootObjects(void) const
+{
+    std::vector<DocumentObject*> objs = getDocumentPtr()->getRootObjects();
+    Py::List res;
+
+    for (std::vector<DocumentObject*>::const_iterator It = objs.begin(); It != objs.end(); ++It)
+        //Note: Here we must force the Py::Object to own this Python object as getPyObject() increments the counter
+        res.append(Py::Object((*It)->getPyObject(), true));
+
+    return res;
+}
+
 Py::Int DocumentPy::getUndoMode(void) const
 {
     return Py::Int(getDocumentPtr()->getUndoMode());
@@ -494,8 +547,9 @@ Py::Int DocumentPy::getUndoMode(void) const
 
 void  DocumentPy::setUndoMode(Py::Int arg)
 {
-    getDocumentPtr()->setUndoMode(arg); 
+    getDocumentPtr()->setUndoMode(arg);
 }
+
 
 Py::Int DocumentPy::getUndoRedoMemSize(void) const
 {
@@ -546,6 +600,16 @@ Py::String DocumentPy::getName(void) const
     return Py::String(getDocumentPtr()->getName());
 }
 
+Py::Boolean DocumentPy::getRecomputesFrozen(void) const
+{
+    return Py::Boolean(getDocumentPtr()->testStatus(Document::Status::SkipRecompute));
+}
+
+void DocumentPy::setRecomputesFrozen(Py::Boolean arg)
+{
+    getDocumentPtr()->setStatus(Document::Status::SkipRecompute, arg.isTrue());
+}
+
 PyObject* DocumentPy::getTempFileName(PyObject *args)
 {
     PyObject *value;
@@ -554,12 +618,16 @@ PyObject* DocumentPy::getTempFileName(PyObject *args)
 
     std::string string;
     if (PyUnicode_Check(value)) {
+#if PY_MAJOR_VERSION >= 3
+        string = PyUnicode_AsUTF8(value);
+#else
         PyObject* unicode = PyUnicode_AsUTF8String(value);
         string = PyString_AsString(unicode);
         Py_DECREF(unicode);
     }
     else if (PyString_Check(value)) {
         string = PyString_AsString(value);
+#endif
     }
     else {
         std::string error = std::string("type must be a string!");
@@ -574,7 +642,9 @@ PyObject* DocumentPy::getTempFileName(PyObject *args)
     fileName.deleteFile();
 
     PyObject *p = PyUnicode_DecodeUTF8(fileName.filePath().c_str(),fileName.filePath().size(),0);
-    if (!p) throw Base::Exception("UTF8 conversion failure at PropertyString::getPyObject()");
+    if (!p) {
+        throw Base::UnicodeError("UTF8 conversion failure at PropertyString::getPyObject()");
+    }
     return p;
 }
 

@@ -109,7 +109,6 @@ SMESH_Gen::~SMESH_Gen()
 //=============================================================================
 
 SMESH_Mesh* SMESH_Gen::CreateMesh(int theStudyId, bool theIsEmbeddedMode)
-  throw(SALOME_Exception)
 {
   Unexpect aCatch(SalomeException);
   MESSAGE("SMESH_Gen::CreateMesh");
@@ -1014,12 +1013,14 @@ std::vector< std::string > SMESH_Gen::GetPluginXMLPaths()
       }
 
       // get a separator from rootDir
-      for ( pos = strlen( rootDir )-1; pos >= 0 && sep.empty(); --pos )
+      for ( pos = strlen( rootDir )-1; pos > 0 && sep.empty(); --pos )
+      {
         if ( rootDir[pos] == '/' || rootDir[pos] == '\\' )
         {
           sep = rootDir[pos];
           break;
         }
+      }
 #ifdef WIN32
       if (sep.empty() ) sep = "\\";
 #else

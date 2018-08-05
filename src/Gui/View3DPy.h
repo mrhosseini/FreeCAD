@@ -48,6 +48,7 @@ public:
 
     Py::Object message(const Py::Tuple&);
     Py::Object fitAll(const Py::Tuple&);
+    Py::Object boxZoom(const Py::Tuple&, const Py::Dict&);
     Py::Object viewBottom(const Py::Tuple&);
     Py::Object viewFront(const Py::Tuple&);
     Py::Object viewLeft(const Py::Tuple&);
@@ -104,6 +105,8 @@ public:
     Py::Object removeDraggerCallback(const Py::Tuple&);
     Py::Object setActiveObject(const Py::Tuple&);
     Py::Object getActiveObject(const Py::Tuple&);
+    Py::Object getViewProvidersOfType(const Py::Tuple&);
+    Py::Object redraw(const Py::Tuple&);
 
 private:
     static void eventCallback(void * ud, SoEventCallback * n);
@@ -115,7 +118,6 @@ private:
     typedef PyObject* (*method_varargs_handler)(PyObject *_self, PyObject *_args);
     static method_varargs_handler pycxx_handler;
     static PyObject *method_varargs_ext_handler(PyObject *_self, PyObject *_args);
-    void createImageFromFramebuffer(int width, int height, const QColor&, QImage&);
 
 private:
     std::list<PyObject*> callbacks;

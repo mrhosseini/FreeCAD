@@ -62,14 +62,14 @@ PyObject* initModule()
 
 
 /* Python entry */
-PyMODINIT_FUNC initInspectionGui()
+PyMOD_INIT_FUNC(InspectionGui)
 {
     if (!Gui::Application::Instance) {
         PyErr_SetString(PyExc_ImportError, "Cannot load Gui module in console application.");
-        return;
+        PyMOD_Return(0);
     }
 
-    // instanciating the commands
+    // instantiating the commands
     CreateInspectionCommands();
     InspectionGui::ViewProviderInspection       ::init();
     InspectionGui::ViewProviderInspectionGroup  ::init();
@@ -79,6 +79,7 @@ PyMODINIT_FUNC initInspectionGui()
     //
     //
 
-    (void)InspectionGui::initModule();
+    PyObject* mod = InspectionGui::initModule();
     Base::Console().Log("Loading GUI of Inspection module... done\n");
+    PyMOD_Return(mod);
 }

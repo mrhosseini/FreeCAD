@@ -36,7 +36,7 @@
 //===========================================================================
 // Cmd_TEMPLATE_Test THIS IS JUST A TEST COMMAND
 //===========================================================================
-DEF_STD_CMD(Cmd_TEMPLATE_Test);
+DEF_STD_CMD(Cmd_TEMPLATE_Test)
 
 Cmd_TEMPLATE_Test::Cmd_TEMPLATE_Test()
   :Command("_TEMPLATE__Test")
@@ -45,13 +45,13 @@ Cmd_TEMPLATE_Test::Cmd_TEMPLATE_Test()
     sGroup        = QT_TR_NOOP("_TEMPLATE_");
     sMenuText     = QT_TR_NOOP("Hello");
     sToolTipText  = QT_TR_NOOP("_TEMPLATE_ Test function");
-    sWhatsThis    = QT_TR_NOOP("_TEMPLATE_ Test function");
+    sWhatsThis    = "_TEMPLATE__Test";
     sStatusTip    = QT_TR_NOOP("_TEMPLATE_ Test function");
     sPixmap       = "Test1";
     sAccel        = "CTRL+H";
 }
 
-void Cmd_TEMPLATE_Test::activated(int iMsg)
+void Cmd_TEMPLATE_Test::activated(int)
 {
     Base::Console().Message("Hello, World!\n");
 }

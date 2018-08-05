@@ -28,7 +28,6 @@
 #endif
 
 
-#include <strstream>
 #include <Base/Console.h>
 #include <Base/Writer.h>
 #include <Base/Reader.h>
@@ -85,7 +84,7 @@ Base::BoundBox3d PropertyTrajectory::getBoundingBox() const
     //    box.MinZ = zMin;
     //    box.MaxZ = zMax;
     //}
-    //catch (Standard_Failure) {
+    //catch (Standard_Failure& e) {
     //}
 
     return box;

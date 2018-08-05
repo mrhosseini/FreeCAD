@@ -32,6 +32,7 @@
 # include <Geom_Plane.hxx>
 # include <Precision.hxx>
 # include <QMessageBox>
+# include <QAction>
 # include <QRegExp>
 # include <QTextStream>
 # include <TopoDS.hxx>
@@ -574,7 +575,7 @@ bool TaskFemConstraintDisplacement::get_rotyfree() const{return ui->rotyfree->is
 bool TaskFemConstraintDisplacement::get_rotzfix() const{return ui->rotzfix->isChecked();}
 bool TaskFemConstraintDisplacement::get_rotzfree() const{return ui->rotzfree->isChecked();}
 
-void TaskFemConstraintDisplacement::changeEvent(QEvent *e)
+void TaskFemConstraintDisplacement::changeEvent(QEvent *)
 {
 //    TaskBox::changeEvent(e);
 //    if (e->type() == QEvent::LanguageChange) {

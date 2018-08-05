@@ -32,6 +32,7 @@
 #include <App/PropertyStandard.h>
 
 
+class SoGroup;
 class SoSeparator;
 class SoEventCallback;
 class SbViewVolume;
@@ -133,6 +134,7 @@ public:
     /// returns a list of all possible modes
     virtual std::vector<std::string> getDisplayModes(void) const;
     bool exportToVrml(const char* filename, const MeshCore::Material&, bool binary=false) const;
+    void exportMesh(const char* filename, const char* fmt=0) const;
     void setupContextMenu(QMenu*, QObject*, const char*);
 
     /** @name Editing */
@@ -149,6 +151,7 @@ public:
     void invertSelection();
     void clearSelection();
     void deleteSelection();
+    bool hasSelection() const;
     void getFacetsFromPolygon(const std::vector<SbVec2f>& picked,
                               const Base::ViewProjMethod& proj, SbBool inner,
                               std::vector<unsigned long>& indices) const;
@@ -159,6 +162,7 @@ public:
     /*! The size of the array must be equal to the number of facets. */
     void setFacetTransparency(const std::vector<float>&);
     void resetFacetTransparency();
+    void highlightSegments(const std::vector<App::Color>&);
     //@}
 
 protected:
@@ -208,6 +212,7 @@ private:
 
 protected:
     Gui::SoFCSelection  * pcHighlight;
+    SoGroup             * pcShapeGroup;
     SoDrawStyle         * pcLineStyle;
     SoDrawStyle         * pcPointStyle;
     SoSeparator         * pcOpenEdge;

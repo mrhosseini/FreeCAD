@@ -25,7 +25,7 @@ import FreeCAD
 import FreeCADGui
 from FreeCAD import Base
 import Part
-import Units
+from FreeCAD import Units
 from PySide import QtGui, QtCore
 from shipUtils import Paths
 
@@ -66,8 +66,7 @@ class Preview(object):
             text = str(QtGui.QApplication.translate(
                 "ship_create",
                 "Base line",
-                None,
-                QtGui.QApplication.UnicodeUTF8))
+                None))
         except:
             text = "Base line"
         self.baseLineLabel = DrawText('BaseLineText',
@@ -83,8 +82,7 @@ class Preview(object):
             text = str(QtGui.QApplication.translate(
                 "ship_create",
                 "Free surface",
-                None,
-                QtGui.QApplication.UnicodeUTF8))
+                None))
         except:
             text = "Free surface"
         self.fsLineLabel = DrawText('FSText', text, Base.Vector(xEnd, 0, T))
@@ -100,8 +98,7 @@ class Preview(object):
             text = str(QtGui.QApplication.translate(
                 "ship_create",
                 "Forward perpendicular",
-                None,
-                QtGui.QApplication.UnicodeUTF8))
+                None))
         except:
             text = "Forward perpendicular"
         self.fpLineLabel = DrawText('FPText',
@@ -117,14 +114,13 @@ class Preview(object):
             text = str(QtGui.QApplication.translate(
                 "ship_create",
                 "After perpendicular",
-                None,
-                QtGui.QApplication.UnicodeUTF8))
+                None))
         except:
             text = "After perpendicular"
         self.apLineLabel = DrawText('APText',
                                     text,
                                     Base.Vector(-0.5 * L, 0, zEnd))
-        # Draw the amin frame
+        # Draw the main frame
         amLine = Part.makeLine((0, -0.5 * B, zStart), (0, -0.5 * B, zEnd))
         Part.show(amLine)
         objs = FreeCAD.ActiveDocument.Objects
@@ -134,8 +130,7 @@ class Preview(object):
             text = str(QtGui.QApplication.translate(
                 "ship_create",
                 "Main frame",
-                None,
-                QtGui.QApplication.UnicodeUTF8))
+                None))
         except:
             text = "Main frame"
         self.amLineLabel = DrawText('AMText',
@@ -173,7 +168,7 @@ def DrawText(name,
     string -- Text to draw (it is strongly recommended to use format u'').
     position -- Point to draw the text.
     angle -- Counter clockwise rotation of text.
-    justification -- Alignement of the text ("Left", "Right" or "Center").
+    justification -- Alignment of the text ("Left", "Right" or "Center").
     colour -- Colour of the text.
     size -- Font size (in points pt).
 

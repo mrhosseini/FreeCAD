@@ -94,6 +94,92 @@
 using namespace Gui;
 
 
+SO_ACTION_SOURCE(SoFCHighlightAction);
+
+/**
+ * The order of the defined SO_ACTION_ADD_METHOD statements is very important. First the base
+ * classes and afterwards subclasses of them must be listed, otherwise the registered methods
+ * of subclasses will be overridden. For more details see the thread in the Coin3d forum
+ * https://www.coin3d.org/pipermail/coin-discuss/2004-May/004346.html.
+ * This means that \c SoSwitch must be listed after \c SoGroup and \c SoFCSelection after
+ * \c SoSeparator because both classes inherits the others.
+ */
+void SoFCHighlightAction::initClass()
+{
+  SO_ACTION_INIT_CLASS(SoFCHighlightAction,SoAction);
+
+  SO_ENABLE(SoFCHighlightAction, SoSwitchElement);
+
+  SO_ACTION_ADD_METHOD(SoNode,nullAction);
+
+  SO_ENABLE(SoFCHighlightAction, SoModelMatrixElement);
+  SO_ENABLE(SoFCHighlightAction, SoShapeStyleElement);
+  SO_ENABLE(SoFCHighlightAction, SoComplexityElement);
+  SO_ENABLE(SoFCHighlightAction, SoComplexityTypeElement);
+  SO_ENABLE(SoFCHighlightAction, SoCoordinateElement);
+  SO_ENABLE(SoFCHighlightAction, SoFontNameElement);
+  SO_ENABLE(SoFCHighlightAction, SoFontSizeElement);
+  SO_ENABLE(SoFCHighlightAction, SoProfileCoordinateElement);
+  SO_ENABLE(SoFCHighlightAction, SoProfileElement);
+  SO_ENABLE(SoFCHighlightAction, SoSwitchElement);
+  SO_ENABLE(SoFCHighlightAction, SoUnitsElement);
+  SO_ENABLE(SoFCHighlightAction, SoViewVolumeElement);
+  SO_ENABLE(SoFCHighlightAction, SoViewingMatrixElement);
+  SO_ENABLE(SoFCHighlightAction, SoViewportRegionElement);
+
+
+
+
+  SO_ACTION_ADD_METHOD(SoCallback,callDoAction);
+  SO_ACTION_ADD_METHOD(SoComplexity,callDoAction);
+  SO_ACTION_ADD_METHOD(SoCoordinate3,callDoAction);
+  SO_ACTION_ADD_METHOD(SoCoordinate4,callDoAction);
+  SO_ACTION_ADD_METHOD(SoFont,callDoAction);
+  SO_ACTION_ADD_METHOD(SoGroup,callDoAction);
+  SO_ACTION_ADD_METHOD(SoProfile,callDoAction);
+  SO_ACTION_ADD_METHOD(SoProfileCoordinate2,callDoAction);
+  SO_ACTION_ADD_METHOD(SoProfileCoordinate3,callDoAction);
+  SO_ACTION_ADD_METHOD(SoTransformation,callDoAction);
+  SO_ACTION_ADD_METHOD(SoSwitch,callDoAction);
+
+  SO_ACTION_ADD_METHOD(SoSeparator,callDoAction);
+  SO_ACTION_ADD_METHOD(SoFCSelection,callDoAction);
+
+  SO_ACTION_ADD_METHOD(SoIndexedLineSet,callDoAction);
+  SO_ACTION_ADD_METHOD(SoIndexedFaceSet,callDoAction);
+  SO_ACTION_ADD_METHOD(SoPointSet,callDoAction);
+}
+
+void SoFCHighlightAction::finish()
+{
+  atexit_cleanup();
+}
+
+
+SoFCHighlightAction::SoFCHighlightAction (const SelectionChanges &SelCh)
+:SelChange(SelCh)
+{
+  SO_ACTION_CONSTRUCTOR(SoFCHighlightAction);
+}
+
+
+SoFCHighlightAction::~SoFCHighlightAction()
+{
+}
+
+
+void SoFCHighlightAction::beginTraversal(SoNode *node)
+{
+  traverse(node);
+}
+
+void SoFCHighlightAction::callDoAction(SoAction *action,SoNode *node)
+{
+  node->doAction(action);
+}
+
+// ---------------------------------------------------------------
+
 SO_ACTION_SOURCE(SoFCSelectionAction);
 
 /**
@@ -821,11 +907,90 @@ SbBool SoVisibleFaceAction::isHandled() const
 
 // ---------------------------------------------------------------
 
+
+SO_ACTION_SOURCE(SoUpdateVBOAction);
+
+/**
+ * The order of the defined SO_ACTION_ADD_METHOD statements is very important. First the base
+ * classes and afterwards subclasses of them must be listed, otherwise the registered methods
+ * of subclasses will be overridden. For more details see the thread in the Coin3d forum
+ * https://www.coin3d.org/pipermail/coin-discuss/2004-May/004346.html.
+ * This means that \c SoSwitch must be listed after \c SoGroup and \c SoFCSelection after
+ * \c SoSeparator because both classes inherits the others.
+ */
+void SoUpdateVBOAction::initClass()
+{
+  SO_ACTION_INIT_CLASS(SoUpdateVBOAction,SoAction);
+
+  SO_ENABLE(SoUpdateVBOAction, SoSwitchElement);
+
+  SO_ACTION_ADD_METHOD(SoNode,nullAction);
+
+  SO_ENABLE(SoUpdateVBOAction, SoModelMatrixElement);
+  SO_ENABLE(SoUpdateVBOAction, SoProjectionMatrixElement);
+  SO_ENABLE(SoUpdateVBOAction, SoCoordinateElement);
+  SO_ENABLE(SoUpdateVBOAction, SoViewVolumeElement);
+  SO_ENABLE(SoUpdateVBOAction, SoViewingMatrixElement);
+  SO_ENABLE(SoUpdateVBOAction, SoViewportRegionElement);
+
+
+  SO_ACTION_ADD_METHOD(SoCamera,callDoAction);
+  SO_ACTION_ADD_METHOD(SoCoordinate3,callDoAction);
+  SO_ACTION_ADD_METHOD(SoCoordinate4,callDoAction);
+  SO_ACTION_ADD_METHOD(SoGroup,callDoAction);
+  SO_ACTION_ADD_METHOD(SoSwitch,callDoAction);
+  SO_ACTION_ADD_METHOD(SoShape,callDoAction);
+  SO_ACTION_ADD_METHOD(SoIndexedFaceSet,callDoAction);
+
+  SO_ACTION_ADD_METHOD(SoSeparator,callDoAction);
+  SO_ACTION_ADD_METHOD(SoFCSelection,callDoAction);
+}
+
+SoUpdateVBOAction::SoUpdateVBOAction ()
+{
+  SO_ACTION_CONSTRUCTOR(SoUpdateVBOAction);
+}
+
+SoUpdateVBOAction::~SoUpdateVBOAction()
+{
+}
+
+void SoUpdateVBOAction::finish()
+{
+  atexit_cleanup();
+}
+
+void SoUpdateVBOAction::beginTraversal(SoNode *node)
+{
+  traverse(node);
+}
+
+void SoUpdateVBOAction::callDoAction(SoAction *action,SoNode *node)
+{
+  node->doAction(action);
+}
+
+// ---------------------------------------------------------------
+
 namespace Gui {
 class SoBoxSelectionRenderActionP {
 public:
     SoBoxSelectionRenderActionP(SoBoxSelectionRenderAction * master) 
-      : master(master) { }
+      : master(master)
+      , searchaction(0)
+      , selectsearch(0)
+      , camerasearch(0)
+      , bboxaction(0)
+      , basecolor(0)
+      , postprocpath(0)
+      , highlightPath(0)
+      , localRoot(0)
+      , xform(0)
+      , cube(0)
+      , drawstyle(0)
+    {
+
+    }
 
     SoBoxSelectionRenderAction * master;
     SoSearchAction * searchaction;

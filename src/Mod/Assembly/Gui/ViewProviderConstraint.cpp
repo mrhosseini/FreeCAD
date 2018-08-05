@@ -44,7 +44,7 @@ PROPERTY_SOURCE(AssemblyGui::ViewProviderConstraintInternal, PartGui::ViewProvid
 
 ViewProviderConstraintInternal::ViewProviderConstraintInternal()
 {
-    //constraint entiti color
+    //constraint entity color
     ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/View");
     unsigned long scol = hGrp->GetUnsigned("ConstructionColor", 56319UL);
     float r, g, b;
@@ -129,7 +129,7 @@ ViewProviderConstraint::ViewProviderConstraint() : m_selected(false)
 {
     Selectable.setValue(false);
 
-    //constraint entiti color
+    //constraint entity color
     ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/View");
     unsigned long scol = hGrp->GetUnsigned("ConstructionColor", 56319UL);
     float r, g, b;
@@ -230,7 +230,7 @@ void ViewProviderConstraint::updateData(const App::Property* prop) {
 void ViewProviderConstraint::onChanged(const App::Property* prop)
 {   
     // parent expects the app object to be part::feature, but it isn't. so we have to avoid
-    // the visability prop as this results in accessing of the part::feature and would crash
+    // the visibility prop as this results in accessing of the part::feature and would crash
     if(prop == &Visibility) {
         if(Visibility.getValue() && m_selected) {
             internal_vp.show();
@@ -294,7 +294,7 @@ void ViewProviderConstraint::draw()
     if(!obj2)
         return;
 
-    //here it's a bit more involved, as the coind tree structure let's the first transform  node
+    //here it's a bit more involved, as the coind tree structure let's the first transform node
     //transform the second part too.
     Assembly::PartRef* part2 = static_cast<Assembly::PartRef*>(obj2);
 

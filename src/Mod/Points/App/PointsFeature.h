@@ -58,7 +58,7 @@ public:
     Feature(void);
     virtual ~Feature(void);
 
-    /** @name methods overide Feature */
+    /** @name methods override Feature */
     //@{
     void Restore(Base::XMLReader &reader);
     void RestoreDocFile(Base::Reader &reader);
@@ -68,6 +68,10 @@ public:
     /// returns the type name of the ViewProvider
     virtual const char* getViewProviderName(void) const {
         return "PointsGui::ViewProviderScattered";
+    }
+
+    virtual const App::PropertyComplexGeoData* getPropertyOfGeometry() const {
+        return &Points;
     }
 protected:
     void onChanged(const App::Property* prop);

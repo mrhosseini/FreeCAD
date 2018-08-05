@@ -30,6 +30,7 @@
 # include <Geom_Plane.hxx>
 # include <Precision.hxx>
 # include <QMessageBox>
+# include <QAction>
 # include <QRegExp>
 # include <QTextStream>
 # include <TopoDS.hxx>
@@ -71,6 +72,9 @@ TaskFemConstraintPressure::TaskFemConstraintPressure(ViewProviderFemConstraintPr
 
     connect(ui->lw_references, SIGNAL(currentItemChanged(QListWidgetItem*,QListWidgetItem*)),
         this, SLOT(setSelection(QListWidgetItem*)));
+
+    connect(ui->checkBoxReverse, SIGNAL(toggled(bool)),
+        this, SLOT(onCheckReverse(bool)));
 
     this->groupLayout()->addWidget(proxy);
 
@@ -118,6 +122,12 @@ void TaskFemConstraintPressure::updateUI()
         return;
     }
 }
+
+void TaskFemConstraintPressure::onCheckReverse(const bool pressed)
+{
+    Fem::ConstraintPressure* pcConstraint = static_cast<Fem::ConstraintPressure*>(ConstraintView->getObject());
+    pcConstraint->Reversed.setValue(pressed);
+ }
 
 void TaskFemConstraintPressure::addToSelection()
 {
@@ -271,7 +281,8 @@ bool TaskFemConstraintPressure::get_Reverse() const
 }
 /* */
 
-void TaskFemConstraintPressure::changeEvent(QEvent *e){
+void TaskFemConstraintPressure::changeEvent(QEvent *)
+{
 }
 
 //**************************************************************************

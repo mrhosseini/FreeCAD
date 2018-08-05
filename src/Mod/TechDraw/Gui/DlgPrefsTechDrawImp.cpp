@@ -34,6 +34,8 @@ DlgPrefsTechDrawImp::DlgPrefsTechDrawImp( QWidget* parent )
   : PreferencePage( parent )
 {
     this->setupUi(this);
+    plsb_LabelSize->setUnit(Base::Unit::Length);
+    plsb_TemplateDot->setUnit(Base::Unit::Length);
 }
 
 DlgPrefsTechDrawImp::~DlgPrefsTechDrawImp()
@@ -43,34 +45,61 @@ DlgPrefsTechDrawImp::~DlgPrefsTechDrawImp()
 
 void DlgPrefsTechDrawImp::saveSettings()
 {
+    cb_HidLine->onSave();
+    cb_Angle->onSave();
+    cb_Faces->onSave();
+    cb_SectionEdges->onSave();
+    cb_PageUpdate->onSave();
+    cb_AutoDist->onSave();
+
     pcb_Normal->onSave();
     pcb_Select->onSave();
     pcb_PreSelect->onSave();
     pcb_Hidden->onSave();
     pcb_Surface->onSave();
-    le_LabelFont->onSave();
+    pcb_Background->onSave();
+    pcb_Hatch->onSave();
+
+    pfb_LabelFont->onSave();
+    plsb_LabelSize->onSave();
+    plsb_TemplateDot->onSave();
+
     pfc_DefTemp->onSave();
     pfc_DefDir->onSave();
-    cb_HidLine->onSave();
-    cb_Angle->onSave();
     pfc_HatchFile->onSave();
-    //pfc_HatchDir->onSave();
+    pfc_LineGroup->onSave();
+    pfc_FilePattern->onSave();
+    le_NamePattern->onSave();
 }
 
 void DlgPrefsTechDrawImp::loadSettings()
 {
+    cb_HidLine->onRestore();
+    cb_Angle->onRestore();
+    cb_Faces->onRestore();
+    cb_SectionEdges->onRestore();
+    cb_PageUpdate->onRestore();
+    cb_AutoDist->onRestore();
+
     pcb_Normal->onRestore();
     pcb_Select->onRestore();
     pcb_PreSelect->onRestore();
     pcb_Hidden->onRestore();
     pcb_Surface->onRestore();
-    le_LabelFont->onRestore();
+    pcb_Background->onRestore();
+    pcb_Hatch->onRestore();
+
+    pfb_LabelFont->onRestore();
+    plsb_LabelSize->onRestore();
+    plsb_TemplateDot->onRestore();
+
     pfc_DefTemp->onRestore();
     pfc_DefDir->onRestore();
-    cb_HidLine->onRestore();
-    cb_Angle->onRestore();
     pfc_HatchFile->onRestore();
-    //pfc_HatchDir->onRestore();
+    pfc_LineGroup->onRestore();
+
+    pfc_FilePattern->onRestore();
+    le_NamePattern->onRestore();
 }
 
 /**
@@ -79,7 +108,9 @@ void DlgPrefsTechDrawImp::loadSettings()
 void DlgPrefsTechDrawImp::changeEvent(QEvent *e)
 {
     if (e->type() == QEvent::LanguageChange) {
+        saveSettings();
         retranslateUi(this);
+        loadSettings();
     }
     else {
         QWidget::changeEvent(e);

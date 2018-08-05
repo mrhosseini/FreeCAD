@@ -169,6 +169,7 @@ public:
     void clear();
     bool isEmpty() const;
     int count() const;
+    const MovableGroup& getGroup(int i) const;
 
 protected:
     void removeActiveGroup();
@@ -217,7 +218,7 @@ public:
     void slotDeletedObject(const Gui::ViewProvider& Obj);
 
 protected:
-    bool computeAlignment(const std::vector<PickedPoint>& unnavPts, const std::vector<PickedPoint>& fixPts);
+    bool computeAlignment(const std::vector<PickedPoint>& movPts, const std::vector<PickedPoint>& fixPts);
     void continueAlignment();
     void showInstructions();
     /** @name Probe picking */

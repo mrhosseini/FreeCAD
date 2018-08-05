@@ -28,6 +28,7 @@
 #endif
 
 #include <Base/Console.h>
+#include <Base/Exception.h>
 #include <App/Application.h>
 
 #include "PrefWidgets.h"
@@ -102,6 +103,7 @@ QByteArray PrefWidget::paramGrpPath() const
  */
 void PrefWidget::OnChange(Base::Subject<const char*> &rCaller, const char * sReason)
 {
+    Q_UNUSED(rCaller);
     if (std::strcmp(sReason,m_sPrefName) == 0)
         restorePreferences();
 }
@@ -455,6 +457,39 @@ void PrefColorButton::savePreferences()
 
 // --------------------------------------------------------------------
 
+PrefUnitSpinBox::PrefUnitSpinBox ( QWidget * parent )
+  : QuantitySpinBox(parent), PrefWidget()
+{
+}
+
+PrefUnitSpinBox::~PrefUnitSpinBox()
+{
+}
+
+void PrefUnitSpinBox::restorePreferences()
+{
+    if (getWindowParameter().isNull()) {
+        Console().Warning("Cannot restore!\n");
+        return;
+    }
+
+    double fVal = (double)getWindowParameter()->GetFloat( entryName() ,rawValue() );
+    setValue(fVal);
+}
+
+void PrefUnitSpinBox::savePreferences()
+{
+    if (getWindowParameter().isNull()) {
+        Console().Warning("Cannot save!\n");
+        return;
+    }
+
+    double q = rawValue();
+    getWindowParameter()->SetFloat( entryName(), q );
+}
+
+// --------------------------------------------------------------------
+
 namespace Gui {
 class PrefQuantitySpinBoxPrivate
 {
@@ -514,7 +549,7 @@ void PrefQuantitySpinBox::contextMenuEvent(QContextMenuEvent *event)
     // call the menu and wait until its back
     QAction *userAction = menu->exec(event->globalPos());
 
-    // look what the user has choosen
+    // look what the user has chosen
     if (userAction == saveValueAction) {
         pushToHistory(this->text());
     }
@@ -556,19 +591,24 @@ void PrefQuantitySpinBox::pushToHistory(const QString &valueq)
 
     std::string value(val.toUtf8());
     if (d->handle.isValid()) {
-        // do nothing if the given value is on top of the history
-        std::string tHist = d->handle->GetASCII("Hist0");
-        if (tHist != val.toUtf8().constData()) {
-            for (int i = d->historySize -1 ; i>=0 ;i--) {
-                QByteArray hist1 = "Hist";
-                QByteArray hist0 = "Hist";
-                hist1.append(QByteArray::number(i+1));
-                hist0.append(QByteArray::number(i));
-                std::string tHist = d->handle->GetASCII(hist0);
-                if (!tHist.empty())
-                    d->handle->SetASCII(hist1,tHist.c_str());
+        try {
+            // do nothing if the given value is on top of the history
+            std::string tHist = d->handle->GetASCII("Hist0");
+            if (tHist != val.toUtf8().constData()) {
+                for (int i = d->historySize -1 ; i>=0 ;i--) {
+                    QByteArray hist1 = "Hist";
+                    QByteArray hist0 = "Hist";
+                    hist1.append(QByteArray::number(i+1));
+                    hist0.append(QByteArray::number(i));
+                    std::string tHist = d->handle->GetASCII(hist0);
+                    if (!tHist.empty())
+                        d->handle->SetASCII(hist1,tHist.c_str());
+                }
+                d->handle->SetASCII("Hist0",value.c_str());
             }
-            d->handle->SetASCII("Hist0",value.c_str());
+        }
+        catch (const Base::Exception& e) {
+            Console().Warning("pushToHistory: %s\n", e.what());
         }
     }
 }
@@ -631,6 +671,47 @@ void PrefQuantitySpinBox::setHistorySize(int i)
 {
     Q_D(PrefQuantitySpinBox);
     d->historySize = i;
+}
+
+// --------------------------------------------------------------------
+
+PrefFontBox::PrefFontBox ( QWidget * parent )
+  : QFontComboBox(parent), PrefWidget()
+{
+}
+
+PrefFontBox::~PrefFontBox()
+{
+}
+
+void PrefFontBox::restorePreferences()
+{
+  if ( getWindowParameter().isNull() )
+  {
+    Console().Warning("Cannot restore!\n");
+    return;
+  }
+
+  QFont currFont = currentFont();                         //QFont from selector widget
+  QString currName = currFont.family();
+  
+  std::string prefName = getWindowParameter()->GetASCII(entryName(), currName.toUtf8());  //font name from cfg file
+
+  currFont.setFamily(QString::fromStdString(prefName));
+  setCurrentFont(currFont);                               //set selector widget to name from cfg file
+}
+
+void PrefFontBox::savePreferences()
+{
+  if (getWindowParameter().isNull())
+  {
+    Console().Warning("Cannot save!\n");
+    return;
+  }
+
+  QFont currFont = currentFont();
+  QString currName = currFont.family();
+  getWindowParameter()->SetASCII( entryName() , currName.toUtf8() );
 }
 
 #include "moc_PrefWidgets.cpp"

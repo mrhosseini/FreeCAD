@@ -68,10 +68,11 @@ protected Q_SLOTS:
     void doPerpendicularConstraint();
     void doLengthConstraint();
     void doRadiusConstraint();
+    void doDiameterConstraint();
     void doAngleConstraint();
     void doEqualConstraint();
     void doPointOnObjectConstraint();
-    void doSymetricConstraint();
+    void doSymmetricConstraint();
     void doTangentConstraint();
     // Other Commands
     void doToggleConstruction();    

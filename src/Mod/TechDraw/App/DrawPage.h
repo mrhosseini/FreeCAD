@@ -24,6 +24,8 @@
 #ifndef _DrawPage_h_
 #define _DrawPage_h_
 
+#include <boost/signals2.hpp>
+
 #include <App/DocumentObject.h>
 #include <App/DocumentObjectGroup.h>
 #include <App/PropertyStandard.h>
@@ -42,19 +44,22 @@ public:
 
     App::PropertyLinkList Views;
     App::PropertyLink Template;
+    App::PropertyBool KeepUpdated;
 
-    App::PropertyFloat Scale;
+    App::PropertyFloatConstraint Scale;
     App::PropertyEnumeration ProjectionType; // First or Third Angle
 
-    /** @name methods overide Feature */
+    /** @name methods override Feature */
     //@{
     /// recalculate the Feature
     virtual App::DocumentObjectExecReturn *execute(void);
     //@}
+    void Restore(Base::XMLReader &reader);
 
     int addView(App::DocumentObject *docObj);
     int removeView(App::DocumentObject* docObj);
     short mustExecute() const;
+    boost::signals2::signal<void (const DrawPage*)> signalGuiPaint;
 
     /// returns the type name of the ViewProvider
     virtual const char* getViewProviderName(void) const {
@@ -81,14 +86,23 @@ public:
      */
     double getPageHeight() const;
     const char* getPageOrientation() const;
+    bool isUnsetting(void) { return nowUnsetting; }
+    void requestPaint(void);
+    std::vector<App::DocumentObject*> getAllViews(void) ;
+
 
 protected:
     void onBeforeChange(const App::Property* prop);
     void onChanged(const App::Property* prop);
     virtual void onDocumentRestored();
+    virtual void unsetupObject();
+
 
 private:
     static const char* ProjectionTypeEnums[];
+    bool nowUnsetting;
+    static App::PropertyFloatConstraint::Constraints scaleRange;
+
 };
 
 } //namespace TechDraw

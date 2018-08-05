@@ -2,17 +2,21 @@
 # -*- coding: utf-8 -*-
 # (c) 2006 Werner Mayer LGPL
 #
-# FreeCAD RevInfo script to get the revision information from Subversion.
+# FreeCAD RevInfo script to get the revision information from Subversion, Bazaar, and Git.
 #
 # Under Linux the Subversion tool SubWCRev shipped with TortoiseSVN isn't 
 # available which is provided by this script. 
+# 2012/02/01: The script was extended to support git
 # 2011/02/05: The script was extended to support also Bazaar
 
 import os,sys,string,re,time,getopt
 import xml.sax
 import xml.sax.handler
 import xml.sax.xmlreader
-import StringIO
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 
 # SAX handler to parse the subversion output
 class SvnHandler(xml.sax.handler.ContentHandler):
@@ -56,14 +60,14 @@ class VersionControl:
         return False
 
     def printInfo(self):
-        print ""
+        print("")
 
     def writeVersion(self, lines):
         content=[]
         for line in lines:
-            line = string.replace(line,'$WCREV$',self.rev)
-            line = string.replace(line,'$WCDATE$',self.date)
-            line = string.replace(line,'$WCURL$',self.url)
+            line = line.replace('$WCREV$',self.rev)
+            line = line.replace('$WCDATE$',self.date)
+            line = line.replace('$WCURL$',self.url)
             content.append(line)
         return content
 
@@ -78,7 +82,7 @@ class UnknownControl(VersionControl):
         return True
 
     def printInfo(self):
-        print "Unknown version control"
+        print("Unknown version control")
 
 class DebianChangelog(VersionControl):
     def extractInfo(self, srcdir):
@@ -101,7 +105,7 @@ class DebianChangelog(VersionControl):
         return True
 
     def printInfo(self):
-        print "debian/changelog"
+        print("debian/changelog")
 
 class BazaarControl(VersionControl):
     def extractInfo(self, srcdir):
@@ -121,7 +125,7 @@ class BazaarControl(VersionControl):
         return True
 
     def printInfo(self):
-        print "bazaar"
+        print("bazaar")
 
 class GitControl(VersionControl):
     #http://www.hermanradtke.com/blog/canonical-version-numbers-with-git/
@@ -170,12 +174,12 @@ class GitControl(VersionControl):
 
     def revisionNumber(self, srcdir,origin=None):
         """sets the revision number
-for master and release branches all commits are counted
-for other branches the version numver is split in two parts
-the first number reflects the number of commits in common with the
-blessed master repository.
-the second part, seperated by " +"reflects the number of commits that are
-different form the master repository"""
+        for master and release branches all commits are counted
+        for other branches the version numver is split in two parts
+        the first number reflects the number of commits in common with the
+        blessed master repository.
+        the second part, separated by " +" reflects the number of commits that are
+        different from the master repository"""
         #referencecommit="f119e740c87918b103140b66b2316ae96f136b0e"
         #referencerevision=4138
         referencecommit="6b3d7b17a749e03bcbf2cf79bbbb903137298c44"
@@ -208,10 +212,10 @@ different form the master repository"""
 
     def namebranchbyparents(self):
         """name multiple branches in case that the last commit was a merge
-a merge is identified by having two or more parents
-if the describe does not return a ref name (the hash is added)
-if one parent is the master and the second one has no ref name, one branch was
-merged."""
+        a merge is identified by having two or more parents
+        if the describe does not return a ref name (the hash is added)
+        if one parent is the master and the second one has no ref name, one branch was
+        merged."""
         parents=os.popen("git log -n1 --pretty=%P").read()\
                 .strip().split(' ')
         if len(parents) >= 2: #merge commit
@@ -238,7 +242,7 @@ merged."""
         # date/time
         import time
         info=os.popen("git log -1 --date=raw --pretty=format:%cd").read()
-        # commit time is more meaningfull than author time
+        # commit time is more meaningful than author time
         # use UTC
         self.date = time.strftime("%Y/%m/%d %H:%M:%S",time.gmtime(\
                 float(info.strip().split(' ',1)[0])))
@@ -253,7 +257,7 @@ merged."""
         origin = None #remote for the blessed master
         for fetchurl in ("git@github.com:FreeCAD/FreeCAD.git",\
             "https://github.com/FreeCAD/FreeCAD.git"):
-            for key,url in self.remotes.iteritems():
+            for key,url in self.remotes.items():
                 if fetchurl in url:
                     origin = key
                     break
@@ -272,7 +276,7 @@ merged."""
             else: # guess
                 self.branch = '(%s)' % \
                     os.popen("git describe --all --dirty").read().strip()
-        #if the branch name conainted any slashes but was not a remote
+        #if the branch name contained any slashes but was not a remote
         #there might be not result by now. Hence we assume origin
         if self.url == "Unknown":
             for i in info:
@@ -283,7 +287,7 @@ merged."""
         return True
 
     def printInfo(self):
-        print "git"
+        print("git")
 
     def writeVersion(self, lines):
         content = VersionControl.writeVersion(self, lines)
@@ -297,7 +301,7 @@ class MercurialControl(VersionControl):
         return False
 
     def printInfo(self):
-        print "mercurial"
+        print("mercurial")
 
 class Subversion(VersionControl):
     def extractInfo(self, srcdir):
@@ -322,8 +326,8 @@ class Subversion(VersionControl):
         self.date = handler.mapping["Date"]
         self.date = self.date[:19]
         #Same format as SubWCRev does
-        self.date = string.replace(self.date,'T',' ')
-        self.date = string.replace(self.date,'-','/')
+        self.date = self.date.replace('T',' ')
+        self.date = self.date.replace('-','/')
 
         #Date is given as GMT. Now we must convert to local date.
         m=time.strptime(self.date,"%Y/%m/%d %H:%M:%S")
@@ -353,7 +357,7 @@ class Subversion(VersionControl):
         return True
 
     def printInfo(self):
-        print "subversion"
+        print("subversion")
 
 
 def main():

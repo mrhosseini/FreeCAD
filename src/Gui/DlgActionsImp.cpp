@@ -65,25 +65,26 @@ DlgCustomActionsImp::DlgCustomActionsImp( QWidget* parent )
         ->GetASCII("MacroPath",App::Application::getUserMacroDir().c_str());
 
     QDir d(QString::fromUtf8(cMacroPath.c_str()), QLatin1String("*.FCMacro *.py"));
-    
     for (unsigned int i=0; i<d.count(); i++ )
-	actionMacros->insertItem(0,d[i],QVariant(false));
-    
+        actionMacros->insertItem(0,d[i],QVariant(false));
+
     QString systemMacroDirStr = QString::fromUtf8(App::GetApplication().getHomePath()) + QString::fromUtf8("Macro");
-    
     d = QDir(systemMacroDirStr, QLatin1String("*.FCMacro *.py"));
-    
-    if(d.exists()) {
-	for (unsigned int i=0; i<d.count(); i++ ) {
-	    actionMacros->insertItem(0,d[i],QVariant(true));
-	}
+    if (d.exists()) {
+        for (unsigned int i=0; i<d.count(); i++ ) {
+            actionMacros->insertItem(0,d[i],QVariant(true));
+        }
     }
 
     QStringList labels; labels << tr("Icons") << tr("Macros");
     actionListWidget->setHeaderLabels(labels);
     actionListWidget->header()->hide();
     actionListWidget->setIconSize(QSize(32, 32));
+#if QT_VERSION >= 0x050000
+    actionListWidget->header()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+#else
     actionListWidget->header()->setResizeMode(0, QHeaderView::ResizeToContents);
+#endif
 
     showActions();
 }
@@ -306,6 +307,8 @@ void DlgCustomActionsImp::on_buttonReplaceAction_clicked()
     CommandManager& rclMan = Application::Instance->commandManager();
     Command* pCmd = rclMan.getCommandByName(actionName.constData());
     MacroCommand* macro = dynamic_cast<MacroCommand*>(pCmd);
+    if (!macro)
+        return;
 
     if (!actionWhatsThis->text().isEmpty())
         macro->setWhatsThis(actionWhatsThis->text().toUtf8());

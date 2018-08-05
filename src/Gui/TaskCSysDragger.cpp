@@ -33,9 +33,10 @@
 #include <Gui/TaskView/TaskView.h>
 #include "QuantitySpinBox.h"
 #include <Gui/Application.h>
+#include <Gui/Command.h>
 #include <Gui/Document.h>
 #include <Gui/BitmapFactory.h>
-#include <Gui/ViewProviderGeometryObject.h>
+#include <Gui/ViewProviderDragger.h>
 #include <Gui/SoFCCSysDragger.h>
 
 #include "TaskCSysDragger.h"
@@ -56,7 +57,7 @@ static double degreesToRadains(const double &degreesIn)
 static double lastTranslationIncrement = 1.0;
 static double lastRotationIncrement = degreesToRadains(15.0);
 
-TaskCSysDragger::TaskCSysDragger(Gui::ViewProviderGeometryObject* vpObjectIn, Gui::SoFCCSysDragger* draggerIn) :
+TaskCSysDragger::TaskCSysDragger(Gui::ViewProviderDragger* vpObjectIn, Gui::SoFCCSysDragger* draggerIn) :
   dragger(draggerIn)
 {
   assert(vpObjectIn);
@@ -70,6 +71,8 @@ TaskCSysDragger::TaskCSysDragger(Gui::ViewProviderGeometryObject* vpObjectIn, Gu
 TaskCSysDragger::~TaskCSysDragger()
 {
   dragger->unref();
+  Gui::Application::Instance->commandManager().getCommandByName("Std_OrthographicCamera")->setEnabled(true);
+  Gui::Application::Instance->commandManager().getCommandByName("Std_PerspectiveCamera")->setEnabled(true);
 }
 
 void TaskCSysDragger::setupGui()
@@ -104,7 +107,7 @@ void TaskCSysDragger::setupGui()
   
   incrementsBox->groupLayout()->addLayout(gridLayout);
   Content.push_back(incrementsBox);
-  
+
   connect(tSpinBox, SIGNAL(valueChanged(double)), this, SLOT(onTIncrementSlot(double)));
   connect(rSpinBox, SIGNAL(valueChanged(double)), this, SLOT(onRIncrementSlot(double)));
 }
@@ -121,11 +124,14 @@ void TaskCSysDragger::onRIncrementSlot(double freshValue)
 
 void TaskCSysDragger::open()
 {
+  //we can't have user switching camera types while dragger is shown.
+  Gui::Application::Instance->commandManager().getCommandByName("Std_OrthographicCamera")->setEnabled(false);
+  Gui::Application::Instance->commandManager().getCommandByName("Std_PerspectiveCamera")->setEnabled(false);
 //   dragger->translationIncrement.setValue(lastTranslationIncrement);
 //   dragger->rotationIncrement.setValue(lastRotationIncrement);
   tSpinBox->setValue(lastTranslationIncrement);
   rSpinBox->setValue(radiansToDegrees(lastRotationIncrement));
-  
+
   Gui::TaskView::TaskDialog::open();
 }
 
@@ -133,7 +139,7 @@ bool TaskCSysDragger::accept()
 {
   lastTranslationIncrement = dragger->translationIncrement.getValue();
   lastRotationIncrement = dragger->rotationIncrement.getValue();
-  
+
   App::DocumentObject* dObject = vpObject.getObject();
   if (dObject) {
     Gui::Document* document = Gui::Application::Instance->getDocument(dObject->getDocument());

@@ -100,6 +100,12 @@ ViewProviderMeshFaceSet::ViewProviderMeshFaceSet()
     pcMeshCoord->ref();
     pcMeshFaces = new SoFCIndexedFaceSet;
     pcMeshFaces->ref();
+
+    // setup engine to notify 'pcMeshFaces' node about material changes.
+    // When the affected nodes are deleted the engine will be deleted, too.
+    SoFCMaterialEngine* engine = new SoFCMaterialEngine();
+    engine->diffuseColor.connectFrom(&pcShapeMaterial->diffuseColor);
+    pcMeshFaces->updateGLArray.connectFrom(&engine->trigger);
 }
 
 ViewProviderMeshFaceSet::~ViewProviderMeshFaceSet()
@@ -114,8 +120,8 @@ void ViewProviderMeshFaceSet::attach(App::DocumentObject *pcFeat)
 {
     ViewProviderMesh::attach(pcFeat);
 
-    pcHighlight->addChild(pcMeshCoord);
-    pcHighlight->addChild(pcMeshFaces);
+    pcShapeGroup->addChild(pcMeshCoord);
+    pcShapeGroup->addChild(pcMeshFaces);
 
     // read the threshold from the preferences
     Base::Reference<ParameterGrp> hGrp = Gui::WindowParameter::getDefaultParameter()->GetGroup("Mod/Mesh");
@@ -132,7 +138,7 @@ void ViewProviderMeshFaceSet::updateData(const App::Property* prop)
     if (prop->getTypeId() == Mesh::PropertyMeshKernel::getClassTypeId()) {
         const Mesh::MeshObject* mesh = static_cast<const Mesh::PropertyMeshKernel*>(prop)->getValuePtr();
 
-        bool direct = (mesh->countFacets() > this->triangleCount);
+        bool direct = MeshRenderer::shouldRenderDirectly(mesh->countFacets() > this->triangleCount);
         if (direct) {
             this->pcMeshNode->mesh.setValue(mesh);
             // Needs to update internal bounding box caches
@@ -143,19 +149,20 @@ void ViewProviderMeshFaceSet::updateData(const App::Property* prop)
         else {
             ViewProviderMeshBuilder builder;
             builder.createMesh(prop, pcMeshCoord, pcMeshFaces);
+            pcMeshFaces->invalidate();
         }
 
         if (direct != directRendering) {
             directRendering = direct;
-            pcHighlight->removeAllChildren();
+            pcShapeGroup->removeAllChildren();
 
             if (directRendering) {
-                pcHighlight->addChild(pcMeshNode);
-                pcHighlight->addChild(pcMeshShape);
+                pcShapeGroup->addChild(pcMeshNode);
+                pcShapeGroup->addChild(pcMeshShape);
             }
             else {
-                pcHighlight->addChild(pcMeshCoord);
-                pcHighlight->addChild(pcMeshFaces);
+                pcShapeGroup->addChild(pcMeshCoord);
+                pcShapeGroup->addChild(pcMeshFaces);
             }
         }
 

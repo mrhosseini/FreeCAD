@@ -23,7 +23,9 @@
 #ifndef DRAWINGGUI_QGRAPHICSITEMARROW_H
 #define DRAWINGGUI_QGRAPHICSITEMARROW_H
 
-# include <QGraphicsItem>
+#include <Base/Vector3D.h>
+
+# include "QGIPrimPath.h"
 
 QT_BEGIN_NAMESPACE
 class QPainter;
@@ -33,10 +35,10 @@ QT_END_NAMESPACE
 namespace TechDrawGui
 {
 
-class TechDrawGuiExport QGIArrow : public QGraphicsPathItem
+class TechDrawGuiExport QGIArrow : public QGIPrimPath
 {
 public:
-    explicit QGIArrow(QGraphicsScene *scene = 0 );
+    explicit QGIArrow();
     ~QGIArrow() {}
 
     enum {Type = QGraphicsItem::UserType + 109};
@@ -44,23 +46,40 @@ public:
 
 public:
     void draw();
-    void setHighlighted(bool state);
     void flip(bool state);
-    QPainterPath shape() const;
+    double getSize() { return m_size; }
+    void setSize(double s);
+    int getStyle() { return m_style; }
+    void setStyle(int s) { m_style = s; }
+    bool getDirMode() { return m_dirMode; }
+    void setDirMode(bool b) { m_dirMode = b; }
+    Base::Vector3d getDirection(void) { return m_dir; }
+    void setDirection(Base::Vector3d v) { m_dir = v; }
+    static int getPrefArrowStyle();
+    static double getPrefArrowSize();
+
     virtual void paint(QPainter * painter, const QStyleOptionGraphicsItem * option, QWidget * widget = 0 );
 
 protected:
-    // Preselection events:
-//     void hoverEnterEvent(QGraphicsSceneHoverEvent *event);
-//     void hoverLeaveEvent(QGraphicsSceneHoverEvent *event);
-    // Selection detection
-    QVariant itemChange(GraphicsItemChange change, const QVariant &value);
-
+    QPainterPath makeFilledTriangle(double length, double width, bool flipped);
+    QPainterPath makeFilledTriangle(Base::Vector3d dir, double length, double width);
+    QPainterPath makeOpenArrow(double length, double width, bool flipped);
+    QPainterPath makeOpenArrow(Base::Vector3d dir, double length, double width);
+    QPainterPath makeHashMark(double length, double width, bool flipped); 
+    QPainterPath makeHashMark(Base::Vector3d dir, double length, double width); 
+    QPainterPath makeDot(double length, double width, bool flipped); 
+    QPainterPath makeOpenDot(double length, double width, bool flipped); 
+   
 private:
-    QPen m_pen;
+    QBrush m_brush;
+    Qt::BrushStyle m_fill;
+    double m_size;
+    int m_style;
     bool isFlipped;
+    bool m_dirMode;
+    Base::Vector3d m_dir;
 };
 
-} // namespace MDIViewPageGui
+}
 
 #endif // DRAWINGGUI_QGRAPHICSITEMARROW_H

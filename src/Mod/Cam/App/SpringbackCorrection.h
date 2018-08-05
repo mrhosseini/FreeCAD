@@ -28,7 +28,7 @@
 #include <Mod/Mesh/App/Core/TopoAlgorithm.h>
 #include "cutting_tools.h"
 
-/*! \brief The main class for the SpringbackCorrection routine
+/** @brief The main class for the SpringbackCorrection routine
 
  It takes a mesh and a Topo_Shape and computes
  a deformation of the triangulated Topo_Shape.
@@ -43,7 +43,7 @@ class MeshFacet;
 # define cMin    15.0
 # define toolRad  5.0
 
-/** @brief a struct refering to the edges of the input-shape
+/** @brief a struct referring to the edges of the input-shape
  
     @param anEdge    edge
     @param aFace     vector of faces limited by edge
@@ -60,7 +60,7 @@ struct EdgeStruct
     double MinOffset;
 };
 
-/** @brief a struct refering to the mesh-points of the input-shape 
+/** @brief a struct referring to the mesh-points of the input-shape 
 
     @param index   index of the mesh-point
     @param minCurv minimum curvature-radius
@@ -82,9 +82,9 @@ struct MeshPnt
 /** @brief a struct for computing the maximum and minimum curvature-radius
            of a single mesh-point
     @param pnt        mesh-point
-    @param distances  distance-vector to all sourrounding edges
-    @param MinEdgeOff minimum curvature-radii of sourrounding edges
-    @param MaxEdgeOff maximum curvature-radii of sourrounding edges
+    @param distances  distance-vector to all surrounding edges
+    @param MinEdgeOff minimum curvature-radii of surrounding edges
+    @param MaxEdgeOff maximum curvature-radii of surrounding edges
 */
 struct FacePnt
 {
@@ -152,7 +152,7 @@ public:
     bool Load(const TopoDS_Shape& aShape);
     /** @brief loads input-shape and -mesh */
     bool Load(const TopoDS_Shape& aShape, const MeshCore::MeshKernel& aMesh);
-    /** @brief sets parameter-values to initial state, tesselates the input
+    /** @brief sets parameter-values to initial state, tessellates the input
                shape and computes a curvature-radius-value at each edge
                contained in the input-shape */ 
     bool Init();
@@ -163,7 +163,7 @@ public:
  
         @param deg_Tol limiting forming-angle
         @param out
-        \todo undocumented parameter out
+        @todo undocumented parameter out
     */
     bool Perform(int deg_Tol, bool out);
 
@@ -177,13 +177,13 @@ public:
 
         @param aFace
         @param mesh input-mesh
-        \todo undocumented parameter aFace
+        @todo undocumented parameter aFace
     */
     std::vector<double> MeshCurvature(const TopoDS_Face& aFace, const MeshCore::MeshKernel& mesh);
 
     /** @brief computes maximum and minimum curvature-values of the specified
                input-face \p aFace
-	    @param aFace input-face */
+        @param aFace input-face */
     bool GetCurvature(TopoDS_Face aFace);
 
     //bool MirrorMesh(std::vector<double> error);
@@ -196,7 +196,7 @@ public:
     //bool InsideCheck(Base::Vector3f pnt, Base::Vector3f normal, std::vector<Base::Vector3f> Neib);
 
     //MeshCore::MeshKernel BuildMesh(Handle_Poly_Triangulation aTri, std::vector<Base::Vector3f> TrPoints);
-    /** @brief returns index-value wich specifies the boundary-points of the
+    /** @brief returns index-value which specifies the boundary-points of the
                input-mesh
 
         @param mesh     input-mesh
@@ -207,7 +207,7 @@ public:
     /** @brief smooths input-mesh 
 
         @param mesh           input-mesh
-        @param maxTranslation value wich stands for the maximum deviation
+        @param maxTranslation value which stands for the maximum deviation
                               from the initial-mesh
     */
     bool SmoothMesh(MeshCore::MeshKernel &mesh, double maxTranslation);
@@ -216,7 +216,7 @@ public:
         @param mesh           input-mesh
         @param indicies       vector of indicies of the mesh-points for
                               smoothing
-        @param maxTranslation value wich stands for the maximum deviation
+        @param maxTranslation value which stands for the maximum deviation
                               from the initial-mesh
     */
     bool SmoothMesh(MeshCore::MeshKernel &mesh, std::vector<int> indicies, double maxTranslation);
@@ -266,75 +266,75 @@ public:
                region */
     std::vector< std::pair<unsigned long, double> > RegionEvaluate(const MeshCore::MeshKernel &mesh, std::vector<unsigned long> &RegionFacets, std::vector<Base::Vector3f> &normals);
     
-    /** @brief input-mesh*/
+    /** @brief input-mesh */
     MeshCore::MeshKernel m_Mesh;
     /** @brief mesh containing the movable regions for the local translation
     */
     MeshCore::MeshKernel m_Mesh_vis;
     /** @brief mesh containing the fix regions for the local translation */
     MeshCore::MeshKernel m_Mesh_vis2;
-    /** @brief triangulation of the CAD-shape*/
+    /** @brief triangulation of the CAD-shape */
     MeshCore::MeshKernel m_CadMesh;
-    /** @brief vector containing translation-vectors at all mesh-points*/
+    /** @brief vector containing translation-vectors at all mesh-points */
     std::vector<Base::Vector3f> m_dist_vec;
 
 private:
 
-    /** @brief initial input-shape (CAD-model)*/
+    /** @brief initial input-shape (CAD-model) */
     TopoDS_Shape m_Shape;
     /** @brief vector containing the maximum curvature-radius-values at all
-               mesh-points*/
+               mesh-points */
     std::vector<double> m_CurvPos;
     /** @brief vector containing the minimum curvature-radius-values at all
-               mesh-points*/
+               mesh-points */
     std::vector<double> m_CurvNeg;
     /** @brief */
     std::vector<double> m_CurvMax;
-    /** @brief struct-vector over all edges*/
+    /** @brief struct-vector over all edges */
     std::vector<EdgeStruct> m_EdgeStruct;
     /** @brief index-vector for the region-growing-algorithm containing the
-               triangles at the current ring-neighbourhood*/
+               triangles at the current ring-neighbourhood */
     std::vector<unsigned long> m_RingVector;
     /** @brief index-vector for the region-growing-algorithm containing the
-               triangles of one computed region*/
+               triangles of one computed region */
     std::vector< std::vector<unsigned long> > m_RegionVector;
     /** @brief index-vector for the region-growing-algorithm containing the
-               triangles of all computed region*/
+               triangles of all computed region */
     std::vector< std::vector<unsigned long> > m_Regions;
     /** @brief */
     //std::vector<MeshCore::MeshFacet> m_RegionBounds;
-    /** @brief external setting-parameters*/
+    /** @brief external setting-parameters */
     CuttingToolsSettings m_set;
-    /** @brief index wich specifies the current ring-neighbourhood for the
-               region-growing-algorithm*/
+    /** @brief index which specifies the current ring-neighbourhood for the
+               region-growing-algorithm  */
     int m_RingCurrent;
 private:
     /** @brief vector over all input-meshes for the iteration-process */
     std::vector<MeshCore::MeshKernel> m_MeshVec;
-    /** @brief copy of the initial input-mesh*/
+    /** @brief copy of the initial input-mesh */
     MeshCore::MeshKernel MeshRef;
     /** @brief */
     //MeshCore::MeshKernel m_Mesh2Fit;
-    /** @brief vector over the normal-vectors at all mesh-points*/
+    /** @brief vector over the normal-vectors at all mesh-points */
     std::vector<Base::Vector3f> m_normals;
     /** @brief vector containing the distance-values at all mesh points
-               between the initial input-shape (CAD-model) and -mesh*/
+               between the initial input-shape (CAD-model) and -mesh */
     std::vector<double> m_error;
-    /** @brief vector containing the initial angle-degrees of all triangles*/
+    /** @brief vector containing the initial angle-degrees of all triangles */
     std::vector<double> m_FaceAng;
-    /** @brief struct-vector over all mesh-points*/
+    /** @brief struct-vector over all mesh-points */
     std::vector<MeshPnt> m_MeshStruct;
     /** @brief vector containing the resulting offset-values of all mesh
                points */
     std::vector<double> m_Offset;
 public:
-    /** @brief map wich links mesh-point to mesh-index*/
+    /** @brief map which links mesh-point to mesh-index */
     std::map<Base::Vector3f,MeshPnt,MeshPntLess > MeshMap;
-    /** @brief map over all edges*/
+    /** @brief map over all edges */
     std::map<TopoDS_Edge, std::vector<double>, Edge_Less> EdgeMap;
 
-    /** @brief vector containing the user-specified faces wich stands fix
-               during the springback-correction*/
+    /** @brief vector containing the user-specified faces which stands fix
+               during the springback-correction */
     std::vector<TopoDS_Face> m_FixFaces;
 };
 

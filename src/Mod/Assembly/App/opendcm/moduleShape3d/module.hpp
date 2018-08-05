@@ -99,7 +99,7 @@ namespace dcm {
 
 namespace details {
 
-//return always a geometry3d pointer struct, no matter whats the supplied type
+//return always a geometry3d pointer struct, no matter what's the supplied type
 template<typename T, typename R>
 struct converter_g {
     //check if the type T is usable from within module3d, as it could also be a shape type
@@ -360,7 +360,7 @@ struct ModuleShape3D {
             //disconnect all remove signals of stored geometry/shapes/constraints
             void disconnectAll();
 
-            //the stroage is private, all things need to be added by this methods.
+            //the storage is private, all things need to be added by this methods.
             //this is used to ensure the proper event connections
             boost::shared_ptr<Derived> append(boost::shared_ptr<Geometry3D> g);
             boost::shared_ptr<Derived> append(boost::shared_ptr<Derived> g);
@@ -392,7 +392,7 @@ struct ModuleShape3D {
 
             template<typename T>
             void set(const T& geometry, ID id);
-            //somehow the base class set funtion is not found
+            //somehow the base class set function is not found
             template<typename T>
             void set(const T& geometry);
 
@@ -442,7 +442,7 @@ struct ModuleShape3D {
 
         struct inheriter_id : public inheriter_base {
             //we don't have a createshape3d method with identifier, as identifiers can be used to
-            //specifie creation geometries or shapes. therefore a call would always be ambigious.
+            //specifie creation geometries or shapes. Therefore a call would always be ambigious.
 
             void removeShape3D(ID id);
             bool hasShape3D(ID id);
@@ -541,7 +541,7 @@ template<typename Sys>
 template<typename Derived>
 boost::shared_ptr<Derived> ModuleShape3D<Typelist, ID>::type<Sys>::Shape3D_base<Derived>::clone(Sys& newSys) {
 
-    //copy the standart stuff
+    //copy the standard stuff
     boost::shared_ptr<Derived> np = boost::shared_ptr<Derived>(new Derived(*static_cast<Derived*>(this)));
     np->m_system = &newSys;
     //it's possible that the variant contains pointers, so we need to clone them
@@ -638,7 +638,7 @@ template<typename Derived>
 void ModuleShape3D<Typelist, ID>::type<Sys>::Shape3D_base<Derived>::remove(boost::shared_ptr<Geometry3D> g) {
 
     //before we delete this shape by calling the system remove function, we need to remove
-    //this geometry as this would be deleted again by the system call and we would go into infinit recoursion
+    //this geometry as this would be deleted again by the system call and we would go into infinite recursion
 
     //get the vector object where the geometry is part of
     typename GeometryVector::const_iterator it;
@@ -659,7 +659,7 @@ template<typename Derived>
 void ModuleShape3D<Typelist, ID>::type<Sys>::Shape3D_base<Derived>::remove(boost::shared_ptr<Derived> g) {
 
     //before we delete this shape by calling the system remove function, we need to remove
-    //this geometry as this would be deleted again by the system call and we would go into infinit recoursion
+    //this geometry as this would be deleted again by the system call and we would go into infinite recursion
 
     //get the vector object where the geometry is part of
     typename ShapeVector::const_iterator it;
@@ -680,7 +680,7 @@ template<typename Derived>
 void ModuleShape3D<Typelist, ID>::type<Sys>::Shape3D_base<Derived>::remove(boost::shared_ptr<Constraint3D> g) {
 
     //before we delete this shape by calling the system remove function, we need to remove
-    //this geometry as this would be deleted again by the system call and we would go into infinit recoursion
+    //this geometry as this would be deleted again by the system call and we would go into infinite recursion
 
     //get the vector object where the geometry is part of
     typename ConstraintVector::const_iterator it;
@@ -799,14 +799,14 @@ void ModuleShape3D<Typelist, ID>::type<Sys>::inheriter_base::removeShape3D(boost
         m_this->removeGeometry3D(*it);
 
 
-    /* TODO: find out why it iterates over a empty vector and crashs...
+    /* TODO: find out why it iterates over a empty vector and crashes...
         //remove all subshapes
         typedef typename Shape3D::shape3d_iterator sit;
         for(sit it=g->beginShape3D(); it!=g->endShape3D(); it++) {
             m_this->removeShape3D(*it);
         };*/
 
-    //emit remove shape signal bevore actually deleting it
+    //emit remove shape signal before actually deleting it
     g->template emitSignal<remove>(g);
     m_this->erase(g);
 };

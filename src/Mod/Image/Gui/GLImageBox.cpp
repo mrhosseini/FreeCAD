@@ -28,6 +28,7 @@
 #elif defined (FC_OS_MACOSX)
 # include <OpenGL/gl.h>
 # include <OpenGL/glu.h>
+# include <GLKit/GLKMatrix4.h>
 #elif defined (FC_OS_WIN32)
 # include <Windows.h>
 # include <GL/gl.h>
@@ -83,7 +84,9 @@ GLImageBox::~GLImageBox()
 // Set up the OpenGL rendering state
 void GLImageBox::initializeGL()
 {
-    qglClearColor( Qt::black );		// Let OpenGL clear to black
+    QPalette p = this->palette();
+    qglClearColor(p.color(this->backgroundRole()));		// Let OpenGL clear to background color
+    //qglClearColor(Qt::black);		// Let OpenGL clear to black
     static bool init = false;
     if (!init) {
         init = true;
@@ -99,7 +102,12 @@ void GLImageBox::resizeGL( int w, int h )
     glViewport( 0, 0, (GLint)w, (GLint)h );
     glMatrixMode( GL_PROJECTION );
     glLoadIdentity();
+#if defined (FC_OS_MACOSX)
+    GLKMatrix4 orthoMat = GLKMatrix4MakeOrtho(0, width() - 1, height() - 1, 0, -1, 1);
+    glLoadMatrixf(orthoMat.m);
+#else
     gluOrtho2D(0, width() - 1, height() - 1, 0);
+#endif
     glMatrixMode(GL_MODELVIEW);
 }
 
@@ -140,7 +148,7 @@ void GLImageBox::drawImage()
     if (_image.hasValidData() == false)
         return;
 
-    // Gets the size of the diplayed image area using the current display settings 
+    // Gets the size of the displayed image area using the current display settings 
     // (in units of image pixels)
     int dx, dy;
     getDisplayedImageAreaSize(dx, dy);
@@ -205,7 +213,7 @@ void GLImageBox::drawImage()
     }
 }
 
-// Gets the size of the diplayed image area using the current display settings 
+// Gets the size of the displayed image area using the current display settings 
 // (in units of image pixels)
 void GLImageBox::getDisplayedImageAreaSize(int &dx, int &dy)
 {

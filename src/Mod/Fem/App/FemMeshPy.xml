@@ -16,7 +16,7 @@
         </Documentation>
         <Methode Name="setShape">
             <Documentation>
-                <UserDocu>set the Part shape to mesh</UserDocu>
+                <UserDocu>Set the Part shape to mesh</UserDocu>
             </Documentation>
         </Methode>
         <Methode Name="compute">
@@ -61,17 +61,21 @@
         </Methode>
         <Methode Name="read">
             <Documentation>
-                <UserDocu>Read in an DAT, UNV, MED or STL file.</UserDocu>
+                <UserDocu>Read in a DAT, UNV, MED or STL file.</UserDocu>
             </Documentation>
         </Methode>
         <Methode Name="write" Const="true">
             <Documentation>
-                <UserDocu>write out an DAT, UNV, MED or STL file.</UserDocu>
+                <UserDocu>Write out a DAT, UNV, MED or STL file.</UserDocu>
             </Documentation>
         </Methode>
         <Methode Name="writeABAQUS" Const="true">
             <Documentation>
-                <UserDocu>write out as ABAQUS.</UserDocu>
+                <UserDocu>Write out as ABAQUS inp
+                    writeABAQUS(file, int elemParam, bool groupParam)
+                    elemParam: 0 = all elements, 1 = highest elements only, 2 = FEM elements only (only edges not belonging to faces and faces not belonging to volumes)
+                    groupParam: true = write group data, false = do not write group data
+                </UserDocu>
             </Documentation>
         </Methode>
         <Methode Name="setTransform">
@@ -101,7 +105,7 @@
         </Methode>
         <Methode Name="getNodeById" Const="true">
             <Documentation>
-                <UserDocu>Get the node position vector by an Node-ID</UserDocu>
+                <UserDocu>Get the node position vector by a Node-ID</UserDocu>
             </Documentation>
         </Methode>
         <Methode Name="getNodesBySolid" Const="true">
@@ -129,6 +133,21 @@
                 <UserDocu>Return a tuple of node IDs to a given element ID</UserDocu>
             </Documentation>
         </Methode>
+        <Methode Name="getGroupName" Const="true">
+            <Documentation>
+                <UserDocu>Return a string of group name to a given group ID</UserDocu>
+            </Documentation>
+        </Methode>
+        <Methode Name="getGroupElementType" Const="true">
+            <Documentation>
+                <UserDocu>Return a string of group element type to a given group ID</UserDocu>
+            </Documentation>
+        </Methode>
+        <Methode Name="getGroupElements" Const="true">
+            <Documentation>
+                <UserDocu>Return a tuple of ElementIDs to a given group ID</UserDocu>
+            </Documentation>
+        </Methode>
         <Attribute Name="Nodes" ReadOnly="true">
             <Documentation>
                 <UserDocu>Dictionary of Nodes by ID (int ID:Vector())</UserDocu>
@@ -139,7 +158,7 @@
             <Documentation>
                 <UserDocu>Number of nodes in the Mesh.</UserDocu>
             </Documentation>
-          <Parameter Name="NodeCount" Type="Int"/>
+          <Parameter Name="NodeCount" Type="Long"/>
         </Attribute>
         <Attribute Name="Edges" ReadOnly="true">
             <Documentation>
@@ -147,11 +166,17 @@
             </Documentation>
             <Parameter Name="Edges" Type="Tuple"/>
         </Attribute>
+        <Attribute Name="EdgesOnly" ReadOnly="true">
+            <Documentation>
+                <UserDocu>Tuple of edge IDs which does not belong to any face (and thus not belong to any volume too)</UserDocu>
+            </Documentation>
+            <Parameter Name="EdgesOnly" Type="Tuple"/>
+        </Attribute>
         <Attribute Name="EdgeCount" ReadOnly="true">
             <Documentation>
                 <UserDocu>Number of edges in the Mesh.</UserDocu>
             </Documentation>
-            <Parameter Name="EdgeCount" Type="Int"/>
+            <Parameter Name="EdgeCount" Type="Long"/>
         </Attribute>
         <Attribute Name="Faces" ReadOnly="true">
             <Documentation>
@@ -159,29 +184,35 @@
             </Documentation>
             <Parameter Name="Faces" Type="Tuple"/>
         </Attribute>
+        <Attribute Name="FacesOnly" ReadOnly="true">
+            <Documentation>
+                <UserDocu>Tuple of face IDs which does not belong to any volume</UserDocu>
+            </Documentation>
+            <Parameter Name="FacesOnly" Type="Tuple"/>
+        </Attribute>
         <Attribute Name="FaceCount" ReadOnly="true">
             <Documentation>
                 <UserDocu>Number of Faces in the Mesh.</UserDocu>
             </Documentation>
-            <Parameter Name="FaceCount" Type="Int"/>
+            <Parameter Name="FaceCount" Type="Long"/>
         </Attribute>
         <Attribute Name="TriangleCount" ReadOnly="true">
             <Documentation>
                 <UserDocu>Number of Triangles in the Mesh.</UserDocu>
             </Documentation>
-            <Parameter Name="TriangleCount" Type="Int"/>
+            <Parameter Name="TriangleCount" Type="Long"/>
         </Attribute>
         <Attribute Name="QuadrangleCount" ReadOnly="true">
             <Documentation>
                 <UserDocu>Number of Quadrangles in the Mesh.</UserDocu>
             </Documentation>
-            <Parameter Name="QuadrangleCount" Type="Int"/>
+            <Parameter Name="QuadrangleCount" Type="Long"/>
         </Attribute>
         <Attribute Name="PolygonCount" ReadOnly="true">
             <Documentation>
                 <UserDocu>Number of Quadrangles in the Mesh.</UserDocu>
             </Documentation>
-            <Parameter Name="PolygonCount" Type="Int"/>
+            <Parameter Name="PolygonCount" Type="Long"/>
         </Attribute>
         <Attribute Name="Volumes" ReadOnly="true">
             <Documentation>
@@ -193,49 +224,55 @@
             <Documentation>
                 <UserDocu>Number of Volumes in the Mesh.</UserDocu>
             </Documentation>
-            <Parameter Name="VolumeCount" Type="Int"/>
+            <Parameter Name="VolumeCount" Type="Long"/>
         </Attribute>
         <Attribute Name="TetraCount" ReadOnly="true">
             <Documentation>
                 <UserDocu>Number of Tetras in the Mesh.</UserDocu>
             </Documentation>
-            <Parameter Name="TetraCount" Type="Int"/>
+            <Parameter Name="TetraCount" Type="Long"/>
         </Attribute>
         <Attribute Name="HexaCount" ReadOnly="true">
             <Documentation>
                 <UserDocu>Number of Hexas in the Mesh.</UserDocu>
             </Documentation>
-            <Parameter Name="HexaCount" Type="Int"/>
+            <Parameter Name="HexaCount" Type="Long"/>
         </Attribute>
         <Attribute Name="PyramidCount" ReadOnly="true">
             <Documentation>
                 <UserDocu>Number of Pyramids in the Mesh.</UserDocu>
             </Documentation>
-            <Parameter Name="PyramidCount" Type="Int"/>
+            <Parameter Name="PyramidCount" Type="Long"/>
         </Attribute>
         <Attribute Name="PrismCount" ReadOnly="true">
             <Documentation>
                 <UserDocu>Number of Prisms in the Mesh.</UserDocu>
             </Documentation>
-            <Parameter Name="PrismCount" Type="Int"/>
+            <Parameter Name="PrismCount" Type="Long"/>
         </Attribute>
         <Attribute Name="PolyhedronCount" ReadOnly="true">
             <Documentation>
                 <UserDocu>Number of Polyhedrons in the Mesh.</UserDocu>
             </Documentation>
-            <Parameter Name="PolyhedronCount" Type="Int"/>
+            <Parameter Name="PolyhedronCount" Type="Long"/>
         </Attribute>
         <Attribute Name="SubMeshCount" ReadOnly="true">
             <Documentation>
                 <UserDocu>Number of SubMeshs in the Mesh.</UserDocu>
             </Documentation>
-            <Parameter Name="SubMeshCount" Type="Int"/>
+            <Parameter Name="SubMeshCount" Type="Long"/>
         </Attribute>
         <Attribute Name="GroupCount" ReadOnly="true">
             <Documentation>
                 <UserDocu>Number of Groups in the Mesh.</UserDocu>
             </Documentation>
-            <Parameter Name="GroupCount" Type="Int"/>
+            <Parameter Name="GroupCount" Type="Long"/>
+        </Attribute>
+        <Attribute Name="Groups" ReadOnly="true">
+            <Documentation>
+                <UserDocu>Tuple of Group IDs.</UserDocu>
+            </Documentation>
+            <Parameter Name="Groups" Type="Tuple"/>
         </Attribute>
         <Attribute Name="Volume" ReadOnly="true">
             <Documentation>

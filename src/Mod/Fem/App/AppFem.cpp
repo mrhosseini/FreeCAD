@@ -30,6 +30,7 @@
 #include <Base/Interpreter.h>
 #include <CXX/Extensions.hxx>
 
+#include <SMESH_Version.h>
 #include "FemMeshPy.h"
 #include "FemMesh.h"
 #include "FemMeshProperty.h"
@@ -57,6 +58,7 @@
 #include "FemConstraintPlaneRotation.h"
 #include "FemConstraintContact.h"
 #include "FemConstraintFluidBoundary.h"
+#include "FemConstraintTransform.h"
 
 #include "FemResultObject.h"
 #include "FemSolverObject.h"
@@ -73,16 +75,16 @@ extern PyObject* initModule();
 }
 
 /* Python entry */
-PyMODINIT_FUNC initFem()
+PyMOD_INIT_FUNC(Fem)
 {
-    // load dependend module
+    // load dependent module
     try {
         Base::Interpreter().loadModule("Part");
         //Base::Interpreter().loadModule("Mesh");
     }
     catch(const Base::Exception& e) {
         PyErr_SetString(PyExc_ImportError, e.what());
-        return;
+        PyMOD_Return(0);
     }
     PyObject* femModule = Fem::initModule();
     Base::Console().Log("Loading Fem module... done\n");
@@ -118,7 +120,9 @@ PyMODINIT_FUNC initFem()
     Fem::StdMeshers_SegmentAroundVertex_0DPy    ::init_type(femModule);
     Fem::StdMeshers_SegmentLengthAroundVertexPy ::init_type(femModule);
     Fem::StdMeshers_StartEndLengthPy            ::init_type(femModule);
+#if SMESH_VERSION_MAJOR < 7
     Fem::StdMeshers_TrianglePreferencePy        ::init_type(femModule);
+#endif
     Fem::StdMeshers_Hexa_3DPy                   ::init_type(femModule);
 
     // Add Types to module
@@ -135,6 +139,7 @@ PyMODINIT_FUNC initFem()
     Fem::FeaturePython              ::init();
     Fem::FemMesh                    ::init();
     Fem::FemMeshObject              ::init();
+    Fem::FemMeshObjectPython        ::init();
     Fem::FemMeshShapeObject         ::init();
     Fem::FemMeshShapeNetgenObject   ::init();
     Fem::PropertyFemMesh            ::init();
@@ -146,21 +151,25 @@ PyMODINIT_FUNC initFem()
     Fem::FemSetNodesObject          ::init();
 
     Fem::Constraint                 ::init();
+    Fem::ConstraintPython           ::init();
+
     Fem::ConstraintBearing          ::init();
+    Fem::ConstraintContact          ::init();
     Fem::ConstraintFixed            ::init();
+    Fem::ConstraintFluidBoundary    ::init();
     Fem::ConstraintForce            ::init();
-    Fem::ConstraintPressure         ::init();
-    Fem::ConstraintGear             ::init();
-    Fem::ConstraintPulley           ::init();
     Fem::ConstraintDisplacement     ::init();
-    Fem::ConstraintTemperature      ::init();
+    Fem::ConstraintGear             ::init();
     Fem::ConstraintHeatflux         ::init();
     Fem::ConstraintInitialTemperature ::init();
     Fem::ConstraintPlaneRotation    ::init();
-    Fem::ConstraintContact          ::init();
-    Fem::ConstraintFluidBoundary              ::init();
-    
+    Fem::ConstraintPressure         ::init();
+    Fem::ConstraintPulley           ::init();
+    Fem::ConstraintTemperature      ::init();
+    Fem::ConstraintTransform        ::init();
+
     Fem::FemResultObject            ::init();
+    Fem::FemResultObjectPython      ::init();
     Fem::FemSolverObject            ::init();
     Fem::FemSolverObjectPython      ::init();
 
@@ -169,6 +178,8 @@ PyMODINIT_FUNC initFem()
     Fem::FemPostPipeline            ::init();
     Fem::FemPostFilter              ::init();
     Fem::FemPostClipFilter          ::init();
+    Fem::FemPostDataAlongLineFilter ::init();
+    Fem::FemPostDataAtPointFilter   ::init();
     Fem::FemPostScalarClipFilter    ::init();
     Fem::FemPostWarpVectorFilter    ::init();
     Fem::FemPostCutFilter           ::init();
@@ -178,4 +189,6 @@ PyMODINIT_FUNC initFem()
     Fem::FemPostSphereFunction      ::init();
     Fem::PropertyPostDataObject     ::init();
 #endif
+
+    PyMOD_Return(femModule);
 }

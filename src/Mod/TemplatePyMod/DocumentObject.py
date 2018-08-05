@@ -189,7 +189,7 @@ class ViewProvider(object):
         "switches this object to invisible"
         self.__vobject__.hide()
     def isVisible(self):
-        "shows wether this object is visible or invisible"
+        "shows whether this object is visible or invisible"
         return self.__vobject__.isVisible()
     def toString(self):
         "returns a string representation of the coin node of this object"
@@ -201,7 +201,7 @@ class ViewProvider(object):
         "leaves edit mode for this object"
         self.__vobject__.finishEditing()
     def isEditing(self):
-        "shows wether this object is in edit mode"
+        "shows whether this object is in edit mode"
         self.__vobject__.isEditing()
     def setTransformation(self,trsf):
         "defines a transformation for this object"
@@ -306,7 +306,7 @@ class Box(DocumentObject):
     #---------------------------PRIVATE FUNCTIONS------------------------------
     #These function won't be present in the object (begin with '_')
     def _privateFunctionExample(self,attr):
-        FreeCAD.Console.PrintMessage("The lenght : "+str(attr)+"\n")
+        FreeCAD.Console.PrintMessage("The length : "+str(attr)+"\n")
         
     def _recomputeShape(self):
         if hasattr(self,"Length") and hasattr(self,"Width") and hasattr(self,"Height"):

@@ -26,13 +26,18 @@
 # include <sstream>
 #endif
 
-#include <strstream>
+#include <gp_Ax2.hxx>
 #include <Base/Console.h>
 #include <Base/Writer.h>
 
+#include "GeometryObject.h"
+#include "DrawUtil.h"
+#include "DrawPage.h"
+#include "DrawProjGroup.h"
 #include "DrawProjGroupItem.h"
 
 #include <Mod/TechDraw/App/DrawProjGroupItemPy.h>  // generated from DrawProjGroupItemPy.xml
+
 
 using namespace TechDraw;
 
@@ -55,26 +60,27 @@ DrawProjGroupItem::DrawProjGroupItem(void)
 {
     Type.setEnums(TypeEnums);
     ADD_PROPERTY(Type, ((long)0));
+    ADD_PROPERTY_TYPE(RotationVector ,(1.0,0.0,0.0)    ,"Base",App::Prop_None,"Controls rotation of item in view. ");
 
-    // Set Hidden
-    //Direction.StatusBits.set(3);
-    Direction.setStatus(App::Property::Hidden,true);
-
-    // Set Hidden
-    //XAxisDirection.StatusBits.set(3);
-    XAxisDirection.setStatus(App::Property::Hidden,true);
-
-    // Scale and ScaleType are Readonly
-    //Scale.StatusBits.set(2);
-    //ScaleType.StatusBits.set(2);
-    Scale.setStatus(App::Property::ReadOnly,true);
-    ScaleType.setStatus(App::Property::ReadOnly,true);
+    //projection group controls these
+    Direction.setStatus(App::Property::ReadOnly,true);
+    RotationVector.setStatus(App::Property::ReadOnly,true);
+    Scale.setStatus(App::Property::Hidden,true);
+    ScaleType.setStatus(App::Property::Hidden,true);
 }
 
 short DrawProjGroupItem::mustExecute() const
 {
-    if (Type.isTouched())
-        return 1;
+    short result = 0;
+    if (!isRestoring()) {
+        result  =  (Direction.isTouched()  ||
+                    RotationVector.isTouched() ||
+                    Source.isTouched()  );
+    }
+
+    if (result) {
+        return result;
+    }
     return TechDraw::DrawViewPart::mustExecute();
 }
 
@@ -82,35 +88,147 @@ void DrawProjGroupItem::onChanged(const App::Property *prop)
 {
     TechDraw::DrawViewPart::onChanged(prop);
 
-    //TODO: Should we allow changes to the Type here?  Seems that should be handled through DrawProjGroup
-    if (prop == &Type && Type.isTouched()) {
-        if (!isRestoring()) {
-            execute();
-        }
-    }
-
 }
 
 DrawProjGroupItem::~DrawProjGroupItem()
 {
 }
 
-void DrawProjGroupItem::onDocumentRestored()
-{
-    // Rebuild the view
-    execute();
-}
-
-/*
-//TODO: Perhaps we don't need this anymore?
 App::DocumentObjectExecReturn *DrawProjGroupItem::execute(void)
 {
-    if(Type.isTouched()) {
-        Type.purgeTouched();
-    }
+    App::DocumentObjectExecReturn * ret = DrawViewPart::execute();
+    delete ret;
 
-    return TechDraw::DrawViewPart::execute();
-}*/
+    autoPosition();
+    requestPaint();
+
+    return App::DocumentObject::StdReturn;
+}
+
+void DrawProjGroupItem::autoPosition()
+{
+    auto pgroup = getPGroup();
+    Base::Vector3d newPos;
+    if (isAnchor()) {
+        X.setValue(0.0);
+        Y.setValue(0.0);
+    } else if ((pgroup != nullptr) && 
+        (pgroup->AutoDistribute.getValue()) &&
+        (!LockPosition.getValue())) {
+        newPos = pgroup->getXYPosition(Type.getValueAsString());
+        X.setValue(newPos.x);
+        Y.setValue(newPos.y);
+    }
+}
+
+void DrawProjGroupItem::onDocumentRestored()
+{
+    App::DocumentObjectExecReturn* rc = DrawProjGroupItem::execute();
+    if (rc) {
+        delete rc;
+    }
+}
+
+DrawProjGroup* DrawProjGroupItem::getPGroup() const
+{
+    DrawProjGroup* result = nullptr;
+    std::vector<App::DocumentObject*> parent = getInList();
+    for (std::vector<App::DocumentObject*>::iterator it = parent.begin(); it != parent.end(); ++it) {
+        if ((*it)->getTypeId().isDerivedFrom(DrawProjGroup::getClassTypeId())) {
+            result = dynamic_cast<TechDraw::DrawProjGroup *>(*it);
+            break;
+        }
+    }
+    return result;
+}
+
+bool DrawProjGroupItem::isAnchor(void)
+{
+    bool result = false;
+    auto group = getPGroup();
+    if (group != nullptr) {
+        DrawProjGroupItem* anchor = group->getAnchor();
+        if (anchor == this) {
+            result = true;
+        }
+    }
+    return result;
+}
+
+gp_Ax2 DrawProjGroupItem::getViewAxis(const Base::Vector3d& pt,
+                                 const Base::Vector3d& axis, 
+                                 const bool flip) const
+{
+     gp_Ax2 viewAxis;
+     Base::Vector3d x = RotationVector.getValue();
+     Base::Vector3d nx = x;
+     x.Normalize();
+     Base::Vector3d na = axis;
+     na.Normalize();
+     viewAxis = TechDrawGeometry::getViewAxis(pt,axis,flip);        //default orientation
+
+     if (!DrawUtil::checkParallel(nx,na)) {                         //!parallel/antiparallel
+         viewAxis = TechDrawGeometry::getViewAxis(pt,axis,x,flip);
+     }
+     return viewAxis;
+}
+
+//obs??
+//get the angle between the current RotationVector vector and the original X dir angle
+double DrawProjGroupItem::getRotateAngle()
+{
+    gp_Ax2 viewAxis;
+    Base::Vector3d x = RotationVector.getValue();   //current rotation
+    Base::Vector3d nx = x;
+    nx.Normalize();
+    Base::Vector3d na = Direction.getValue();
+    na.Normalize();
+    Base::Vector3d org(0.0,0.0,0.0);
+
+    viewAxis = TechDrawGeometry::getViewAxis(org,na,true);        //default orientation
+
+    gp_Dir gxDir = viewAxis.XDirection();
+    Base::Vector3d origX(gxDir.X(),gxDir.Y(),gxDir.Z());
+    origX.Normalize();
+    double dot = fabs(origX.Dot(nx));  
+    double angle = acos(dot);
+
+    Base::Vector3d rotAxis = origX.Cross(nx);
+    if (rotAxis == Direction.getValue()) {
+        angle *= -1.0;
+    }
+    return angle;
+}
+
+double DrawProjGroupItem::getScale(void) const
+{
+    double result = 1.0;
+    auto pgroup = getPGroup();
+    if (pgroup != nullptr) {
+        result = pgroup->Scale.getValue();
+        if (!(result > 0.0)) {
+            Base::Console().Log("DPGI - %s - bad scale found (%.3f) using 1.0\n",getNameInDocument(),Scale.getValue());
+            result = 1.0;                                   //kludgy protective fix. autoscale sometimes serves up 0.0!
+        }
+    }
+    return result;
+}
+
+
+void DrawProjGroupItem::unsetupObject()
+{
+    if (getPGroup() != nullptr) {
+        if (getPGroup()->hasProjection(Type.getValueAsString()) ) {
+            if ((getPGroup()->getAnchor() == this) &&
+                 !getPGroup()->isUnsetting() )         {
+                   Base::Console().Warning("Warning - DPG (%s/%s) may be corrupt - Anchor deleted\n",
+                                           getPGroup()->getNameInDocument(),getPGroup()->Label.getValue());
+                   getPGroup()->Anchor.setValue(nullptr);    //this catches situation where DPGI is deleted w/o DPG::removeProjection
+             }
+        }
+    }
+    DrawViewPart::unsetupObject();
+}
 
 PyObject *DrawProjGroupItem::getPyObject(void)
 {

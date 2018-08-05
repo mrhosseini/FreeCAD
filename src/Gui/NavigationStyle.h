@@ -98,6 +98,11 @@ public:
         Trackball
     };
 
+    enum RotationCenterMode {
+        ScenePointAtCursor,     /**< Find the point in the scene at the cursor position. If there is no point then the focal plane is used */
+        FocalPointAtCursor      /**< Find the point on the focal plane at the cursor position. */
+    };
+
 public:
     NavigationStyle();
     virtual ~NavigationStyle();
@@ -125,6 +130,12 @@ public:
     SbBool isZoomAtCursor() const;
     void zoomIn();
     void zoomOut();
+    void setDragAtCursor(SbBool);
+    SbBool isDragAtCursor() const;
+    void setRotationCenterMode(RotationCenterMode);
+    RotationCenterMode getRotationCenterMode() const;
+    void setRotationCenter(const SbVec3f& cnt);
+    SbVec3f getFocalPoint() const;
 
     void updateAnimation();
     void redraw();
@@ -166,6 +177,7 @@ protected:
     SbBool seekToPoint(const SbVec2s screenpos);
     void seekToPoint(const SbVec3f& scenepos);
     SbBool lookAtPoint(const SbVec2s screenpos);
+    SbVec3f getRotationCenter(SbBool*) const;
 
     void reorientCamera(SoCamera * camera, const SbRotation & rot);
     void panCamera(SoCamera * camera,
@@ -299,6 +311,24 @@ private:
     SoMouseButtonEvent mouseDownConsumedEvent;
 };
 
+class GuiExport RevitNavigationStyle : public UserNavigationStyle {
+    typedef UserNavigationStyle inherited;
+
+    TYPESYSTEM_HEADER();
+
+public:
+    RevitNavigationStyle();
+    ~RevitNavigationStyle();
+    const char* mouseButtons(ViewerMode);
+
+protected:
+    SbBool processSoEvent(const SoEvent * const ev);
+
+private:
+    SbBool lockButton1;
+    SoMouseButtonEvent mouseDownConsumedEvent;
+};
+
 class GuiExport BlenderNavigationStyle : public UserNavigationStyle {
     typedef UserNavigationStyle inherited;
 
@@ -370,6 +400,7 @@ public:
 
 protected:
     SbBool processSoEvent(const SoEvent * const ev);
+    bool isDraggerUnderCursor(SbVec2s pos);
 
     SbVec2s mousedownPos;//the position where some mouse button was pressed (local pixel coordinates).
     short mouseMoveThreshold;//setting. Minimum move required to consider it a move (in pixels).

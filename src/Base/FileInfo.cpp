@@ -51,6 +51,8 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <cstdio>
+#include <cerrno>
+#include <cstring>
 
 using namespace Base;
 
@@ -143,7 +145,7 @@ const std::string &FileInfo::getTempPath(void)
 
 std::string FileInfo::getTempFileName(const char* FileName, const char* Path)
 {
-    //FIXME: To avoid race conditons we should rather return a file pointer
+    //FIXME: To avoid race conditions we should rather return a file pointer
     //than a file name.
 #ifdef FC_OS_WIN32
     wchar_t buf[MAX_PATH + 2];
@@ -169,31 +171,31 @@ std::string FileInfo::getTempFileName(const char* FileName, const char* Path)
 
     return std::string(ConvertFromWideString(std::wstring(buf)));
 #else
-    char buf[PATH_MAX+1];
+    std::string buf;
 
     // Path where the file is located
     if (Path)
-        std::strncpy(buf, Path, PATH_MAX);
+        buf = Path;
     else
-        std::strncpy(buf, getTempPath().c_str(), PATH_MAX);
-
-    buf[PATH_MAX] = 0; // null termination needed
+        buf = getTempPath();
 
     // File name in the path 
     if (FileName) {
-        std::strcat(buf, "/");
-        std::strcat(buf, FileName);
-        std::strcat(buf, "XXXXXX");
+        buf += "/";
+        buf += FileName;
+        buf += "XXXXXX";
     }
-    else
-        std::strcat(buf, "/fileXXXXXX");
+    else {
+        buf += "/fileXXXXXX";
+    }
 
-    int id = mkstemp(buf);
+    int id = mkstemp(const_cast<char*>(buf.c_str()));
     if (id > -1) {
         FILE* file = fdopen(id, "w");
         fclose(file);
+        unlink(buf.c_str());
     }
-    return std::string(buf);
+    return buf;
 #endif
 }
 
@@ -272,11 +274,17 @@ std::wstring FileInfo::toStdWString() const
 #endif
 }
 
-std::string FileInfo::extension (bool complete) const
+std::string FileInfo::extension () const
 {
-    // complete not implemented
-    assert(complete==false);
     std::string::size_type pos = FileName.find_last_of('.');
+    if (pos == std::string::npos)
+        return std::string();
+    return FileName.substr(pos+1);
+}
+
+std::string FileInfo::completeExtension () const
+{
+    std::string::size_type pos = FileName.find_first_of('.');
     if (pos == std::string::npos)
         return std::string();
     return FileName.substr(pos+1);
@@ -471,6 +479,10 @@ bool FileInfo::renameFile(const char* NewName)
 #else
 #   error "FileInfo::renameFile() not implemented for this platform!"
 #endif
+    if (!res) {
+        int code = errno;
+        std::clog << "Error in renameFile: " << strerror(code) << " (" << code << ")" << std::endl;
+    }
 
     return res;
 }

@@ -368,7 +368,7 @@ void SoFCMeshPickNode::notify(SoNotList *list)
 }
 
 // Doc from superclass.
-void SoFCMeshPickNode::rayPick(SoRayPickAction * action)
+void SoFCMeshPickNode::rayPick(SoRayPickAction * /*action*/)
 {
 }
 
@@ -426,7 +426,7 @@ void SoFCMeshGridNode::initClass(void)
     SO_NODE_INIT_CLASS(SoFCMeshGridNode, SoNode, "Node");
 }
 
-void SoFCMeshGridNode::GLRender(SoGLRenderAction * action)
+void SoFCMeshGridNode::GLRender(SoGLRenderAction * /*action*/)
 {
     const SbVec3f& min = minGrid.getValue();
     const SbVec3f& max = maxGrid.getValue();
@@ -588,17 +588,26 @@ void SoFCMeshObjectShape::initClass()
     SO_NODE_INIT_CLASS(SoFCMeshObjectShape, SoShape, "Shape");
 }
 
-SoFCMeshObjectShape::SoFCMeshObjectShape() : renderTriangleLimit(100000), meshChanged(true)
+SoFCMeshObjectShape::SoFCMeshObjectShape()
+    : renderTriangleLimit(100000)
+    , selectBuf(0)
+    , updateGLArray(false)
 {
     SO_NODE_CONSTRUCTOR(SoFCMeshObjectShape);
     setName(SoFCMeshObjectShape::getClassTypeId().getName());
 }
 
+SoFCMeshObjectShape::~SoFCMeshObjectShape()
+{
+}
+
 void SoFCMeshObjectShape::notify(SoNotList * node)
 {
     inherited::notify(node);
-    meshChanged = true;
+    updateGLArray = true;
 }
+
+#define RENDER_GLARRAYS
 
 /**
  * Either renders the complete mesh or only a subset of the points.
@@ -631,13 +640,27 @@ void SoFCMeshObjectShape::GLRender(SoGLRenderAction *action)
             ccw = false;
 
         if (mode == false || mesh->countFacets() <= this->renderTriangleLimit) {
-            if (mbind != OVERALL)
+            if (mbind != OVERALL) {
                 drawFaces(mesh, &mb, mbind, needNormals, ccw);
-            else
+            }
+            else {
+#ifdef RENDER_GLARRAYS
+                if (updateGLArray) {
+                    updateGLArray = false;
+                    generateGLArrays(state);
+                }
+                renderFacesGLArray(action);
+#else
                 drawFaces(mesh, 0, mbind, needNormals, ccw);
+#endif
+            }
         }
         else {
+#if 0 && defined (RENDER_GLARRAYS)
+            renderCoordsGLArray(action);
+#else
             drawPoints(mesh, needNormals, ccw);
+#endif
         }
 
         // Disable caching for this node
@@ -679,7 +702,7 @@ SoFCMeshObjectShape::Binding SoFCMeshObjectShape::findMaterialBinding(SoState * 
 
 /**
  * Renders the triangles of the complete mesh.
- * FIXME: Do it the same way as Coin did to have only one implementation which is controled by defines
+ * FIXME: Do it the same way as Coin did to have only one implementation which is controlled by defines
  * FIXME: Implement using different values of transparency for each vertex or face
  */
 void SoFCMeshObjectShape::drawFaces(const Mesh::MeshObject * mesh, SoMaterialBundle* mb,
@@ -842,6 +865,102 @@ void SoFCMeshObjectShape::drawPoints(const Mesh::MeshObject * mesh, SbBool needN
     }
 }
 
+void SoFCMeshObjectShape::generateGLArrays(SoState * state)
+{
+    const Mesh::MeshObject * mesh = SoFCMeshObjectElement::get(state);
+
+    this->index_array.resize(0);
+    this->vertex_array.resize(0);
+
+    std::vector<float> face_vertices;
+    std::vector<int32_t> face_indices;
+
+    const MeshCore::MeshKernel& kernel = mesh->getKernel();
+    const MeshCore::MeshPointArray& cP = kernel.GetPoints();
+    const MeshCore::MeshFacetArray& cF = kernel.GetFacets();
+
+#if 0
+    // Smooth shading
+    face_vertices.resize(cP.size() * 6);
+    face_indices.resize(3 * cF.size());
+
+    int indexed = 0;
+    for (MeshCore::MeshPointArray::const_iterator it = cP.begin(); it != cP.end(); ++it) {
+        face_vertices[indexed * 6 + 3] += it->x;
+        face_vertices[indexed * 6 + 4] += it->y;
+        face_vertices[indexed * 6 + 5] += it->z;
+        indexed++;
+    }
+
+    indexed = 0;
+    for (MeshCore::MeshFacetArray::const_iterator it = cF.begin(); it != cF.end(); ++it) {
+        Base::Vector3f n = kernel.GetFacet(*it).GetNormal();
+        for (int i=0; i<3; i++) {
+            int32_t idx = it->_aulPoints[i];
+            face_vertices[idx * 6 + 0] += n.x;
+            face_vertices[idx * 6 + 1] += n.y;
+            face_vertices[idx * 6 + 2] += n.z;
+
+            face_indices[indexed++] = idx;
+        }
+    }
+#else
+    // Flat shading
+    face_vertices.reserve(3 * cF.size() * 6); // duplicate each vertex
+    face_indices.resize(3 * cF.size());
+
+    int indexed = 0;
+    for (MeshCore::MeshFacetArray::const_iterator it = cF.begin(); it != cF.end(); ++it) {
+        Base::Vector3f n = kernel.GetFacet(*it).GetNormal();
+        for (int i=0; i<3; i++) {
+            face_vertices.push_back(n.x);
+            face_vertices.push_back(n.y);
+            face_vertices.push_back(n.z);
+            const Base::Vector3f& v = cP[it->_aulPoints[i]];
+            face_vertices.push_back(v.x);
+            face_vertices.push_back(v.y);
+            face_vertices.push_back(v.z);
+
+            face_indices[indexed] = indexed;
+            indexed++;
+        }
+    }
+#endif
+
+    this->index_array.swap(face_indices);
+    this->vertex_array.swap(face_vertices);
+}
+
+void SoFCMeshObjectShape::renderFacesGLArray(SoGLRenderAction *action)
+{
+    (void)action;
+    GLsizei cnt = static_cast<GLsizei>(index_array.size());
+
+    glEnableClientState(GL_NORMAL_ARRAY);
+    glEnableClientState(GL_VERTEX_ARRAY);
+
+    glInterleavedArrays(GL_N3F_V3F, 0, &(vertex_array[0]));
+    glDrawElements(GL_TRIANGLES, cnt, GL_UNSIGNED_INT, &(index_array[0]));
+
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_NORMAL_ARRAY);
+}
+
+void SoFCMeshObjectShape::renderCoordsGLArray(SoGLRenderAction *action)
+{
+    (void)action;
+    int cnt = index_array.size();
+
+    glEnableClientState(GL_NORMAL_ARRAY);
+    glEnableClientState(GL_VERTEX_ARRAY);
+
+    glInterleavedArrays(GL_N3F_V3F, 0, &(vertex_array[0]));
+    glDrawElements(GL_POINTS, cnt, GL_UNSIGNED_INT, &(index_array[0]));
+
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_NORMAL_ARRAY);
+}
+
 void SoFCMeshObjectShape::doAction(SoAction * action)
 {
     if (action->getTypeId() == Gui::SoGLSelectAction::getClassTypeId()) {
@@ -896,7 +1015,12 @@ void SoFCMeshObjectShape::startSelection(SoAction * action, const Mesh::MeshObje
     //glGetDoublev(GL_PROJECTION_MATRIX ,mp);
     glPushMatrix();
     glLoadIdentity();
-    gluPickMatrix(x, y, w, h, viewport);
+    // See https://www.opengl.org/discussion_boards/showthread.php/184308-gluPickMatrix-Implementation?p=1259884&viewfull=1#post1259884
+    //gluPickMatrix(x, y, w, h, viewport);
+    if (w > 0 && h > 0) {
+        glTranslatef((viewport[2] - 2 * (x - viewport[0])) / w, (viewport[3] - 2 * (y - viewport[1])) / h, 0);
+        glScalef(viewport[2] / w, viewport[3] / h, 1.0);
+    }
     glMultMatrixf(/*mp*/this->projection);
     glMatrixMode(GL_MODELVIEW);
     glPushMatrix();
@@ -1216,7 +1340,7 @@ SoFCMeshSegmentShape::Binding SoFCMeshSegmentShape::findMaterialBinding(SoState 
 
 /**
  * Renders the triangles of the complete mesh.
- * FIXME: Do it the same way as Coin did to have only one implementation which is controled by defines
+ * FIXME: Do it the same way as Coin did to have only one implementation which is controlled by defines
  * FIXME: Implement using different values of transparency for each vertex or face
  */
 void SoFCMeshSegmentShape::drawFaces(const Mesh::MeshObject * mesh, SoMaterialBundle* mb,

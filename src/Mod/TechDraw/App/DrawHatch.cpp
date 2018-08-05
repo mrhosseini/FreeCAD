@@ -25,6 +25,9 @@
 
 #ifndef _PreComp_
 # include <sstream>
+#include <Precision.hxx>
+#include <cmath>
+
 #endif
 
 #include <iomanip>
@@ -37,6 +40,7 @@
 #include <Base/Exception.h>
 #include <Base/FileInfo.h>
 #include <Base/Parameter.h>
+#include <Base/UnitsApi.h>
 
 #include "DrawViewPart.h"
 #include "DrawHatch.h"
@@ -56,14 +60,15 @@ DrawHatch::DrawHatch(void)
     ADD_PROPERTY_TYPE(DirProjection ,(0,0,1.0)    ,vgroup,App::Prop_None,"Projection direction when Hatch was defined");     //sb RO?
     ADD_PROPERTY_TYPE(Source,(0),vgroup,(App::PropertyType)(App::Prop_None),"The View + Face to be hatched");
     ADD_PROPERTY_TYPE(HatchPattern ,(""),vgroup,App::Prop_None,"The hatch pattern file for this area");
-    ADD_PROPERTY_TYPE(HatchColor,(0.0f,0.0f,0.0f),vgroup,App::Prop_None,"The color of the hatch pattern");
+
+    DirProjection.setStatus(App::Property::ReadOnly,true);
 
     Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter()
-        .GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("Mod/TechDraw");
+        .GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("Mod/TechDraw/Files");
 
-    std::string defaultDir = App::Application::getResourceDir() + "Mod/Drawing/patterns/";
+    std::string defaultDir = App::Application::getResourceDir() + "Mod/TechDraw/Patterns/";
     std::string defaultFileName = defaultDir + "simple.svg";
-    QString patternFileName = QString::fromStdString(hGrp->GetASCII("PatternFile",defaultFileName.c_str()));
+    QString patternFileName = QString::fromStdString(hGrp->GetASCII("FileHatch",defaultFileName.c_str()));
     if (patternFileName.isEmpty()) {
         patternFileName = QString::fromStdString(defaultFileName);
     }
@@ -79,9 +84,8 @@ DrawHatch::~DrawHatch()
 
 void DrawHatch::onChanged(const App::Property* prop)
 {
-    if (prop == &Source         ||
-        prop == &HatchPattern  ||
-        prop == &HatchColor) {
+    if ((prop == &Source)         ||
+        (prop == &HatchPattern)) {
         if (!isRestoring()) {
               DrawHatch::execute();
           }
@@ -93,8 +97,7 @@ App::DocumentObjectExecReturn *DrawHatch::execute(void)
 {
     DrawViewPart* parent = getSourceView();
     if (parent) {
-        parent->touch();
-        parent->recompute();
+        parent->requestPaint();
     }
     return App::DocumentObject::StdReturn;
 }

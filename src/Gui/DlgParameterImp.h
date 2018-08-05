@@ -28,6 +28,7 @@
 
 #include <QTreeWidgetItem>
 #include <QTreeWidget>
+#include <QDialog>
 
 namespace Gui {
 namespace Dialog {
@@ -167,7 +168,7 @@ protected Q_SLOTS:
     void onCreateBoolItem();
     /** Defines that the first column is editable. 
      * @note We need to reimplement this method as QTreeWidgetItem::flags()
-     * doesn't have an int paramater.
+     * doesn't have an int parameter.
      */
     bool edit ( const QModelIndex & index, EditTrigger trigger, QEvent * event );
 

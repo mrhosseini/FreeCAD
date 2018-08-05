@@ -695,7 +695,7 @@ public:
     * \param doNotRaise - if true, suppres exception, just return free memory size
     * \retval int - amount of available memory in MB or negative number in failure case
    */
-  static int CheckMemory(const bool doNotRaise=false) throw (std::bad_alloc);
+  static int CheckMemory(const bool doNotRaise=false);
 
   int MaxNodeID() const;
   int MinNodeID() const;
@@ -754,7 +754,7 @@ public:
   inline void setMyModified() { this->myModified = true; }
 
   void Modified();
-  unsigned long GetMTime() const;
+  VTK_MTIME_TYPE GetMTime() const;
   bool isCompacted();
 
 protected:

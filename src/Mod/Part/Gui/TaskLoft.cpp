@@ -34,6 +34,7 @@
 
 #include <Gui/Application.h>
 #include <Gui/BitmapFactory.h>
+#include <Gui/Command.h>
 #include <Gui/Document.h>
 #include <Gui/Selection.h>
 #include <Gui/ViewProvider.h>
@@ -66,12 +67,13 @@ public:
 LoftWidget::LoftWidget(QWidget* parent)
   : d(new Private())
 {
-    Gui::Application::Instance->runPythonCode("from FreeCAD import Base");
-    Gui::Application::Instance->runPythonCode("import Part");
+    Q_UNUSED(parent);
+    Gui::Command::runCommand(Gui::Command::App, "from FreeCAD import Base");
+    Gui::Command::runCommand(Gui::Command::App, "import Part");
 
     d->ui.setupUi(this);
-    d->ui.selector->setAvailableLabel(tr("Vertex/Edge/Wire/Face"));
-    d->ui.selector->setSelectedLabel(tr("Loft"));
+    d->ui.selector->setAvailableLabel(tr("Available profiles"));
+    d->ui.selector->setSelectedLabel(tr("Selected profiles"));
 
     connect(d->ui.selector->availableTreeWidget(), SIGNAL(currentItemChanged(QTreeWidgetItem*, QTreeWidgetItem*)),
             this, SLOT(onCurrentItemChanged(QTreeWidgetItem*, QTreeWidgetItem*)));
@@ -175,7 +177,7 @@ bool LoftWidget::accept()
         Gui::Document* doc = Gui::Application::Instance->getDocument(d->document.c_str());
         if (!doc) throw Base::Exception("Document doesn't exist anymore");
         doc->openCommand("Loft");
-        Gui::Application::Instance->runPythonCode((const char*)cmd.toLatin1(), false, false);
+        Gui::Command::runCommand(Gui::Command::App, cmd.toLatin1());
         doc->getDocument()->recompute();
         App::DocumentObject* obj = doc->getDocument()->getActiveObject();
         if (obj && !obj->isValid()) {

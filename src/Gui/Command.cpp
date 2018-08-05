@@ -25,6 +25,7 @@
 #ifndef _PreComp_
 # include <sstream>
 # include <QApplication>
+# include <QByteArray>
 # include <QDir>
 # include <QKeySequence>
 # include <QMessageBox>
@@ -38,7 +39,6 @@
 #include "Application.h"
 #include "Document.h"
 #include "Selection.h"
-#include "HelpView.h"
 #include "Macro.h"
 #include "MainWindow.h"
 #include "DlgUndoRedo.h"
@@ -67,6 +67,7 @@ using namespace Gui::DockWnd;
 
 /** \defgroup commands Command Framework
     \ingroup GUI
+    \brief Structure for registering commands to the FreeCAD system
  * \section Overview
  * In GUI applications many commands can be invoked via a menu item, a toolbar button or an accelerator key. The answer of Qt to master this
  * challenge is the class \a QAction. A QAction object can be added to a popup menu or a toolbar and keep the state of the menu item and
@@ -83,7 +84,7 @@ using namespace Gui::DockWnd;
  *
  * \section wayout Way out
  * To solve these problems we have introduced the command framework to decouple QAction and MainWindow. The base classes of the framework are
- * \a Gui::CommandBase and \a Gui::Action that represent the link between Qt's QAction world and the FreeCAD's command  world. 
+ * \a Gui::CommandBase and \a Gui::Action that represent the link between Qt's QAction world and the FreeCAD's command world. 
  *
  * The Action class holds a pointer to QAction and CommandBase and acts as a mediator and -- to save memory -- that gets created 
  * (@ref Gui::CommandBase::createAction()) not before it is added (@ref Gui::Command::addTo()) to a menu or toolbar.
@@ -134,7 +135,7 @@ CommandBase::CommandBase( const char* sMenu, const char* sToolTip, const char* s
 
 CommandBase::~CommandBase()
 {
-    //Note: The Action object becomes a children of MainWindow which gets destoyed _before_ the
+    //Note: The Action object becomes a children of MainWindow which gets destroyed _before_ the
     //command manager hence before any command object. So the action pointer is a dangling pointer
     //at this state.
 }
@@ -216,6 +217,7 @@ Command::Command(const char* name)
     sAppModule  = "FreeCAD";
     sGroup      = QT_TR_NOOP("Standard");
     eType       = AlterDoc | Alter3DView | AlterSelection;
+    bEnabled    = true;
 }
 
 Command::~Command()
@@ -240,6 +242,15 @@ void Command::addTo(QWidget *pcWidget)
         _pcAction = createAction();
 
     _pcAction->addTo(pcWidget);
+}
+
+void Command::addToGroup(ActionGroup* group, bool checkable)
+{
+    if (!_pcAction)
+        _pcAction = createAction();
+
+    _pcAction->setCheckable(checkable);
+    group->addAction(_pcAction->findChild<QAction*>());
 }
 
 Application *Command::getGuiApplication(void)
@@ -321,14 +332,15 @@ void Command::invoke(int i)
 
 void Command::testActive(void)
 {
-    if (!_pcAction) return;
+    if (!_pcAction)
+        return;
 
-    if (_blockCmd) {
+    if (_blockCmd || !bEnabled) {
         _pcAction->setEnabled(false);
         return;
     }
 
-    if (!(eType & ForEdit))  // special case for commands which are only in some edit modes active
+    if (!(eType & ForEdit)) { // special case for commands which are only in some edit modes active
         
         if ((!Gui::Control().isAllowedAlterDocument()  && eType & AlterDoc)    ||
             (!Gui::Control().isAllowedAlterView()      && eType & Alter3DView) ||
@@ -336,9 +348,18 @@ void Command::testActive(void)
              _pcAction->setEnabled(false);
             return;
         }
+    }
 
     bool bActive = isActive();
     _pcAction->setEnabled(bActive);
+}
+
+void Command::setEnabled(bool on)
+{
+    if (_pcAction) {
+        bEnabled = on;
+        _pcAction->setEnabled(on);
+    }
 }
 
 //--------------------------------------------------------------------------
@@ -391,9 +412,9 @@ void Command::setGroupName(const char* s)
 //--------------------------------------------------------------------------
 /** Open a new Undo transaction on the active document
  *  This method opens a new UNDO transaction on the active document. This transaction
- *  will later apear in the UNDO REDO dialog with the name of the command. If the user
+ *  will later appear in the UNDO REDO dialog with the name of the command. If the user
  *  recall the transaction everything changed on the document between OpenCommand() and
- *  CommitCommand will be undone (or redone). You can use an alternetive name for the
+ *  CommitCommand will be undone (or redone). You can use an alternative name for the
  *  operation default is the Command name.
  *  @see CommitCommand(),AbortCommand()
  */
@@ -439,7 +460,8 @@ void Command::doCommand(DoCmd_Type eType, const char* sCmd, ...)
     const QString cmd = s.vsprintf(sCmd, ap);
     va_end(ap);
 
-    QByteArray format = cmd.toLatin1();
+    // 'vsprintf' expects a utf-8 string for '%s'
+    QByteArray format = cmd.toUtf8();
 
 #ifdef FC_LOGUSERACTION
     Base::Console().Log("CmdC: %s\n", format.constData());
@@ -454,13 +476,23 @@ void Command::doCommand(DoCmd_Type eType, const char* sCmd, ...)
 }
 
 /// Run a App level Action
-void Command::runCommand(DoCmd_Type eType,const char* sCmd)
+void Command::runCommand(DoCmd_Type eType, const char* sCmd)
 {
     if (eType == Gui)
         Gui::Application::Instance->macroManager()->addLine(MacroManager::Gui,sCmd);
     else
         Gui::Application::Instance->macroManager()->addLine(MacroManager::App,sCmd);
     Base::Interpreter().runString(sCmd);
+}
+
+/// Run a App level Action
+void Command::runCommand(DoCmd_Type eType, const QByteArray& sCmd)
+{
+    if (eType == Gui)
+        Gui::Application::Instance->macroManager()->addLine(MacroManager::Gui,sCmd.constData());
+    else
+        Gui::Application::Instance->macroManager()->addLine(MacroManager::App,sCmd.constData());
+    Base::Interpreter().runString(sCmd.constData());
 }
 
 void Command::addModule(DoCmd_Type eType,const char* sModuleName)
@@ -575,27 +607,17 @@ const char * Command::endCmdHelp(void)
 void Command::applyCommandData(const char* context, Action* action)
 {
     action->setText(QCoreApplication::translate(
-        context, getMenuText(), 0,
-        QCoreApplication::UnicodeUTF8));
+        context, getMenuText()));
     action->setToolTip(QCoreApplication::translate(
-        context, getToolTipText(), 0,
-        QCoreApplication::UnicodeUTF8));
+        context, getToolTipText()));
+    action->setWhatsThis(QCoreApplication::translate(
+        context, getWhatsThis()));
     if (sStatusTip)
         action->setStatusTip(QCoreApplication::translate(
-            context, getStatusTip(), 0,
-            QCoreApplication::UnicodeUTF8));
+            context, getStatusTip()));
     else
         action->setStatusTip(QCoreApplication::translate(
-            context, getToolTipText(), 0,
-            QCoreApplication::UnicodeUTF8));
-    if (sWhatsThis)
-        action->setWhatsThis(QCoreApplication::translate(
-            context, getWhatsThis(), 0,
-            QCoreApplication::UnicodeUTF8));
-    else
-        action->setWhatsThis(QCoreApplication::translate(
-            context, getToolTipText(), 0,
-            QCoreApplication::UnicodeUTF8));
+            context, getToolTipText()));
     QString accel = action->shortcut().toString(QKeySequence::NativeText);
     if (!accel.isEmpty()) {
         // show shortcut inside tooltip
@@ -707,6 +729,7 @@ MacroCommand::MacroCommand(const char* name, bool system)
 {
     sGroup = QT_TR_NOOP("Macros");
     eType  = 0;
+    sScriptName = 0;
 }
 
 MacroCommand::~MacroCommand()
@@ -717,20 +740,21 @@ MacroCommand::~MacroCommand()
 
 void MacroCommand::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
+
     QDir d;
-    
-    if(!systemMacro) {
-	std::string cMacroPath;
-	
-	cMacroPath = App::GetApplication().GetParameterGroupByPath
+    if (!systemMacro) {
+        std::string cMacroPath;
+
+        cMacroPath = App::GetApplication().GetParameterGroupByPath
                              ("User parameter:BaseApp/Preferences/Macro")->GetASCII("MacroPath",
                                      App::Application::getUserMacroDir().c_str());
-			     
-	d = QDir(QString::fromUtf8(cMacroPath.c_str()));
+
+        d = QDir(QString::fromUtf8(cMacroPath.c_str()));
     }
     else {
-	QString dirstr = QString::fromUtf8(App::GetApplication().getHomePath()) + QString::fromUtf8("Macro");
-	d = QDir(dirstr);
+        QString dirstr = QString::fromUtf8(App::GetApplication().getHomePath()) + QString::fromUtf8("Macro");
+        d = QDir(dirstr);
     }
     
     QFileInfo fi(d, QString::fromUtf8(sScriptName));
@@ -803,9 +827,7 @@ void MacroCommand::load()
             if ((*it)->GetASCII("Pixmap", "nix") != "nix")
                 macro->setPixmap    ( (*it)->GetASCII( "Pixmap"     ).c_str() );
             macro->setAccel       ( (*it)->GetASCII( "Accel",0    ).c_str() );
-	    
-	    macro->systemMacro = (*it)->GetBool("System", false);
-	    
+            macro->systemMacro = (*it)->GetBool("System", false);
             Application::Instance->commandManager().addCommand( macro );
         }
     }
@@ -828,7 +850,7 @@ void MacroCommand::save()
             hMacro->SetASCII( "Statustip", macro->getStatusTip  () );
             hMacro->SetASCII( "Pixmap",    macro->getPixmap     () );
             hMacro->SetASCII( "Accel",     macro->getAccel      () );
-	    hMacro->SetBool( "System",     macro->systemMacro );
+            hMacro->SetBool( "System",     macro->systemMacro );
         }
     }
 }
@@ -856,7 +878,7 @@ PythonCommand::PythonCommand(const char* name, PyObject * pcPyCommand, const cha
     _pcPyResourceDict = Interpreter().runMethodObject(_pcPyCommand, "GetResources");
     // check if the "GetResources()" method returns a Dict object
     if (!PyDict_Check(_pcPyResourceDict)) {
-        throw Base::Exception("PythonCommand::PythonCommand(): Method GetResources() of the Python "
+        throw Base::TypeError("PythonCommand::PythonCommand(): Method GetResources() of the Python "
                               "command object returns the wrong type (has to be dict)");
     }
 
@@ -886,18 +908,26 @@ PythonCommand::~PythonCommand()
 
 const char* PythonCommand::getResource(const char* sName) const
 {
+    Base::PyGILStateLocker lock;
     PyObject* pcTemp;
 
     // get the "MenuText" resource string
     pcTemp = PyDict_GetItemString(_pcPyResourceDict,sName);
     if (!pcTemp)
         return "";
+#if PY_MAJOR_VERSION >= 3
+    if (!PyUnicode_Check(pcTemp)) {
+#else
     if (!PyString_Check(pcTemp)) {
-        throw Base::Exception("PythonCommand::getResource(): Method GetResources() of the Python "
+#endif
+        throw Base::TypeError("PythonCommand::getResource(): Method GetResources() of the Python "
                               "command object returns a dictionary which holds not only strings");
     }
-
+#if PY_MAJOR_VERSION >= 3
+    return PyUnicode_AsUTF8(pcTemp);
+#else
     return PyString_AsString(pcTemp);
+#endif
 }
 
 void PythonCommand::activated(int iMsg)
@@ -920,7 +950,7 @@ void PythonCommand::activated(int iMsg)
         }
     }
     else {
-        doCommand(Doc,Activation.c_str());
+        runCommand(Doc,Activation.c_str());
     }
 }
 
@@ -960,9 +990,17 @@ const char* PythonCommand::getHelpUrl(void) const
     pcTemp = Interpreter().runMethodObject(_pcPyCommand, "CmdHelpURL");
     if (! pcTemp )
         return "";
+#if PY_MAJOR_VERSION >= 3
+    if (! PyUnicode_Check(pcTemp) )
+#else
     if (! PyString_Check(pcTemp) )
-        throw Base::Exception("PythonCommand::CmdHelpURL(): Method CmdHelpURL() of the Python command object returns no string");
+#endif
+        throw Base::TypeError("PythonCommand::CmdHelpURL(): Method CmdHelpURL() of the Python command object returns no string");
+#if PY_MAJOR_VERSION >= 3
+    return PyUnicode_AsUTF8(pcTemp);
+#else
     return PyString_AsString(pcTemp);
+#endif
 }
 
 Action * PythonCommand::createAction(void)
@@ -1028,6 +1066,7 @@ const char* PythonCommand::getAccel() const
 
 bool PythonCommand::isCheckable() const
 {
+    Base::PyGILStateLocker lock;
     PyObject* item = PyDict_GetItemString(_pcPyResourceDict,"Checkable");
     return item ? true : false;
 }
@@ -1036,16 +1075,16 @@ bool PythonCommand::isChecked() const
 {
     PyObject* item = PyDict_GetItemString(_pcPyResourceDict,"Checkable");
     if (!item) {
-        throw Base::Exception("PythonCommand::isChecked(): Method GetResources() of the Python "
-                              "command object doesn't contain the key 'Checkable'");
+        throw Base::ValueError("PythonCommand::isChecked(): Method GetResources() of the Python "
+                               "command object doesn't contain the key 'Checkable'");
     }
 
     if (PyBool_Check(item)) {
         return PyObject_IsTrue(item) ? true : false;
     }
     else {
-        throw Base::Exception("PythonCommand::isChecked(): Method GetResources() of the Python "
-                              "command object contains the key 'Checkable' which is not a boolean");
+        throw Base::ValueError("PythonCommand::isChecked(): Method GetResources() of the Python "
+                               "command object contains the key 'Checkable' which is not a boolean");
     }
 }
 
@@ -1241,18 +1280,19 @@ void PythonGroupCommand::languageChange()
     QList<QAction*> a = pcAction->actions();
     for (QList<QAction*>::iterator it = a.begin(); it != a.end(); ++it) {
         Gui::Command* cmd = rcCmdMgr.getCommandByName((*it)->property("CommandName").toByteArray());
-        // Python command use getName as context
-        if (dynamic_cast<PythonCommand*>(cmd)) {
+        if (cmd) {
+            // Python command use getName as context
+            const char *context = dynamic_cast<PythonCommand*>(cmd) ? cmd->getName() : cmd->className();
+            const char *tooltip = cmd->getToolTipText();
+            const char *statustip = cmd->getStatusTip();
+            if (!statustip || '\0' == *statustip) {
+                statustip = tooltip;
+            }
+
             (*it)->setIcon(Gui::BitmapFactory().iconFromTheme(cmd->getPixmap()));
-            (*it)->setText(QApplication::translate(cmd->getName(), cmd->getMenuText()));
-            (*it)->setToolTip(QApplication::translate(cmd->getName(), cmd->getToolTipText()));
-            (*it)->setStatusTip(QApplication::translate(cmd->getName(), cmd->getStatusTip()));
-        }
-        else if (cmd) {
-            (*it)->setIcon(Gui::BitmapFactory().iconFromTheme(cmd->getPixmap()));
-            (*it)->setText(QApplication::translate(cmd->className(), cmd->getMenuText()));
-            (*it)->setToolTip(QApplication::translate(cmd->className(), cmd->getToolTipText()));
-            (*it)->setStatusTip(QApplication::translate(cmd->className(), cmd->getStatusTip()));
+            (*it)->setText(QApplication::translate(context, cmd->getMenuText()));
+            (*it)->setToolTip(QApplication::translate(context, tooltip));
+            (*it)->setStatusTip(QApplication::translate(context, statustip));
         }
     }
 }
@@ -1264,18 +1304,26 @@ const char* PythonGroupCommand::getHelpUrl(void) const
 
 const char* PythonGroupCommand::getResource(const char* sName) const
 {
+    Base::PyGILStateLocker lock;
     PyObject* pcTemp;
 
     // get the "MenuText" resource string
     pcTemp = PyDict_GetItemString(_pcPyResource, sName);
     if (!pcTemp)
         return "";
+#if PY_MAJOR_VERSION >= 3
+    if (!PyUnicode_Check(pcTemp)) {
+#else
     if (!PyString_Check(pcTemp)) {
+#endif
         throw Base::ValueError("PythonGroupCommand::getResource(): Method GetResources() of the Python "
                                "group command object returns a dictionary which holds not only strings");
     }
-
+#if PY_MAJOR_VERSION >= 3
+    return PyUnicode_AsUTF8(pcTemp);
+#else
     return PyString_AsString(pcTemp);
+#endif
 }
 
 const char* PythonGroupCommand::getWhatsThis() const
@@ -1323,7 +1371,7 @@ bool PythonGroupCommand::isExclusive() const
         return PyObject_IsTrue(item) ? true : false;
     }
     else {
-        throw Base::Exception("PythonGroupCommand::isExclusive(): Method GetResources() of the Python "
+        throw Base::TypeError("PythonGroupCommand::isExclusive(): Method GetResources() of the Python "
                               "command object contains the key 'Exclusive' which is not a boolean");
     }
 }
@@ -1339,7 +1387,7 @@ bool PythonGroupCommand::hasDropDownMenu() const
         return PyObject_IsTrue(item) ? true : false;
     }
     else {
-        throw Base::Exception("PythonGroupCommand::hasDropDownMenu(): Method GetResources() of the Python "
+        throw Base::TypeError("PythonGroupCommand::hasDropDownMenu(): Method GetResources() of the Python "
                               "command object contains the key 'DropDownMenu' which is not a boolean");
     }
 }

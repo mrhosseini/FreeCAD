@@ -26,13 +26,19 @@ commands (optional) is a list of Path commands</UserDocu>
             <Documentation>
                 <UserDocu>the number of commands in this path</UserDocu>
             </Documentation>
-            <Parameter Name="Size" Type="Int"/>
+            <Parameter Name="Size" Type="Long"/>
         </Attribute>
         <Attribute Name="Commands" ReadOnly="false">
             <Documentation>
                 <UserDocu>the list of commands of this path</UserDocu>
             </Documentation>
             <Parameter Name="Commands" Type="List"/>
+        </Attribute>
+        <Attribute Name="Center" ReadOnly="false">
+            <Documentation>
+                <UserDocu>the center position for all rotational parameters</UserDocu>
+            </Documentation>
+            <Parameter Name="Center" Type="Object"/>
         </Attribute>
         <Methode Name="addCommands">
             <Documentation>
@@ -66,9 +72,9 @@ deletes the command found at the given position or from the end of the path</Use
                 <UserDocu>returns a copy of this path</UserDocu>
             </Documentation>
         </Methode>
-        <ClassDeclarations>
+        <!--<ClassDeclarations>
             bool touched;
-        </ClassDeclarations>
+        </ClassDeclarations>-->
 
   </PythonExport>
 </GenerateModel>

@@ -249,6 +249,10 @@ ViewProviderMesh::ViewProviderMesh() : pcOpenEdge(0)
     if (pcHighlight->selectionMode.getValue() == Gui::SoFCSelection::SEL_OFF)
         Selectable.setValue(false);
 
+    pcShapeGroup = new SoGroup();
+    pcShapeGroup->ref();
+    pcHighlight->addChild(pcShapeGroup);
+
     pOpenColor = new SoBaseColor();
     setOpenEdgeColorFrom(ShapeColor.getValue());
     pOpenColor->ref();
@@ -317,6 +321,7 @@ ViewProviderMesh::ViewProviderMesh() : pcOpenEdge(0)
 ViewProviderMesh::~ViewProviderMesh()
 {
     pcHighlight->unref();
+    pcShapeGroup->unref();
     pOpenColor->unref();
     pcLineStyle->unref();
     pcPointStyle->unref();
@@ -327,7 +332,7 @@ ViewProviderMesh::~ViewProviderMesh()
 
 void ViewProviderMesh::onChanged(const App::Property* prop)
 {
-    // we gonna change the number of colors to one
+    // we're going to change the number of colors to one
     if (prop == &ShapeColor || prop == &ShapeMaterial) {
         pcMatBinding->value = SoMaterialBinding::OVERALL;
     }
@@ -418,12 +423,15 @@ void ViewProviderMesh::attach(App::DocumentObject *pcFeat)
     pcFlatRoot->addChild(pcShapeMaterial);
     pcFlatRoot->addChild(pcMatBinding);
     pcFlatRoot->addChild(pcHighlight);
-    addDisplayMaskMode(pcFlatRoot, "Flat");
+    addDisplayMaskMode(pcFlatRoot, "Shaded");
 
     // points
     SoGroup* pcPointRoot = new SoGroup();
     pcPointRoot->addChild(pcPointStyle);
-    pcPointRoot->addChild(pcFlatRoot);
+    pcPointRoot->addChild(pShapeHints);
+    pcPointRoot->addChild(pcShapeMaterial);
+    pcPointRoot->addChild(pcMatBinding);
+    pcPointRoot->addChild(pcHighlight);
     addDisplayMaskMode(pcPointRoot, "Point");
 
     // wires
@@ -440,34 +448,28 @@ void ViewProviderMesh::attach(App::DocumentObject *pcFeat)
     addDisplayMaskMode(pcWireRoot, "Wireframe");
 
     // faces+wires
-    Gui::SoFCSelection* selGroup = Gui::ViewProviderBuilder::createSelection();
-    selGroup->objectName = getObject()->getNameInDocument();
-    selGroup->documentName = getObject()->getDocument()->getName();
-    selGroup->subElementName = "Main";
-    selGroup->addChild(getShapeNode());
-
-    // Avoid any Z-buffer artefacts, so that the lines always
+    // Avoid any Z-buffer artifacts, so that the lines always
     // appear on top of the faces
     SoPolygonOffset* offset = new SoPolygonOffset();
     offset->styles = SoPolygonOffset::FILLED;
     offset->factor = 1.0f;
     offset->units = 1.0f;
 
+    SoSeparator* pcWireSep = new SoSeparator();
+    pcWireSep->addChild(pcLineStyle);
+    pcWireSep->addChild(pcLightModel);
+    pcWireSep->addChild(binding);
+    pcWireSep->addChild(pLineColor);
+    pcWireSep->addChild(pcHighlight);
+
     SoGroup* pcFlatWireRoot = new SoGroup();
-    pcFlatWireRoot->addChild(getCoordNode());
-    SoSeparator* sep = new SoSeparator();
-    sep->addChild(pcLineStyle);
-    sep->addChild(pcLightModel);
-    sep->addChild(binding);
-    sep->addChild(pLineColor);
-    sep->addChild(selGroup);
-    pcFlatWireRoot->addChild(sep);
+    pcFlatWireRoot->addChild(pcWireSep);
     pcFlatWireRoot->addChild(offset);
     pcFlatWireRoot->addChild(pShapeHints);
     pcFlatWireRoot->addChild(pcShapeMaterial);
     pcFlatWireRoot->addChild(pcMatBinding);
-    pcFlatWireRoot->addChild(getShapeNode());
-    addDisplayMaskMode(pcFlatWireRoot, "FlatWireframe");
+    pcFlatWireRoot->addChild(pcShapeGroup);
+    addDisplayMaskMode(pcFlatWireRoot, "Flat Lines");
 
     if (getColorProperty()) {
         Coloring.setStatus(App::Property::Hidden, false);
@@ -574,13 +576,13 @@ void ViewProviderMesh::setColorPerVertex(const App::PropertyColorList* prop)
 void ViewProviderMesh::setDisplayMode(const char* ModeName)
 {
     if (strcmp("Shaded",ModeName)==0) {
-        setDisplayMaskMode("Flat");
+        setDisplayMaskMode("Shaded");
     }
     else if (strcmp("Points",ModeName)==0) {
         setDisplayMaskMode("Point");
     }
     else if (strcmp("Flat Lines",ModeName)==0) {
-        setDisplayMaskMode("FlatWireframe");
+        setDisplayMaskMode("Flat Lines");
     }
     else if (strcmp("Wireframe",ModeName)==0) {
         setDisplayMaskMode("Wireframe");
@@ -663,6 +665,35 @@ bool ViewProviderMesh::exportToVrml(const char* filename, const MeshCore::Materi
     }
 
     return false;
+}
+
+void ViewProviderMesh::exportMesh(const char* filename, const char* fmt) const
+{
+    MeshCore::MeshIO::Format format = MeshCore::MeshIO::Undefined;
+    if (fmt) {
+        std::string dummy = "meshfile.";
+        dummy += fmt;
+        format = MeshCore::MeshOutput::GetFormat(dummy.c_str());
+    }
+
+    MeshCore::Material mat;
+    int numColors = pcShapeMaterial->diffuseColor.getNum();
+    const SbColor* colors = pcShapeMaterial->diffuseColor.getValues(0);
+    mat.diffuseColor.reserve(numColors);
+    for (int i=0; i<numColors; i++) {
+        const SbColor& c = colors[i];
+        mat.diffuseColor.push_back(App::Color(c[0], c[1], c[2]));
+    }
+
+    const Mesh::MeshObject& mesh = static_cast<Mesh::Feature*>(getObject())->Mesh.getValue();
+    if (mat.diffuseColor.size() == mesh.countPoints())
+        mat.binding = MeshCore::MeshIO::PER_VERTEX;
+    else if (mat.diffuseColor.size() == mesh.countFacets())
+        mat.binding = MeshCore::MeshIO::PER_FACE;
+    else
+        mat.binding = MeshCore::MeshIO::OVERALL;
+
+    mesh.save(filename, format, &mat, getObject()->Label.getValue());
 }
 
 void ViewProviderMesh::setupContextMenu(QMenu* menu, QObject* receiver, const char* member)
@@ -778,6 +809,7 @@ bool ViewProviderMesh::createToolMesh(const std::vector<SbVec2f>& rclPoly, const
 
 void ViewProviderMesh::showOpenEdges(bool show)
 {
+    (void)show;
 }
 
 void ViewProviderMesh::clipMeshCallback(void * ud, SoEventCallback * n)
@@ -808,6 +840,8 @@ void ViewProviderMesh::clipMeshCallback(void * ud, SoEventCallback * n)
                 SoCamera* cam = view->getSoRenderManager()->getCamera();
                 SbViewVolume vv = cam->getViewVolume();
                 Gui::ViewVolumeProjection proj(vv);
+                proj.setTransform(static_cast<Mesh::Feature*>(self->getObject())->
+                                  Placement.getValue().toMatrix());
                 self->cutMesh(clPoly, proj, clip_inner);
             }
         }
@@ -846,6 +880,8 @@ void ViewProviderMesh::trimMeshCallback(void * ud, SoEventCallback * n)
                 SoCamera* cam = view->getSoRenderManager()->getCamera();
                 SbViewVolume vv = cam->getViewVolume();
                 Gui::ViewVolumeProjection proj(vv);
+                proj.setTransform(static_cast<Mesh::Feature*>(self->getObject())->
+                                  Placement.getValue().toMatrix());
                 self->trimMesh(clPoly, proj, clip_inner);
             }
         }
@@ -877,7 +913,7 @@ void ViewProviderMesh::partMeshCallback(void * ud, SoEventCallback * cb)
     // get the normal of the front clipping plane
     SbVec3f b,n;
     view->getNearPlane(b, n);
-    Base::Vector3f cPoint(b[0],b[1],b[2]), cNormal(n[0],n[1],n[2]);
+    Base::Vector3f cNormal(n[0],n[1],n[2]);
     SoCamera* pCam = view->getSoRenderManager()->getCamera();  
     SbViewVolume  vol = pCam->getViewVolume(); 
 
@@ -900,7 +936,11 @@ void ViewProviderMesh::partMeshCallback(void * ud, SoEventCallback * cb)
             ViewProviderMesh* that = static_cast<ViewProviderMesh*>(*it);
             if (that->getEditingMode() > -1) {
                 that->finishEditing();
-                that->splitMesh(toolMesh, cNormal, clip_inner);
+                Base::Placement plm = static_cast<Mesh::Feature*>(that->getObject())->Placement.getValue();
+                plm.invert();
+                MeshCore::MeshKernel copyToolMesh(toolMesh);
+                copyToolMesh.Transform(plm.toMatrix());
+                that->splitMesh(copyToolMesh, cNormal, clip_inner);
             }
         }
     }
@@ -934,7 +974,7 @@ void ViewProviderMesh::segmMeshCallback(void * ud, SoEventCallback * cb)
     // get the normal of the front clipping plane
     SbVec3f b,n;
     view->getNearPlane(b, n);
-    Base::Vector3f cPoint(b[0],b[1],b[2]), cNormal(n[0],n[1],n[2]);
+    Base::Vector3f cNormal(n[0],n[1],n[2]);
     SoCamera* pCam = view->getSoRenderManager()->getCamera();  
     SbViewVolume  vol = pCam->getViewVolume(); 
 
@@ -957,7 +997,11 @@ void ViewProviderMesh::segmMeshCallback(void * ud, SoEventCallback * cb)
             ViewProviderMesh* that = static_cast<ViewProviderMesh*>(*it);
             if (that->getEditingMode() > -1) {
                 that->finishEditing();
-                that->segmentMesh(toolMesh, cNormal, clip_inner);
+                Base::Placement plm = static_cast<Mesh::Feature*>(that->getObject())->Placement.getValue();
+                plm.invert();
+                MeshCore::MeshKernel copyToolMesh(toolMesh);
+                copyToolMesh.Transform(plm.toMatrix());
+                that->segmentMesh(copyToolMesh, cNormal, clip_inner);
             }
         }
     }
@@ -1027,40 +1071,16 @@ void ViewProviderMesh::getFacetsFromPolygon(const std::vector<SbVec2f>& picked,
                                             SbBool inner,
                                             std::vector<unsigned long>& indices) const
 {
-#if 1
-    bool ok = true;
-    Base::Polygon2D polygon;
+    const bool ok = true;
+    Base::Polygon2d polygon;
     for (std::vector<SbVec2f>::const_iterator it = picked.begin(); it != picked.end(); ++it)
-        polygon.Add(Base::Vector2D((*it)[0],(*it)[1]));
+        polygon.Add(Base::Vector2d((*it)[0],(*it)[1]));
 
     // Get the attached mesh property
     Mesh::PropertyMeshKernel& meshProp = static_cast<Mesh::Feature*>(pcObject)->Mesh;
     MeshCore::MeshAlgorithm cAlg(meshProp.getValue().getKernel());
     cAlg.CheckFacets(&proj, polygon, true, indices);
-#else
-    // get the normal of the front clipping plane
-    SbVec3f b,n;
-    Viewer.getNearPlane(b, n);
-    Base::Vector3f cPoint(b[0],b[1],b[2]), cNormal(n[0],n[1],n[2]);
-    SoCamera* pCam = Viewer.getCamera();  
-    SbViewVolume  vol = pCam->getViewVolume(); 
 
-    // create a tool shape from these points
-    std::vector<MeshCore::MeshGeomFacet> aFaces;
-    bool ok = ViewProviderMesh::createToolMesh(picked, vol, cNormal, aFaces);
-
-    // Get the attached mesh property
-    Mesh::PropertyMeshKernel& meshProp = static_cast<Mesh::Feature*>(pcObject)->Mesh;
-
-    // Get the facet indices inside the tool mesh
-    MeshCore::MeshKernel cToolMesh;
-    bool locked = Base::Sequencer().setLocked(true);
-    cToolMesh = aFaces;
-    Base::Sequencer().setLocked(locked);
-    MeshCore::MeshFacetGrid cGrid(meshProp.getValue().getKernel());
-    MeshCore::MeshAlgorithm cAlg(meshProp.getValue().getKernel());
-    cAlg.GetFacetsFromToolMesh(cToolMesh, cNormal, cGrid, indices);
-#endif
     if (!inner) {
         // get the indices that are completely outside
         std::vector<unsigned long> complete(meshProp.getValue().countFacets());
@@ -1259,9 +1279,9 @@ void ViewProviderMesh::trimMesh(const std::vector<SbVec2f>& polygon,
 {
     Mesh::MeshObject* mesh = static_cast<Mesh::Feature*>(pcObject)->Mesh.startEditing();
 
-    Base::Polygon2D polygon2d;
+    Base::Polygon2d polygon2d;
     for (std::vector<SbVec2f>::const_iterator it = polygon.begin(); it != polygon.end(); ++it)
-        polygon2d.Add(Base::Vector2D((*it)[0],(*it)[1]));
+        polygon2d.Add(Base::Vector2d((*it)[0],(*it)[1]));
 
     Mesh::MeshObject::CutType type = inner ?
         Mesh::MeshObject::INNER :
@@ -1577,7 +1597,7 @@ void ViewProviderMesh::fillHole(unsigned long uFacet)
     //add the facets to the mesh and open a transaction object for the undo/redo stuff
     Gui::Application::Instance->activeDocument()->openCommand("Fill hole");
     Mesh::MeshObject* kernel = fea->Mesh.startEditing();
-    kernel->addFacets(newFacets, newPoints);
+    kernel->addFacets(newFacets, newPoints, true);
     fea->Mesh.finishEditing();
     Gui::Application::Instance->activeDocument()->commitCommand();
 }
@@ -1803,6 +1823,14 @@ void ViewProviderMesh::deleteSelection()
     }
 }
 
+bool ViewProviderMesh::hasSelection() const
+{
+    std::vector<unsigned long> indices;
+    Mesh::PropertyMeshKernel& meshProp = static_cast<Mesh::Feature*>(pcObject)->Mesh;
+    const Mesh::MeshObject& rMesh = meshProp.getValue();
+    return rMesh.hasSelectedFacets();
+}
+
 void ViewProviderMesh::selectArea(short x, short y, short w, short h,
                                   const SbViewportRegion& region,
                                   SoCamera* camera)
@@ -1884,12 +1912,45 @@ void ViewProviderMesh::highlightComponents()
     pcShapeMaterial->diffuseColor.finishEditing();
 }
 
+void ViewProviderMesh::highlightSegments(const std::vector<App::Color>& colors)
+{
+    const Mesh::MeshObject& rMesh = static_cast<Mesh::Feature*>(pcObject)->Mesh.getValue();
+    unsigned long numSegm = rMesh.countSegments();
+    if (numSegm == colors.size()) {
+        // Colorize the components
+        pcMatBinding->value = SoMaterialBinding::PER_FACE;
+        int uCtFacets = (int)rMesh.countFacets();
+
+        pcShapeMaterial->diffuseColor.setNum(uCtFacets);
+        SbColor* cols = pcShapeMaterial->diffuseColor.startEditing();
+        for (unsigned long i=0; i<numSegm; i++) {
+            std::vector<unsigned long> segm = rMesh.getSegment(i).getIndices();
+            float fRed = colors[i].r;
+            float fGrn = colors[i].g;
+            float fBlu = colors[i].b;
+            for (std::vector<unsigned long>::iterator it = segm.begin(); it != segm.end(); ++it) {
+                cols[*it].setValue(fRed,fGrn,fBlu);
+            }
+        }
+        pcShapeMaterial->diffuseColor.finishEditing();
+    }
+    else if (colors.size() == 1) {
+        pcMatBinding->value = SoMaterialBinding::OVERALL;
+        float fRed = colors[0].r;
+        float fGrn = colors[0].g;
+        float fBlu = colors[0].b;
+        pcShapeMaterial->diffuseColor.setValue(fRed,fGrn,fBlu);
+    }
+}
+
 // ------------------------------------------------------
 
 PROPERTY_SOURCE(MeshGui::ViewProviderIndexedFaceSet, MeshGui::ViewProviderMesh)
 
 ViewProviderIndexedFaceSet::ViewProviderIndexedFaceSet()
 {
+    pcMeshCoord = 0;
+    pcMeshFaces = 0;
 }
 
 ViewProviderIndexedFaceSet::~ViewProviderIndexedFaceSet()
@@ -1979,6 +2040,8 @@ PROPERTY_SOURCE(MeshGui::ViewProviderMeshObject, MeshGui::ViewProviderMesh)
 
 ViewProviderMeshObject::ViewProviderMeshObject()
 {
+    pcMeshNode = 0;
+    pcMeshShape = 0;
 }
 
 ViewProviderMeshObject::~ViewProviderMeshObject()

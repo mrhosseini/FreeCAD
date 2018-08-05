@@ -27,11 +27,13 @@
 
 #include <Gui/Application.h>
 #include <Gui/Command.h>
+#include <Gui/MainWindow.h>
 #include <Gui/BitmapFactory.h>
 #include <Mod/PartDesign/App/Feature.h>
 #include <Mod/PartDesign/App/Body.h>
 
 #include "TaskFeatureParameters.h"
+#include "TaskSketchBasedParameters.h"
 
 using namespace PartDesignGui;
 using namespace Gui;
@@ -44,7 +46,17 @@ TaskFeatureParameters::TaskFeatureParameters(PartDesignGui::ViewProvider *vp, QW
                                                      const std::string& pixmapname, const QString& parname)
     : TaskBox(Gui::BitmapFactory().pixmap(pixmapname.c_str()),parname,true, parent),
       vp(vp), blockUpdate(false)
-{ }
+{
+    Gui::Document* doc = vp->getDocument();
+    this->attachDocument(doc);
+    this->enableNotifications(DocumentObserver::Delete);
+}
+
+void TaskFeatureParameters::slotDeletedObject(const Gui::ViewProviderDocumentObject& Obj)
+{
+    if (this->vp == &Obj)
+        this->vp = nullptr;
+}
 
 void TaskFeatureParameters::onUpdateView(bool on)
 {
@@ -107,11 +119,20 @@ bool TaskDlgFeatureParameters::accept() {
             throw Base::Exception(vp->getObject()->getStatusString());
         }
 
+        // detach the task panel from the selection to avoid to invoke
+        // eventually onAddSelection when the selection changes
+        std::vector<QWidget*> subwidgets = getDialogContent();
+        for (auto it : subwidgets) {
+            TaskSketchBasedParameters* param = qobject_cast<TaskSketchBasedParameters*>(it);
+            if (param)
+                param->detachSelection();
+        }
+
         Gui::Command::doCommand(Gui::Command::Gui,"Gui.activeDocument().resetEdit()");
         Gui::Command::commitCommand();
     } catch (const Base::Exception& e) {
         // Generally the only thing that should fail is feature->isValid() others should be fine
-        QMessageBox::warning( 0, tr("Input error"), QString::fromLatin1(e.what()));
+        QMessageBox::warning(Gui::getMainWindow(), tr("Input error"), QString::fromLatin1(e.what()));
         return false;
     }
 
@@ -128,13 +149,22 @@ bool TaskDlgFeatureParameters::reject()
     // (at least in the body case)
     App::DocumentObject* previous = feature->getBaseObject(/* silent = */ true );
 
+    // detach the task panel from the selection to avoid to invoke
+    // eventually onAddSelection when the selection changes
+    std::vector<QWidget*> subwidgets = getDialogContent();
+    for (auto it : subwidgets) {
+        TaskSketchBasedParameters* param = qobject_cast<TaskSketchBasedParameters*>(it);
+        if (param)
+            param->detachSelection();
+    }
+
     // roll back the done things
     Gui::Command::abortCommand();
     Gui::Command::doCommand(Gui::Command::Gui,"Gui.activeDocument().resetEdit()");
 
     // if abort command deleted the object make the previous feature visible again
     if (!Gui::Application::Instance->getViewProvider(feature)) {
-        // Make the tip or the previous feature visiable again with preference to the previous one
+        // Make the tip or the previous feature visible again with preference to the previous one
         // TODO: ViewProvider::onDelete has the same code. May be this one is excess?
         if (previous && Gui::Application::Instance->getViewProvider(previous)) {
             Gui::Application::Instance->getViewProvider(previous)->show();

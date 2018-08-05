@@ -30,16 +30,105 @@
 #include <Base/Parameter.h>
 #include <App/PropertyLinks.h>
 #include "ViewProviderFemPostFunction.h"
+#include <boost/signals.hpp>
 
 class QComboBox;
 class Ui_TaskPostDisplay;
 class Ui_TaskPostClip;
+class Ui_TaskPostDataAlongLine;
+class Ui_TaskPostDataAtPoint;
 class Ui_TaskPostScalarClip;
 class Ui_TaskPostWarpVector;
 class Ui_TaskPostCut;
 
+class SoFontStyle;
+class SoText2;
+class SoBaseColor;
+class SoTranslation;
+class SoCoordinate3;
+class SoIndexedLineSet;
+class SoEventCallback;
+class SoMarkerSet;
+
 
 namespace FemGui {
+
+class ViewProviderPointMarker;
+class PointMarker : public QObject
+{
+    Q_OBJECT
+
+public:
+    PointMarker(Gui::View3DInventorViewer* view, std::string ObjName);
+    ~PointMarker();
+
+    void addPoint(const SbVec3f&);
+    int countPoints() const;
+
+Q_SIGNALS:
+    void PointsChanged(double x1, double y1, double z1, double x2, double y2, double z2);
+
+protected:
+    void customEvent(QEvent* e);
+
+private:
+    Gui::View3DInventorViewer *view;
+    ViewProviderPointMarker *vp;
+    std::string m_name;
+    std::string ObjectInvisible();
+};
+
+class FemGuiExport ViewProviderPointMarker : public Gui::ViewProviderDocumentObject
+{
+    PROPERTY_HEADER(FemGui::ViewProviderPointMarker);
+
+public:
+    ViewProviderPointMarker();
+    virtual ~ViewProviderPointMarker();
+
+protected:
+    SoCoordinate3    * pCoords;
+    friend class PointMarker;
+};
+
+class ViewProviderDataMarker;
+class DataMarker : public QObject
+{
+    Q_OBJECT
+
+public:
+    DataMarker(Gui::View3DInventorViewer* view, std::string ObjName);
+    ~DataMarker();
+
+    void addPoint(const SbVec3f&);
+    int countPoints() const;
+
+Q_SIGNALS:
+    void PointsChanged(double x, double y, double z);
+
+protected:
+    void customEvent(QEvent* e);
+
+private:
+    Gui::View3DInventorViewer *view;
+    ViewProviderDataMarker *vp;
+    std::string m_name;
+    std::string ObjectInvisible();
+};
+
+class FemGuiExport ViewProviderDataMarker : public Gui::ViewProviderDocumentObject
+{
+    PROPERTY_HEADER(FemGui::ViewProviderDataMarker);
+
+public:
+    ViewProviderDataMarker();
+    virtual ~ViewProviderDataMarker();
+
+protected:
+    SoCoordinate3    * pCoords;
+    SoMarkerSet      * pMarker;
+    friend class DataMarker;
+};
 
 class TaskPostBox : public Gui::TaskView::TaskBox {
 
@@ -76,7 +165,7 @@ class TaskDlgPost : public Gui::TaskView::TaskDialog
     Q_OBJECT
 
 public:
-    TaskDlgPost(Gui::ViewProviderDocumentObject *view, bool newObj=false);
+    TaskDlgPost(Gui::ViewProviderDocumentObject *view);
     ~TaskDlgPost();
 
     void appendBox(TaskPostBox* box);
@@ -104,7 +193,6 @@ protected:
     Gui::ViewProviderDocumentObject*  m_view;
     std::vector<TaskPostBox*>   m_boxes;
 };
-
 
 class TaskPostDisplay : public TaskPostBox
 {
@@ -150,7 +238,7 @@ public:
     virtual void applyPythonCode();
 
 private Q_SLOTS:
-    void on_CreateButton_triggered(QAction* a);
+    void on_CreateButton_triggered(QAction*);
     void on_FunctionBox_currentIndexChanged(int idx);
     void on_InsideOut_toggled(bool val);
     void on_CutCells_toggled(bool val);
@@ -158,10 +246,64 @@ private Q_SLOTS:
 private:
     void collectImplicitFunctions();
 
-    App::PropertyLink* m_functionProperty;
+  //App::PropertyLink* m_functionProperty;
     QWidget* proxy;
     Ui_TaskPostClip* ui;
     FunctionWidget* fwidget;
+};
+
+class TaskPostDataAlongLine: public TaskPostBox {
+
+    Q_OBJECT
+
+public:
+    TaskPostDataAlongLine(Gui::ViewProviderDocumentObject* view, QWidget* parent = 0);
+    virtual ~TaskPostDataAlongLine();
+
+    virtual void applyPythonCode();
+    static void pointCallback(void * ud, SoEventCallback * n);
+
+private Q_SLOTS:
+    void on_SelectPoints_clicked();
+    void on_CreatePlot_clicked();
+    void on_Representation_activated(int i);
+    void on_Field_activated(int i);
+    void on_VectorMode_activated(int i);
+    void point2Changed(double);
+    void point1Changed(double);
+    void resolutionChanged(int val);
+    void onChange(double x1, double y1, double z1, double x2, double y2, double z2);
+
+
+private:
+    std::string Plot();
+    std::string ObjectVisible();
+    QWidget* proxy;
+    Ui_TaskPostDataAlongLine* ui;
+};
+
+class TaskPostDataAtPoint: public TaskPostBox {
+
+    Q_OBJECT
+
+public:
+    TaskPostDataAtPoint(Gui::ViewProviderDocumentObject* view, QWidget* parent = 0);
+    virtual ~TaskPostDataAtPoint();
+
+    virtual void applyPythonCode();
+    static void pointCallback(void * ud, SoEventCallback * n);
+
+private Q_SLOTS:
+    void on_SelectPoint_clicked();
+    void on_Field_activated(int i);
+    void centerChanged(double);
+    void onChange(double x, double y, double z);
+
+
+private:
+    std::string ObjectVisible();
+    QWidget* proxy;
+    Ui_TaskPostDataAtPoint* ui;
 };
 
 class TaskPostScalarClip : public TaskPostBox {
@@ -198,8 +340,8 @@ public:
 private Q_SLOTS:
     void on_Slider_valueChanged(int v);
     void on_Value_valueChanged(double v);
-    void on_Max_valueChanged(double v);
-    void on_Min_valueChanged(double v);
+    void on_Max_valueChanged(double);
+    void on_Min_valueChanged(double);
     void on_Vector_currentIndexChanged(int idx);
 
 private:
@@ -220,13 +362,13 @@ public:
     virtual void applyPythonCode();
 
 private Q_SLOTS:
-    void on_CreateButton_triggered(QAction* a);
+    void on_CreateButton_triggered(QAction*);
     void on_FunctionBox_currentIndexChanged(int idx);
 
 private:
     void collectImplicitFunctions();
 
-    App::PropertyLink* m_functionProperty;
+  //App::PropertyLink* m_functionProperty;
     QWidget* proxy;
     Ui_TaskPostCut* ui;
     FunctionWidget* fwidget;

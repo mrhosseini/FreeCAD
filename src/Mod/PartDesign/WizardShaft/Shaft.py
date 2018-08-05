@@ -43,7 +43,7 @@ class Shaft:
     wstr = ["",  "wy",  "wz"] # Translations
     sigmaNstr = ["sigmax","sigmay","sigmaz"] # Normal/shear stresses
     sigmaBstr = ["taut","sigmabz", "sigmaby"] # Torsion/bending stresses
-    # For diagram labelling
+    # For diagram labeling
     Qstrings = (("Normal force [x]",  "x", "mm", "N_x",  "N"), 
                         ("Shear force [y]",  "x",  "mm",  "Q_y",  "N"), 
                         ("Shear force [z]",  "x",  "mm",  "Q_z",  "N"))
@@ -478,7 +478,7 @@ class Shaft:
                 b = np.array([coefficientsF[ax][0], coefficientsM[ax][0]])
                 try:
                     solution = np.linalg.solve(A, b) # A * solution = b
-                except np.linalg.linalg.LinAlgError,  e:
+                except np.linalg.linalg.LinAlgError as e:
                     FreeCAD.Console.PrintMessage(e.message)
                     FreeCAD.Console.PrintMessage(". No solution possible.\n")
                     self.parent.updateButtons(ax,  False)

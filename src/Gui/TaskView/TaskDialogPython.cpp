@@ -92,13 +92,13 @@ Py::Object ControlPy::showDialog(const Py::Tuple& args)
 {
     Gui::TaskView::TaskDialog* act = Gui::Control().activeDialog();
     if (act)
-        throw Py::Exception("Active task dialog found");
+        throw Py::RuntimeError("Active task dialog found");
     TaskDialogPython* dlg = new TaskDialogPython(args[0]);
     Gui::Control().showDialog(dlg);
     return Py::None();
 }
 
-Py::Object ControlPy::activeDialog(const Py::Tuple& args)
+Py::Object ControlPy::activeDialog(const Py::Tuple&)
 {
     Gui::TaskView::TaskDialog* dlg = Gui::Control().activeDialog();
     return Py::Boolean(dlg!=0);
@@ -428,8 +428,24 @@ QDialogButtonBox::StandardButtons TaskDialogPython::getStandardButtons(void) con
     return TaskDialog::getStandardButtons();
 }
 
-void TaskDialogPython::modifyStandardButtons(QDialogButtonBox*)
+void TaskDialogPython::modifyStandardButtons(QDialogButtonBox *buttonBox)
 {
+    Base::PyGILStateLocker lock;
+    try {
+        if (dlg.hasAttr(std::string("modifyStandardButtons"))) {
+            Gui::PythonWrapper wrap;
+            wrap.loadGuiModule();
+            wrap.loadWidgetsModule();
+            Py::Callable method(dlg.getAttr(std::string("modifyStandardButtons")));
+            Py::Tuple args(1);
+            args.setItem(0, wrap.fromQWidget(buttonBox, "QDialogButtonBox"));
+            method.apply(args);
+        }
+    }
+    catch (Py::Exception&) {
+        Base::PyException e; // extract the Python error text
+        e.ReportException();
+    }
 }
 
 bool TaskDialogPython::isAllowedAlterDocument(void) const

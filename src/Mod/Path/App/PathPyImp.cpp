@@ -29,6 +29,7 @@
 #include "PathPy.h"
 #include "PathPy.cpp"
 
+#include "Base/GeometryPyCXX.h"
 #include "CommandPy.h"
 
 using namespace Path;
@@ -100,9 +101,19 @@ void PathPy::setCommands(Py::List list)
             Path::Command &cmd = *static_cast<Path::CommandPy*>((*it).ptr())->getCommandPtr();
             getToolpathPtr()->addCommand(cmd);
         } else {
-            throw Py::Exception("The list can only contain Path Commands");
+            throw Py::TypeError("The list can only contain Path Commands");
         }
     }
+}
+
+Py::Object PathPy::getCenter(void) const
+{
+    return Py::Vector(getToolpathPtr()->getCenter());
+}
+
+void PathPy::setCenter(Py::Object obj)
+{
+    getToolpathPtr()->setCenter(Py::Vector(obj).toVector());
 }
 
 // read-only attributes
@@ -112,9 +123,9 @@ Py::Float PathPy::getLength(void) const
     return Py::Float(getToolpathPtr()->getLength());
 }
 
-Py::Int PathPy::getSize(void) const
+Py::Long PathPy::getSize(void) const
 {
-    return Py::Int((int)getToolpathPtr()->getSize());
+    return Py::Long((long)getToolpathPtr()->getSize());
 }
 
 // specific methods
@@ -124,7 +135,7 @@ PyObject* PathPy::copy(PyObject * args)
     if (PyArg_ParseTuple(args, "")) {
         return new PathPy(new Path::Toolpath(*getToolpathPtr()));
     }
-    throw Py::Exception("This method accepts no argument");
+    throw Py::TypeError("This method accepts no argument");
 }
 
 PyObject* PathPy::addCommands(PyObject * args)
@@ -178,9 +189,13 @@ PyObject* PathPy::toGCode(PyObject * args)
 {
     if (PyArg_ParseTuple(args, "")) {
         std::string result = getToolpathPtr()->toGCode();
+#if PY_MAJOR_VERSION >= 3
+        return PyUnicode_FromString(result.c_str());
+#else
         return PyString_FromString(result.c_str());
+#endif
     }
-    throw Py::Exception("This method accepts no argument");
+    throw Py::TypeError("This method accepts no argument");
 }
 
 PyObject* PathPy::setFromGCode(PyObject * args)
@@ -192,7 +207,7 @@ PyObject* PathPy::setFromGCode(PyObject * args)
         Py_INCREF(Py_None);
         return Py_None;
     }
-    throw Py::Exception("Argument must be a string");
+    throw Py::TypeError("Argument must be a string");
 }
 
 // custom attributes get/set

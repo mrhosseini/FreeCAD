@@ -35,6 +35,10 @@
 #include <vtkPlane.h>
 #include <vtkWarpVector.h>
 #include <vtkCutter.h>
+#include <vtkLineSource.h>
+#include <vtkPointSource.h>
+#include <vtkProbeFilter.h>
+#include <vtkThreshold.h>
 
 namespace Fem
 {
@@ -58,6 +62,7 @@ protected:
     //pipeline handling for derived filter
     struct FilterPipeline {
        vtkSmartPointer<vtkAlgorithm>                    source, target;
+       vtkSmartPointer<vtkProbeFilter>                  filterSource, filterTarget;
        std::vector<vtkSmartPointer<vtkAlgorithm> >      algorithmStorage;
     };
 
@@ -96,6 +101,68 @@ private:
     vtkSmartPointer<vtkExtractGeometry>         m_extractor;
 };
 
+class AppFemExport FemPostDataAlongLineFilter : public FemPostFilter {
+
+    PROPERTY_HEADER(Fem::FemPostDataAlongLineFilter);
+
+public:
+    FemPostDataAlongLineFilter(void);
+    virtual ~FemPostDataAlongLineFilter();
+
+    App::PropertyVector   Point2;
+    App::PropertyVector   Point1;
+    App::PropertyInteger  Resolution;
+    App::PropertyFloatList XAxisData;
+    App::PropertyFloatList YAxisData;
+    App::PropertyString    PlotData;
+
+    virtual const char* getViewProviderName(void) const {
+        return "FemGui::ViewProviderFemPostDataAlongLine";
+    }
+    virtual short int mustExecute(void) const;
+
+protected:
+    virtual App::DocumentObjectExecReturn* execute(void);
+    virtual void onChanged(const App::Property* prop);
+    void GetAxisData();
+
+private:
+
+    vtkSmartPointer<vtkLineSource>              m_line;
+    vtkSmartPointer<vtkProbeFilter>             m_probe;
+
+};
+
+class AppFemExport FemPostDataAtPointFilter : public FemPostFilter {
+
+    PROPERTY_HEADER(Fem::FemPostDataAtPointFilter);
+
+public:
+    FemPostDataAtPointFilter(void);
+    virtual ~FemPostDataAtPointFilter();
+
+    App::PropertyVectorDistance   Center;
+    App::PropertyDistance         Radius;
+    App::PropertyString           FieldName;
+    App::PropertyFloatList        PointData;
+    App::PropertyString           Unit;
+
+    virtual const char* getViewProviderName(void) const {
+        return "FemGui::ViewProviderFemPostDataAtPoint";
+    }
+    virtual short int mustExecute(void) const;
+
+protected:
+    virtual App::DocumentObjectExecReturn* execute(void);
+    virtual void onChanged(const App::Property* prop);
+    void GetPointData();
+
+private:
+
+    vtkSmartPointer<vtkPointSource>             m_point;
+    vtkSmartPointer<vtkProbeFilter>             m_probe;
+
+};
 
 class AppFemExport FemPostScalarClipFilter : public FemPostFilter {
 

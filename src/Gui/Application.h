@@ -44,7 +44,7 @@ class MainWindow;
 class MenuItem;
 class ViewProvider;
 
-/** The Applcation main class
+/** The Application main class
  * This is the central class of the GUI 
  * @author Jürgen Riegel, Werner Mayer
  */
@@ -79,7 +79,7 @@ public:
     void detachView(Gui::BaseView* pcView);
     /// get called if a view gets activated, this manage the whole activation scheme
     void viewActivated(Gui::MDIView* pcView);
-    /// call update to all docuemnts an all views (costly!)
+    /// call update to all documents and all views (costly!)
     void onUpdate(void);
     /// call update to all views of the active document
     void updateActive(void);
@@ -178,9 +178,6 @@ public:
     Gui::MacroManager *macroManager(void);
     /// Reference to the command manager
     Gui::CommandManager &commandManager(void);
-    /// Run a Python command
-    void runCommand(bool bForce, const char* sCmd,...);
-    bool runPythonCode(const char* cmd, bool gui=false, bool pyexc=true);
     /// helper which create the commands
     void createStandardOperations();
     //@}
@@ -217,6 +214,8 @@ public:
     PYFUNCDEF_S(sUpdateGui);
     PYFUNCDEF_S(sUpdateLocale);
     PYFUNCDEF_S(sGetLocale);
+    PYFUNCDEF_S(sSetLocale);
+    PYFUNCDEF_S(sSupportedLocales);
     PYFUNCDEF_S(sCreateDialog);
     PYFUNCDEF_S(sAddPreferencePage);
 
@@ -246,6 +245,8 @@ public:
     PYFUNCDEF_S(sShowPreferences);
 
     PYFUNCDEF_S(sCreateViewer);
+
+    PYFUNCDEF_S(sGetMarkerIndex);
 
     static PyMethodDef    Methods[]; 
 

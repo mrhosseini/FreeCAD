@@ -110,16 +110,21 @@ public:
     void drawConstraintIcons();
 
     /// draw the sketch in the inventor nodes
-    void draw(bool temp=false);
+    /// temp => use temporary solver solution in SketchObject
+    /// recreateinformationscenography => forces a rebuild of the information layer scenography
+    void draw(bool temp=false, bool rebuildinformationlayer=true);
 
     /// draw the edit curve
-    void drawEdit(const std::vector<Base::Vector2D> &EditCurve);
+    void drawEdit(const std::vector<Base::Vector2d> &EditCurve);
 
     /// Is the view provider selectable
     bool isSelectable(void) const;
     /// Observer message from the Selection
     virtual void onSelectionChanged(const Gui::SelectionChanges& msg);
 
+    /// Show/Hide nodes from information layer
+    void showRestoreInformationLayer();
+    
     /** @name handler control */
     //@{
     /// sets an DrawSketchHandler in control
@@ -189,7 +194,7 @@ public:
     void snapToGrid(double &x, double &y);
 
     /// moves a selected constraint
-    void moveConstraint(int constNum, const Base::Vector2D &toPos);
+    void moveConstraint(int constNum, const Base::Vector2d &toPos);
     /// finds a free position for placing a constraint icon
     Base::Vector3d seekConstraintPosition(const Base::Vector3d &origPos,
                                           const Base::Vector3d &norm,
@@ -220,6 +225,10 @@ public:
     virtual bool mouseButtonPressed(int Button, bool pressed, const SbVec2s& cursorPos, const Gui::View3DInventorViewer* viewer);
     //@}
 
+    /// updates the visibility of the virtual space
+    void updateVirtualSpace(void);
+    void setIsShownVirtualSpace(bool isshownvirtualspace);
+    bool getIsShownVirtualSpace(void) const;
     
     friend class DrawSketchHandler;
     friend struct ::EditData;
@@ -263,6 +272,9 @@ protected:
     boost::signals::connection connectUndoDocument;
     boost::signals::connection connectRedoDocument;
     
+    /// Return display string for constraint including hiding units if
+    //requested.
+    QString getPresentationString(const Sketcher::Constraint *constraint);
 
     /** @name Protected helpers for drawing constraint icons*/
     //@{
@@ -342,8 +354,8 @@ protected:
     SbVec3s getDisplayedSize(const SoImage *) const;
     //@}
 
-    void setPositionText(const Base::Vector2D &Pos, const SbString &txt);
-    void setPositionText(const Base::Vector2D &Pos);
+    void setPositionText(const Base::Vector2d &Pos, const SbString &txt);
+    void setPositionText(const Base::Vector2d &Pos);
     void resetPositionText(void);
 
     // handle preselection and selection of points
@@ -352,9 +364,6 @@ protected:
     void addSelectPoint(int SelectPoint);
     void removeSelectPoint(int SelectPoint);
     void clearSelectPoints(void);
-
-    // handle stacked placements of App::Parts
-    Base::Placement getPlacement();
     
     // modes while sketching
     SketchMode Mode;
@@ -362,6 +371,7 @@ protected:
     // colors
     static SbColor VertexColor;
     static SbColor CurveColor;
+    static SbColor CreateCurveColor;
     static SbColor CurveDraftColor;
     static SbColor CurveExternalColor;
     static SbColor CrossColorV;
@@ -370,34 +380,46 @@ protected:
     static SbColor ConstrDimColor;
     static SbColor ConstrIcoColor;
     static SbColor NonDrivingConstrDimColor;
+    static SbColor ExprBasedConstrDimColor;
     static SbColor PreselectColor;
     static SbColor SelectColor;
     static SbColor PreselectSelectedColor;
+    static SbColor InformationColor;
 
     static SbTime prvClickTime;
-    static SbVec3f prvClickPoint;
+    static SbVec2s prvClickPos; //used by double-click-detector
     static SbVec2s prvCursorPos;
     static SbVec2s newCursorPos;
 
     float zCross;
-    float zLines;
-    float zPoints;
+    //float zLines;
+    //float zPoints;
+    float zLowPoints;
+    float zHighPoints;
     float zConstr;
     float zHighlight;
     float zText;
     float zEdit;
     float zHighLine;
+    float zInfo;
+    float zLowLines;
+    float zMidLines;
+    float zHighLines;
 
     // reference coordinates for relative operations
     double xInit,yInit;
     bool relative;
 
     std::string oldWb;
-    int antiAliasing;
 
     Gui::Rubberband* rubberband;
-    App::Part*          parentPart = nullptr;
-    Part::BodyBase*     parentBody = nullptr;
+
+    // information layer variables
+    bool visibleInformationChanged;
+    double combrepscalehyst;
+    
+    // Virtual space variables
+    bool isShownVirtualSpace; // indicates whether the present virtual space view is the Real Space or the Virtual Space (virtual space 1 or 2)
 };
 
 } // namespace PartGui

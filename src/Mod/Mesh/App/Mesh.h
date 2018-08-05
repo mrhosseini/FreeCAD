@@ -50,7 +50,7 @@ class List;
 }
 
 namespace Base {
-  class Polygon2D;
+  class Polygon2d;
   class ViewProjMethod;
 }
 
@@ -169,11 +169,14 @@ public:
     //@{
     void addFacet(const MeshCore::MeshGeomFacet& facet);
     void addFacets(const std::vector<MeshCore::MeshGeomFacet>& facets);
-    void addFacets(const std::vector<MeshCore::MeshFacet> &facets);
     void addFacets(const std::vector<MeshCore::MeshFacet> &facets,
-                   const std::vector<Base::Vector3f>& points);
+                   bool checkManifolds);
+    void addFacets(const std::vector<MeshCore::MeshFacet> &facets,
+                   const std::vector<Base::Vector3f>& points,
+                   bool checkManifolds);
     void addFacets(const std::vector<Data::ComplexGeoData::Facet> &facets,
-                   const std::vector<Base::Vector3d>& points);
+                   const std::vector<Base::Vector3d>& points,
+                   bool checkManifolds);
     void setFacets(const std::vector<MeshCore::MeshGeomFacet>& facets);
     void setFacets(const std::vector<Data::ComplexGeoData::Facet> &facets,
                    const std::vector<Base::Vector3d>& points);
@@ -213,12 +216,13 @@ public:
     void movePoint(unsigned long, const Base::Vector3d& v);
     void setPoint(unsigned long, const Base::Vector3d& v);
     void smooth(int iterations, float d_max);
+    void decimate(float fTolerance, float fReduction);
     Base::Vector3d getPointNormal(unsigned long) const;
     std::vector<Base::Vector3d> getPointNormals() const;
     void crossSections(const std::vector<TPlane>&, std::vector<TPolylines> &sections,
                        float fMinEps = 1.0e-2f, bool bConnectPolygons = false) const;
-    void cut(const Base::Polygon2D& polygon, const Base::ViewProjMethod& proj, CutType);
-    void trim(const Base::Polygon2D& polygon, const Base::ViewProjMethod& proj, CutType);
+    void cut(const Base::Polygon2d& polygon, const Base::ViewProjMethod& proj, CutType);
+    void trim(const Base::Polygon2d& polygon, const Base::ViewProjMethod& proj, CutType);
     //@}
 
     /** @name Selection */
@@ -293,7 +297,7 @@ public:
     const Segment& getSegment(unsigned long) const;
     Segment& getSegment(unsigned long);
     MeshObject* meshFromSegment(const std::vector<unsigned long>&) const;
-    std::vector<Segment> getSegmentsFromType(GeometryType, const Segment& aSegment, float dev, unsigned long minFacets) const;
+    std::vector<Segment> getSegmentsFromType(GeometryType, float dev, unsigned long minFacets) const;
     //@}
 
     /** @name Primitives */

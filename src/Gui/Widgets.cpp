@@ -23,6 +23,7 @@
 
 #include "PreCompiled.h"
 #ifndef _PreComp_
+# include <QAction>
 # include <QColorDialog>
 # include <QDesktopWidget>
 # include <QDialogButtonBox>
@@ -70,8 +71,9 @@ CommandIconView::~CommandIconView ()
 /**
  * Stores the name of the selected commands for drag and drop. 
  */
-void CommandIconView::startDrag ( Qt::DropActions supportedActions )
+void CommandIconView::startDrag (Qt::DropActions supportedActions)
 {
+    Q_UNUSED(supportedActions);
     QList<QListWidgetItem*> items = selectedItems();
     QByteArray itemData;
     QDataStream dataStream(&itemData, QIODevice::WriteOnly);
@@ -228,12 +230,12 @@ QString ActionSelector::availableLabel() const
 
 void ActionSelector::retranslateUi()
 {
-    labelAvailable->setText(QApplication::translate("Gui::ActionSelector", "Available:", 0, QApplication::UnicodeUTF8));
-    labelSelected->setText(QApplication::translate("Gui::ActionSelector", "Selected:", 0, QApplication::UnicodeUTF8));
-    addButton->setToolTip(QApplication::translate("Gui::ActionSelector", "Add", 0, QApplication::UnicodeUTF8));
-    removeButton->setToolTip(QApplication::translate("Gui::ActionSelector", "Remove", 0, QApplication::UnicodeUTF8));
-    upButton->setToolTip(QApplication::translate("Gui::ActionSelector", "Move up", 0, QApplication::UnicodeUTF8));
-    downButton->setToolTip(QApplication::translate("Gui::ActionSelector", "Move down", 0, QApplication::UnicodeUTF8));
+    labelAvailable->setText(QApplication::translate("Gui::ActionSelector", "Available:"));
+    labelSelected->setText(QApplication::translate("Gui::ActionSelector", "Selected:"));
+    addButton->setToolTip(QApplication::translate("Gui::ActionSelector", "Add"));
+    removeButton->setToolTip(QApplication::translate("Gui::ActionSelector", "Remove"));
+    upButton->setToolTip(QApplication::translate("Gui::ActionSelector", "Move up"));
+    downButton->setToolTip(QApplication::translate("Gui::ActionSelector", "Move down"));
 }
 
 void ActionSelector::changeEvent(QEvent* event)
@@ -284,6 +286,7 @@ void ActionSelector::onCurrentItemChanged(QTreeWidgetItem*, QTreeWidgetItem*)
 
 void ActionSelector::onItemDoubleClicked(QTreeWidgetItem * item, int column)
 {
+    Q_UNUSED(column);
     QTreeWidget* treeWidget = item->treeWidget();
     if (treeWidget == availableWidget) {
         int index = availableWidget->indexOfTopLevelItem(item);
@@ -380,49 +383,49 @@ void AccelLineEdit::keyPressEvent ( QKeyEvent * e)
     // If a modifier is pressed without any other key, return.
     // AltGr is not a modifier but doesn't have a QtSring representation.
     switch(key) {
-	case Qt::Key_Backspace:
-	    if (state == Qt::NoModifier){
-	        keyPressedCount = 0;
-                setText(tr("none"));
-	    }   
-	case Qt::Key_Control:
-        case Qt::Key_Shift:
-	case Qt::Key_Alt:
-	case Qt::Key_Meta:
-	case Qt::Key_AltGr:
-            return; 
-        
-
-	default:
-	     break;
+    case Qt::Key_Backspace:
+        if (state == Qt::NoModifier) {
+            keyPressedCount = 0;
+            setText(tr("none"));
+        }
+    case Qt::Key_Control:
+    case Qt::Key_Shift:
+    case Qt::Key_Alt:
+    case Qt::Key_Meta:
+    case Qt::Key_AltGr:
+        return;
+    default:
+        break;
     }
 
     // 4 keys are allowed for QShortcut
     switch(keyPressedCount) {
-	case 4:
-	    keyPressedCount = 0;
-	case 0:
-	    txtLine.clear();
-	    break;
-	default:
-            txtLine += QString::fromLatin1(",");
-	    break;
+    case 4:
+        keyPressedCount = 0;
+        txtLine.clear();
+        break;
+    case 0:
+        txtLine.clear();
+        break;
+    default:
+        txtLine += QString::fromLatin1(",");
+        break;
     }
-    
+
     // Handles modifiers applying a mask.
     if ((state & Qt::ControlModifier) == Qt::ControlModifier) {
         QKeySequence ks(Qt::CTRL);
         txtLine += ks.toString(QKeySequence::NativeText);
     }
-    if (( state & Qt::AltModifier) == Qt::AltModifier) {
+    if ((state & Qt::AltModifier) == Qt::AltModifier) {
         QKeySequence ks(Qt::ALT);
         txtLine += ks.toString(QKeySequence::NativeText);
     }
-    if (( state & Qt::ShiftModifier) == Qt::ShiftModifier) {
+    if ((state & Qt::ShiftModifier) == Qt::ShiftModifier) {
         QKeySequence ks(Qt::SHIFT);
         txtLine += ks.toString(QKeySequence::NativeText);
     }
-    if (( state & Qt::MetaModifier) == Qt::MetaModifier) {
+    if ((state & Qt::MetaModifier) == Qt::MetaModifier) {
         QKeySequence ks(Qt::META);
         txtLine += ks.toString(QKeySequence::NativeText);
     }
@@ -430,10 +433,68 @@ void AccelLineEdit::keyPressEvent ( QKeyEvent * e)
     // Handles normal keys
     QKeySequence ks(key);
     txtLine += ks.toString(QKeySequence::NativeText);
- 
+
     setText(txtLine);
-    keyPressedCount ++ ;
+    keyPressedCount++;
 }
+
+// ------------------------------------------------------------------------------
+
+#if QT_VERSION >= 0x050200
+ClearLineEdit::ClearLineEdit (QWidget * parent)
+  : QLineEdit(parent)
+{
+    clearAction = this->addAction(QIcon(QString::fromLatin1(":/icons/edit-cleartext.svg")),
+                                        QLineEdit::TrailingPosition);
+    connect(clearAction, SIGNAL(triggered()), this, SLOT(clear()));
+    connect(this, SIGNAL(textChanged(const QString&)),
+            this, SLOT(updateClearButton(const QString&)));
+}
+
+void ClearLineEdit::resizeEvent(QResizeEvent *e)
+{
+    QLineEdit::resizeEvent(e);
+}
+
+void ClearLineEdit::updateClearButton(const QString& text)
+{
+    clearAction->setVisible(!text.isEmpty());
+}
+#else
+ClearLineEdit::ClearLineEdit (QWidget * parent)
+  : QLineEdit(parent)
+{
+    clearButton = new QToolButton(this);
+    QPixmap pixmap(BitmapFactory().pixmapFromSvg(":/icons/edit-cleartext.svg", QSize(18, 18)));
+    clearButton->setIcon(QIcon(pixmap));
+    clearButton->setIconSize(pixmap.size());
+    clearButton->setCursor(Qt::ArrowCursor);
+    clearButton->setStyleSheet(QString::fromLatin1("QToolButton { border: none; padding: 0px; }"));
+    clearButton->hide();
+    connect(clearButton, SIGNAL(clicked()), this, SLOT(clear()));
+    connect(this, SIGNAL(textChanged(const QString&)),
+            this, SLOT(updateClearButton(const QString&)));
+    int frameWidth = style()->pixelMetric(QStyle::PM_DefaultFrameWidth);
+    setStyleSheet(QString::fromLatin1("QLineEdit { padding-right: %1px; } ")
+                  .arg(clearButton->sizeHint().width() + frameWidth + 1));
+    QSize msz = minimumSizeHint();
+    setMinimumSize(qMax(msz.width(), clearButton->sizeHint().height() + frameWidth * 2 + 2),
+                   msz.height());
+}
+
+void ClearLineEdit::resizeEvent(QResizeEvent *)
+{
+    QSize sz = clearButton->sizeHint();
+    int frameWidth = style()->pixelMetric(QStyle::PM_DefaultFrameWidth);
+    clearButton->move(rect().right() - frameWidth - sz.width(),
+                      (rect().bottom() + 1 - sz.height())/2);
+}
+
+void ClearLineEdit::updateClearButton(const QString& text)
+{
+    clearButton->setVisible(!text.isEmpty());
+}
+#endif
 
 // ------------------------------------------------------------------------------
 
@@ -515,6 +576,7 @@ struct ColorButtonP
     QColor old, col;
     QPointer<QColorDialog> cd;
     bool allowChange;
+    bool autoChange;
     bool drawFrame;
     bool modal;
     bool dirty;
@@ -522,6 +584,7 @@ struct ColorButtonP
     ColorButtonP()
         : cd(0)
         , allowChange(true)
+        , autoChange(false)
         , drawFrame(true)
         , modal(true)
         , dirty(true)
@@ -602,6 +665,16 @@ bool ColorButton::isModal() const
     return d->modal;
 }
 
+void ColorButton::setAutoChangeColor(bool on)
+{
+    d->autoChange = on;
+}
+
+bool ColorButton::autoChangeColor() const
+{
+    return d->autoChange;
+}
+
 /**
  * Draws the button label.
  */
@@ -673,9 +746,23 @@ void ColorButton::onChooseColor()
 #if QT_VERSION >= 0x040500
     if (d->modal) {
 #endif
-        QColor c = QColorDialog::getColor(d->col, this);
-        if (c.isValid()) {
-            setColor(c);
+        QColor currentColor = d->col;
+        QColorDialog cd(d->col, this);
+
+        if (d->autoChange) {
+            connect(&cd, SIGNAL(currentColorChanged(const QColor &)),
+                    this, SLOT(onColorChosen(const QColor&)));
+        }
+
+        if (cd.exec() == QDialog::Accepted) {
+            QColor c = cd.selectedColor();
+            if (c.isValid()) {
+                setColor(c);
+                changed();
+            }
+        }
+        else if (d->autoChange) {
+            setColor(currentColor);
             changed();
         }
 #if QT_VERSION >= 0x040500
@@ -780,9 +867,13 @@ LabelButton::LabelButton (QWidget * parent)
     layout->addWidget(label);
 
     button = new QPushButton(QLatin1String("..."), this);
+#if defined (Q_OS_MAC)
+    button->setAttribute(Qt::WA_LayoutUsesWidgetRect); // layout size from QMacStyle was not correct
+#endif
     layout->addWidget(button);
 
     connect(button, SIGNAL(clicked()), this, SLOT(browse()));
+    connect(button, SIGNAL(clicked()), this, SIGNAL(buttonClicked()));
 }
 
 LabelButton::~LabelButton()
@@ -792,6 +883,7 @@ LabelButton::~LabelButton()
 void LabelButton::resizeEvent(QResizeEvent* e)
 {
     button->setFixedWidth(e->size().height());
+    button->setFixedHeight(e->size().height());
 }
 
 QLabel *LabelButton::getLabel() const
@@ -814,6 +906,15 @@ void LabelButton::setValue(const QVariant& val)
     _val = val;
     showValue(_val);
     valueChanged(_val);
+}
+
+void LabelButton::showValue(const QVariant& data)
+{
+    label->setText(data.toString());
+}
+
+void LabelButton::browse()
+{
 }
 
 // ----------------------------------------------------------------------
@@ -1197,9 +1298,13 @@ LabelEditor::LabelEditor (QWidget * parent)
 
     connect(lineEdit, SIGNAL(textChanged(const QString &)),
             this, SIGNAL(textChanged(const QString &)));
+    connect(lineEdit, SIGNAL(textChanged(const QString &)),
+            this, SLOT(validateText(const QString &)));
 
     button = new QPushButton(QLatin1String("..."), this);
-    button->setFixedWidth(2*button->fontMetrics().width(QLatin1String(" ... ")));
+#if defined (Q_OS_MAC)
+    button->setAttribute(Qt::WA_LayoutUsesWidgetRect); // layout size from QMacStyle was not correct
+#endif
     layout->addWidget(button);
 
     connect(button, SIGNAL(clicked()), this, SLOT(changeText()));
@@ -1209,6 +1314,12 @@ LabelEditor::LabelEditor (QWidget * parent)
 
 LabelEditor::~LabelEditor()
 {
+}
+
+void LabelEditor::resizeEvent(QResizeEvent* e)
+{
+    button->setFixedWidth(e->size().height());
+    button->setFixedHeight(e->size().height());
 }
 
 QString LabelEditor::text() const
@@ -1221,7 +1332,7 @@ void LabelEditor::setText(const QString& s)
     this->plainText = s;
 
     QStringList list = this->plainText.split(QString::fromLatin1("\n"));
-    QString text = QString::fromUtf8("[%1]").arg(list.join(QLatin1String(",")));
+    QString text = QString::fromLatin1("[%1]").arg(list.join(QLatin1String(",")));
     lineEdit->setText(text);
 }
 
@@ -1245,9 +1356,18 @@ void LabelEditor::changeText()
         this->plainText = inputText;
 
         QStringList list = this->plainText.split(QString::fromLatin1("\n"));
-        QString text = QString::fromUtf8("[%1]").arg(list.join(QLatin1String(",")));
+        QString text = QString::fromLatin1("[%1]").arg(list.join(QLatin1String(",")));
         lineEdit->setText(text);
     }
+}
+
+/**
+ * Validates if the input of the lineedit is a valid list.
+ */
+void LabelEditor::validateText(const QString& s)
+{
+    if ( s.startsWith(QLatin1String("[")) && s.endsWith(QLatin1String("]")) )
+        this->plainText = s.mid(1,s.size()-2).replace(QLatin1String(","),QLatin1String("\n"));
 }
 
 /**

@@ -15,6 +15,7 @@
 #endif
 
 #include <Base/Console.h>
+#include <Base/PyObjectBase.h>
 #include <Base/Interpreter.h>
 
 #include "DrawPage.h"
@@ -31,18 +32,20 @@
 #include "DrawViewSymbol.h"
 #include "DrawViewClip.h"
 #include "DrawHatch.h"
+#include "DrawGeomHatch.h"
 #include "DrawViewDraft.h"
+#include "DrawViewArch.h"
 #include "DrawViewSpreadsheet.h"
+#include "DrawViewMulti.h"
+#include "DrawViewImage.h"
+#include "DrawViewDetail.h"
 
-extern struct PyMethodDef TechDraw_methods[];
-
-PyDoc_STRVAR(module_techdraw_doc,
-"This module is the TechDraw module.");
-
+namespace TechDraw {
+    extern PyObject* initModule();
+}
 
 /* Python entry */
-extern "C" {
-void TechDrawExport initTechDraw()
+PyMOD_INIT_FUNC(TechDraw)
 {
     // load dependent module
     try {
@@ -51,9 +54,9 @@ void TechDrawExport initTechDraw()
     }
     catch(const Base::Exception& e) {
         PyErr_SetString(PyExc_ImportError, e.what());
-        return;
+        PyMOD_Return(0);
     }
-    Py_InitModule3("TechDraw", TechDraw_methods, module_techdraw_doc);   /* mod name, table ptr */
+    PyObject* mod = TechDraw::initModule();
     Base::Console().Log("Loading TechDraw module... done\n");
 
 
@@ -70,22 +73,29 @@ void TechDrawExport initTechDraw()
     TechDraw::DrawViewSpreadsheet ::init();
 
     TechDraw::DrawViewSection     ::init();
+    TechDraw::DrawViewMulti       ::init();
     TechDraw::DrawViewDimension   ::init();
     TechDraw::DrawProjGroup       ::init();
     TechDraw::DrawProjGroupItem   ::init();
+    TechDraw::DrawViewDetail      ::init();
+
+
     TechDraw::DrawTemplate        ::init();
     TechDraw::DrawParametricTemplate::init();
     TechDraw::DrawSVGTemplate     ::init();
 
     TechDraw::DrawViewClip        ::init();
     TechDraw::DrawHatch           ::init();
+    TechDraw::DrawGeomHatch      ::init();
     TechDraw::DrawViewDraft       ::init();
+    TechDraw::DrawViewArch        ::init();
+    TechDraw::DrawViewImage       ::init();
 
    // Python Types
     TechDraw::DrawViewPython      ::init();
     TechDraw::DrawViewPartPython  ::init();
+    TechDraw::DrawViewMultiPython  ::init();
     TechDraw::DrawTemplatePython  ::init();
     TechDraw::DrawViewSymbolPython::init();
+    PyMOD_Return(mod);
 }
-
-} // extern "C"

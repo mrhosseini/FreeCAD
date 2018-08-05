@@ -25,8 +25,9 @@
 
 #include "Geo.h"
 #include "Util.h"
+#include <boost/graph/graph_concepts.hpp>
 
-//#define _GCS_EXTRACT_SOLVER_SUBSYSTEM_ // This enables debuging code intended to extract information to file bug reports against Eigen, not for production code
+//#define _GCS_EXTRACT_SOLVER_SUBSYSTEM_ // This enables debugging code intended to extract information to file bug reports against Eigen, not for production code
 
 #ifdef _GCS_EXTRACT_SOLVER_SUBSYSTEM_
 #define _PROTECTED_UNLESS_EXTRACT_MODE_ public
@@ -58,10 +59,15 @@ namespace GCS
         PointOnEllipse = 13,
         TangentEllipseLine = 14,
         InternalAlignmentPoint2Ellipse = 15,
-        EqualMajorAxesEllipse = 16,
+        EqualMajorAxesConic = 16,
         EllipticalArcRangeToEndPoints = 17,
         AngleViaPoint = 18,
-        Snell = 19
+        Snell = 19,
+        CurveValue = 20,
+        PointOnHyperbola = 21,
+        InternalAlignmentPoint2Hyperbola = 22,
+        PointOnParabola = 23,
+        EqualFocalDistance = 24
     };
     
     enum InternalAlignmentType {
@@ -74,7 +80,15 @@ namespace GCS
         EllipseNegativeMinorX = 6,
         EllipseNegativeMinorY = 7,
         EllipseFocus2X = 8,
-        EllipseFocus2Y = 9
+        EllipseFocus2Y = 9,
+        HyperbolaPositiveMajorX = 10,
+        HyperbolaPositiveMajorY = 11,
+        HyperbolaNegativeMajorX = 12,
+        HyperbolaNegativeMajorY = 13,
+        HyperbolaPositiveMinorX = 14,
+        HyperbolaPositiveMinorY = 15,
+        HyperbolaNegativeMinorX = 16,
+        HyperbolaNegativeMinorY = 17
     };
 
     class Constraint
@@ -85,6 +99,7 @@ namespace GCS
         double scale;
         int tag;
         bool pvecChangedFlag;  //indicates that pvec has changed and saved pointers must be reconstructed (currently used only in AngleViaPoint)
+        bool driving;
     public:
         Constraint();
         virtual ~Constraint(){}
@@ -95,6 +110,9 @@ namespace GCS
         void revertParams();
         void setTag(int tagId) { tag = tagId; }
         int getTag() { return tag; }
+        
+        void setDriving(bool isdriving) { driving = isdriving; }
+        bool isDriving() const { return driving; }
 
         virtual ConstraintType getTypeId();
         virtual void rescale(double coef=1.);
@@ -102,17 +120,22 @@ namespace GCS
         virtual double grad(double *);
         // virtual void grad(MAP_pD_D &deriv);  --> TODO: vectorized grad version
         virtual double maxStep(MAP_pD_D &dir, double lim=1.);
-        int findParamInPvec(double* param);//finds first occurence of param in pvec. This is useful to test if a constraint depends on the parameter (it may not actually depend on it, e.g. angle-via-point doesn't depend on ellipse's b (radmin), but b will be included within the constraint anyway. Returns -1 if not found.
+        // Finds first occurrence of param in pvec. This is useful to test if a constraint depends 
+        // on the parameter (it may not actually depend on it, e.g. angle-via-point doesn't depend 
+        // on ellipse's b (radmin), but b will be included within the constraint anyway. 
+        // Returns -1 if not found.
+        int findParamInPvec(double* param); 
     };
 
     // Equal
     class ConstraintEqual : public Constraint
     {
     private:
+        double ratio;
         inline double* param1() { return pvec[0]; }
         inline double* param2() { return pvec[1]; }
     public:
-        ConstraintEqual(double *p1, double *p2);
+        ConstraintEqual(double *p1, double *p2, double p1p2ratio=1.0);
         virtual ConstraintType getTypeId();
         virtual void rescale(double coef=1.);
         virtual double error();
@@ -233,6 +256,7 @@ namespace GCS
         inline double* p1y() { return pvec[3]; }
         inline double* p2x() { return pvec[4]; }
         inline double* p2y() { return pvec[5]; }
+        void errorgrad(double *err, double *grad, double *param);
     public:
         ConstraintPointOnPerpBisector(Point &p, Line &l);
         ConstraintPointOnPerpBisector(Point &p, Point &lp1, Point &lp2);
@@ -241,6 +265,7 @@ namespace GCS
         #endif
         virtual ConstraintType getTypeId();
         virtual void rescale(double coef=1.);
+
         virtual double error();
         virtual double grad(double *);
     };
@@ -419,37 +444,121 @@ namespace GCS
         Point p;
         InternalAlignmentType AlignmentType;
     };
-    
-    class ConstraintEqualMajorAxesEllipse : public Constraint
+
+    class ConstraintInternalAlignmentPoint2Hyperbola : public Constraint
+    {
+    public:
+        ConstraintInternalAlignmentPoint2Hyperbola(Hyperbola &e, Point &p1, InternalAlignmentType alignmentType);
+        virtual ConstraintType getTypeId();
+        virtual void rescale(double coef=1.);
+        virtual double error();
+        virtual double grad(double *);
+    private:
+        void errorgrad(double* err, double* grad, double *param); //error and gradient combined. Values are returned through pointers.
+        void ReconstructGeomPointers(); //writes pointers in pvec to the parameters of crv1, crv2 and poa
+        Hyperbola e;
+        Point p;
+        InternalAlignmentType AlignmentType;
+    };
+
+    class ConstraintEqualMajorAxesConic : public Constraint
     {
     private:
-        Ellipse e1, e2;
+        MajorRadiusConic * e1;
+        MajorRadiusConic * e2;
         void ReconstructGeomPointers(); //writes pointers in pvec to the parameters of crv1, crv2 and poa
         void errorgrad(double* err, double* grad, double *param); //error and gradient combined. Values are returned through pointers.
     public:
-        ConstraintEqualMajorAxesEllipse(Ellipse &e1, Ellipse &e2);
+        ConstraintEqualMajorAxesConic(MajorRadiusConic * a1, MajorRadiusConic * a2);
         virtual ConstraintType getTypeId();
         virtual void rescale(double coef=1.);
         virtual double error();
         virtual double grad(double *);
     };
-    
-    // EllipticalArcRangeToEndPoints
-    class ConstraintEllipticalArcRangeToEndPoints : public Constraint
+
+    class ConstraintEqualFocalDistance : public Constraint
     {
     private:
-        inline double* angle() { return pvec[2]; }
+        ArcOfParabola * e1;
+        ArcOfParabola * e2;
+        void ReconstructGeomPointers(); //writes pointers in pvec to the parameters of crv1, crv2 and poa
+        void errorgrad(double* err, double* grad, double *param); //error and gradient combined. Values are returned through pointers.
+    public:
+        ConstraintEqualFocalDistance(ArcOfParabola * a1, ArcOfParabola * a2);
+        virtual ConstraintType getTypeId();
+        virtual void rescale(double coef=1.);
+        virtual double error();
+        virtual double grad(double *);
+    };
+
+    class ConstraintCurveValue : public Constraint
+    {
+    private:
+        inline double* pcoord() { return pvec[2]; } //defines, which coordinate of point is being constrained by this constraint
+        inline double* u() { return pvec[3]; }
         void errorgrad(double* err, double* grad, double *param); //error and gradient combined. Values are returned through pointers.
         void ReconstructGeomPointers(); //writes pointers in pvec to the parameters of crv1, crv2 and poa
-        Ellipse e;
+        Curve* crv;
         Point p;
     public:
-        ConstraintEllipticalArcRangeToEndPoints(Point &p, ArcOfEllipse &a, double *angle_t);
+        /**
+         * @brief ConstraintCurveValue: solver constraint that ties parameter value with point coordinates, according to curve's parametric equation.
+         * @param p : endpoint to be constrained
+         * @param pcoord : pointer to point coordinate to be constrained. Must be either p.x or p.y
+         * @param crv : the curve (crv->Value() must be functional)
+         * @param u : pointer to u parameter corresponding to the point
+         */
+        ConstraintCurveValue(Point &p, double* pcoord, Curve& crv, double* u);
+        ~ConstraintCurveValue();
         virtual ConstraintType getTypeId();
         virtual void rescale(double coef=1.);
         virtual double error();
         virtual double grad(double *);
         virtual double maxStep(MAP_pD_D &dir, double lim=1.);
+    };
+    
+    // PointOnHyperbola
+    class ConstraintPointOnHyperbola : public Constraint
+    {
+    private:
+        inline double* p1x() { return pvec[0]; }
+        inline double* p1y() { return pvec[1]; }
+        inline double* cx() { return pvec[2]; }
+        inline double* cy() { return pvec[3]; }
+        inline double* f1x() { return pvec[4]; }
+        inline double* f1y() { return pvec[5]; }
+        inline double* rmin() { return pvec[6]; }
+    public:
+        ConstraintPointOnHyperbola(Point &p, Hyperbola &e);
+        ConstraintPointOnHyperbola(Point &p, ArcOfHyperbola &a);
+        #ifdef _GCS_EXTRACT_SOLVER_SUBSYSTEM_
+        inline ConstraintPointOnHyperbola(){}
+        #endif
+        virtual ConstraintType getTypeId();
+        virtual void rescale(double coef=1.);
+        virtual double error();
+        virtual double grad(double *);
+    };
+
+    // PointOnParabola
+    class ConstraintPointOnParabola : public Constraint
+    {
+    private:
+        void errorgrad(double* err, double* grad, double *param); //error and gradient combined. Values are returned through pointers.
+        void ReconstructGeomPointers(); //writes pointers in pvec to the parameters of crv1, crv2 and poa
+        Parabola* parab;
+        Point p;
+    public:
+        ConstraintPointOnParabola(Point &p, Parabola &e);
+        ConstraintPointOnParabola(Point &p, ArcOfParabola &a);
+	~ConstraintPointOnParabola();
+        #ifdef _GCS_EXTRACT_SOLVER_SUBSYSTEM_
+        inline ConstraintPointOnParabola(){}
+        #endif
+        virtual ConstraintType getTypeId();
+        virtual void rescale(double coef=1.);
+        virtual double error();
+        virtual double grad(double *);
     };
     
     class ConstraintAngleViaPoint : public Constraint

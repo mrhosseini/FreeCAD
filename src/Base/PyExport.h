@@ -74,7 +74,7 @@ class PyObjectBase;
  *  The other case is that we have a member variable in our C++ class that holds the Python object
  *  then we either can create this Python in the constructor or create it the first  time when GetPyObject()
  *  gets called. In the destructor then we must decrement the Python object to avoid a memory leak while
- *  GetPyObject() then increments the Python object everytime it gets called.
+ *  GetPyObject() then increments the Python object every time it gets called.
  *
  *  @remark One big consequence of this specification is that the programmer must know whether the Python interpreter
  *  gets the Python object or not. If the interpreter gets the object then it decrements the counter later on when
@@ -101,8 +101,8 @@ class PyObjectBase;
 /** Python Object handle class
  *  Using pointers on classes derived from PyObjectBase would
  *  be potentionaly dangerous because you would have to take
- *  care of the referenc counting of python by your self. There
- *  fore this class was designd. It takes care of references and
+ *  care of the reference counting of python by your self. Hence
+ *  this class was designed. It takes care of references and
  *  as long as a object of this class exists the handled class get
  *  not destructed. That means a PyObjectBase derived object you can
  *  only destruct by destructing all FCPyHandle and all python
@@ -118,8 +118,8 @@ public:
 
     /** pointer and default constructor
      *  the good way would be not using pointer
-     *  instead using a overwriten new operator in the
-     *  HandledType class! But is not easy to inforce!
+     *  instead using a overwritten new operator in the
+     *  HandledType class! But is not easy to enforce!
      */
     PyHandle(HandledType *ToHandel=0L)
             :_pHandels(ToHandel) {
@@ -135,7 +135,7 @@ public:
     }
 
     /** destructor
-     *  Release the referenc count which cause,
+     *  Release the reference count which cause,
      *  if was the last one, the referenced object to
      *  destruct!
      */

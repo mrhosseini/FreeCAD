@@ -31,7 +31,6 @@
 # include <QMessageBox>
 # include <QMouseEvent>
 # include <QPainter>
-# include <strstream>
 #endif
 
 #include <App/Document.h>
@@ -42,14 +41,15 @@
 #include <Mod/TechDraw/App/DrawProjGroupItem.h>
 #include <Mod/TechDraw/App/DrawProjGroup.h>
 
+#include "Rez.h"
 #include "QGIProjGroup.h"
 
 using namespace TechDrawGui;
 
 QGIProjGroup::QGIProjGroup()
 {
-    origin = new QGraphicsItemGroup();
-    origin->setParentItem(this);
+    m_origin = new QGraphicsItemGroup();                  //QGIG added to this QGIG??
+    m_origin->setParentItem(this);
 
     // In place to ensure correct drawing and bounding box calculations
     m_backgroundItem = new QGraphicsRectItem();
@@ -124,22 +124,16 @@ QVariant QGIProjGroup::itemChange(GraphicsItemChange change, const QVariant &val
                     updateView();
                 } else if ( type == QString::fromLatin1("Top") ||
                     type == QString::fromLatin1("Bottom")) {
-                    gView->alignTo(origin, QString::fromLatin1("Vertical"));
+                    gView->alignTo(m_origin, QString::fromLatin1("Vertical"));
                 } else if ( type == QString::fromLatin1("Left")  ||
                             type == QString::fromLatin1("Right") ||
                             type == QString::fromLatin1("Rear") ) {
-                    gView->alignTo(origin, QString::fromLatin1("Horizontal"));
-                } else if ( type == QString::fromLatin1("FrontTopRight") ||
-                            type == QString::fromLatin1("FrontBottomLeft") ) {
-                    gView->alignTo(origin, QString::fromLatin1("45slash"));
-                } else if ( type == QString::fromLatin1("FrontTopLeft") ||
-                            type == QString::fromLatin1("FrontBottomRight") ) {
-                    gView->alignTo(origin, QString::fromLatin1("45backslash"));
-                }
+                    gView->alignTo(m_origin, QString::fromLatin1("Horizontal"));
+                } 
             }
          }
     }
-    return QGIView::itemChange(change, value);
+    return QGIViewCollection::itemChange(change, value);
 }
 
 
@@ -149,7 +143,6 @@ void QGIProjGroup::mousePressEvent(QGraphicsSceneMouseEvent * event)
     if(qAnchor) {
         QPointF transPos = qAnchor->mapFromScene(event->scenePos());
         if(qAnchor->shape().contains(transPos)) {
-            //QGIViewCollection::mousePressEvent(event);
             mousePos = event->screenPos();
         }
     }
@@ -181,9 +174,9 @@ void QGIProjGroup::mouseReleaseEvent(QGraphicsSceneMouseEvent * event)
             Gui::Command::openCommand("Drag Projection Group");
             //TODO: See if these commands actually handle the horizontal/vertical constraints properly...
             Gui::Command::doCommand(Gui::Command::Doc,"App.ActiveDocument.%s.X = %f",
-                                    getViewObject()->getNameInDocument(), x());
+                                    getViewName(), Rez::appX(x()));
             Gui::Command::doCommand(Gui::Command::Doc,"App.ActiveDocument.%s.Y = %f",
-                                    getViewObject()->getNameInDocument(), getY());// inverts Y 
+                                    getViewName(), Rez::appX(getY()));// inverts Y
             Gui::Command::commitCommand();
             //Gui::Command::updateActive();
         }
@@ -196,7 +189,10 @@ QGIView * QGIProjGroup::getAnchorQItem() const
 {
     // Get the currently assigned anchor view
     App::DocumentObject *anchorObj = getDrawView()->Anchor.getValue();
-    TechDraw::DrawView *anchorView = dynamic_cast<TechDraw::DrawView *>(anchorObj);
+    auto anchorView( dynamic_cast<TechDraw::DrawView *>(anchorObj) );
+    if( anchorView == nullptr ) {
+        return nullptr;
+    }
 
     // Locate the anchor view's qgraphicsitemview
     QList<QGraphicsItem*> list = childItems();
@@ -221,4 +217,3 @@ void QGIProjGroup::drawBorder()
 //QGIProjGroup does not have a border!
 //    Base::Console().Message("TRACE - QGIProjGroup::drawBorder - doing nothing!!\n");
 }
-

@@ -50,7 +50,6 @@
 # include <QSvgRenderer>
 # include <QSvgWidget>
 # include <QWheelEvent>
-# include <strstream>
 # include <cmath>
 #endif
 
@@ -381,7 +380,7 @@ void DrawingView::setRenderer(QAction *action)
     }
 }
 
-bool DrawingView::onMsg(const char* pMsg, const char** ppReturn)
+bool DrawingView::onMsg(const char* pMsg, const char** )
 {
     if (strcmp("ViewFit",pMsg) == 0) {
         viewAll();
@@ -568,7 +567,7 @@ void DrawingView::print(QPrinter* printer)
 
         if (doPrint && printer->orientation() != this->m_orientation) {
             int ret = QMessageBox::warning(this, tr("Different orientation"),
-                tr("The printer uses a different orientation  than the drawing.\n"
+                tr("The printer uses a different orientation than the drawing.\n"
                    "Do you want to continue?"),
                    QMessageBox::Yes | QMessageBox::No);
             if (ret != QMessageBox::Yes)

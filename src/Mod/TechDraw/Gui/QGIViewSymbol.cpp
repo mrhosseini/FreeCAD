@@ -42,9 +42,14 @@
 #include <Base/Parameter.h>
 
 #include <Mod/TechDraw/App/DrawViewSymbol.h>
+#include <Mod/TechDraw/App/DrawViewDraft.h>
+#include <Mod/TechDraw/App/DrawViewArch.h>
 
 #include "QGCustomSvg.h"
+#include "QGDisplayArea.h"
 #include "QGIViewSymbol.h"
+#include "DrawGuiUtil.h"
+#include "Rez.h"
 
 using namespace TechDrawGui;
 
@@ -57,9 +62,13 @@ QGIViewSymbol::QGIViewSymbol()
     setFlag(QGraphicsItem::ItemIsSelectable, true);
     setFlag(QGraphicsItem::ItemSendsGeometryChanges, true);
 
+    m_displayArea = new QGDisplayArea();
+    addToGroup(m_displayArea);
+    m_displayArea->centerAt(0.,0.);
+
     m_svgItem = new QGCustomSvg();
-    addToGroup(m_svgItem);
-    m_svgItem->setPos(0.,0.);
+    m_displayArea->addToGroup(m_svgItem);
+    m_svgItem->centerAt(0.,0.);
 }
 
 QGIViewSymbol::~QGIViewSymbol()
@@ -81,10 +90,10 @@ void QGIViewSymbol::setViewSymbolFeature(TechDraw::DrawViewSymbol *obj)
 
 void QGIViewSymbol::updateView(bool update)
 {
-    if(getViewObject() == 0 || !getViewObject()->isDerivedFrom(TechDraw::DrawViewSymbol::getClassTypeId()))
+    auto viewSymbol( dynamic_cast<TechDraw::DrawViewSymbol *>(getViewObject()) );
+    if( viewSymbol == nullptr ) {
         return;
-
-    TechDraw::DrawViewSymbol *viewSymbol = dynamic_cast<TechDraw::DrawViewSymbol *>(getViewObject());
+    }
 
     if (update ||
         viewSymbol->isTouched() ||
@@ -106,37 +115,53 @@ void QGIViewSymbol::draw()
     }
 
     drawSvg();
-    if (borderVisible) {
-        drawBorder();
-    }
+    QGIView::draw();
 }
 
 void QGIViewSymbol::drawSvg()
 {
-    if(getViewObject() == 0 || !getViewObject()->isDerivedFrom(TechDraw::DrawViewSymbol::getClassTypeId()))
-        return;
-
-    TechDraw::DrawViewSymbol *viewSymbol = dynamic_cast<TechDraw::DrawViewSymbol *>(getViewObject());
-//note: svg's are overscaled by (72 pixels(pts actually) /in)*(1 in/25.4 mm) = 2.834645669   (could be 96/25.4(CSS)? 110/25.4?)
-//due to 1 sceneUnit (1mm) = 1 pixel for some QtSvg functions
-
-    m_svgItem->setScale(viewSymbol->Scale.getValue());
-
-    QString qs(QString::fromUtf8(viewSymbol->Symbol.getValue()));
-    symbolToSvg(qs);
-}
-
-void QGIViewSymbol::symbolToSvg(QString qs)
-{
-    if (qs.isEmpty()) {
+    auto viewSymbol( dynamic_cast<TechDraw::DrawViewSymbol *>(getViewObject()) );
+    if( viewSymbol == nullptr ) {
         return;
     }
 
-    QByteArray qba;
-    qba.append(qs);
+    double rezfactor = Rez::getRezFactor();
+    double scaling = viewSymbol->getScale();
+    double pxMm = 3.78;                 //96px/25.4mm ( CSS/SVG defined value of 96 pixels per inch)
+//    double pxMm = 3.54;                 //90px/25.4mm ( inkscape value version <= 0.91)
+                                        //some software uses different px/in, so symbol will need Scale adjusted.
+    //Arch/Draft views are in px and need to be scaled @ rezfactor px/mm to ensure proper representation
+    if (viewSymbol->isDerivedFrom(TechDraw::DrawViewArch::getClassTypeId()) ||
+        viewSymbol->isDerivedFrom(TechDraw::DrawViewDraft::getClassTypeId()) ) {
+        scaling = scaling * rezfactor;
+    } else { 
+        scaling = scaling * rezfactor / pxMm;
+    }
+    m_svgItem->setScale(scaling);
+
+    QByteArray qba(viewSymbol->Symbol.getValue(),strlen(viewSymbol->Symbol.getValue()));
+    symbolToSvg(qba);
+    rotateView();
+}
+
+void QGIViewSymbol::symbolToSvg(QByteArray qba)
+{
+    if (qba.isEmpty()) {
+        return;
+    }
+
     prepareGeometryChange();
     if (!m_svgItem->load(&qba)) {
-        Base::Console().Error("Error - Could not load Symbol into SVG renderer for %s\n", getViewObject()->getNameInDocument());
+        Base::Console().Error("Error - Could not load Symbol into SVG renderer for %s\n", getViewName());
     }
-    m_svgItem->setPos(0.,0.);
+    m_svgItem->centerAt(0.,0.);
 }
+
+void QGIViewSymbol::rotateView(void)
+{
+    QRectF r = m_displayArea->boundingRect();
+    m_displayArea->setTransformOriginPoint(r.center());
+    double rot = getViewObject()->Rotation.getValue();
+    m_displayArea->setRotation(-rot);
+}
+

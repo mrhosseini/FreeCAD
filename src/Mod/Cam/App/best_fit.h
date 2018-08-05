@@ -46,7 +46,7 @@
  It takes a mesh and a Topo_Shape as it's input parameter.
 
  As output, it gives a transformed mesh (rotation + translation)
- based on a weighted ICP-Algorithm (ICP: Iterative Closed Point) wich fits the
+ based on a weighted ICP-Algorithm (ICP: Iterative Closed Point) which fits the
  Topo_Shape
 */
 
@@ -59,7 +59,7 @@ public:
     /*! \brief Load the input-shapes. Must be called before running the main program
 
         \param InputMesh Input-mesh
-        \param CAD_Shape  Input-shape
+        \param CAD_Shape Input-shape
     */
     void Load(const MeshCore::MeshKernel &InputMesh, const TopoDS_Shape &CAD_Shape);
 
@@ -108,18 +108,18 @@ public:
 	
     /*! \brief Computes a triangulation on shape.
 
-        \param shape      specifies the shape to be tesselated
+        \param shape      specifies the shape to be tessellated
         \param mesh       output-mesh to store the computed triangulation
-        \param deflection parameter wich determines the accuracy of the
+        \param deflection parameter which determines the accuracy of the
                           triangulation
     */
     static bool Tesselate_Shape(const TopoDS_Shape &shape, MeshCore::MeshKernel &mesh, float deflection);
 	
     /*! \brief Computes a triangulation on aface.
 
-        \param aface      specifies the face to be tesselated
+        \param aface      specifies the face to be tessellated
         \param mesh       output-mesh to store the computed triangulation
-        \param deflection parameter wich determines the accuracy of the
+        \param deflection parameter which determines the accuracy of the
                           triangulation
     */
     static bool Tesselate_Face (const TopoDS_Face  &aface, MeshCore::MeshKernel &mesh, float deflection);
@@ -201,7 +201,7 @@ private:
     */
     inline bool TransMat(Base::Matrix4D &matrix, double translation, int translationAxis);
 	
-    /*! \brief Tranforms the point-set \p pnts and the corresponding
+    /*! \brief Transforms the point-set \p pnts and the corresponding
                surface-normals normals with reference to the input-matrix
 
         \param pnts    point-vector to transform
@@ -212,7 +212,7 @@ private:
                                      std::vector<Base::Vector3f> &normals,
                                      Base::Matrix4D              &M);
 	
-    /*! \brief Tranforms the point-set pnts with reference to the input-matrix
+    /*! \brief Transforms the point-set pnts with reference to the input-matrix
 
         \param pnts point-vector to transform
         \param M    is the 4x4-input-matrix

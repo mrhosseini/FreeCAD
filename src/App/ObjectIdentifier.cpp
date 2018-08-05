@@ -119,7 +119,7 @@ ObjectIdentifier::ObjectIdentifier(const App::PropertyContainer * _owner, const 
     if (owner) {
         const DocumentObject * docObj = freecad_dynamic_cast<const DocumentObject>(owner);
         if (!docObj)
-            throw Base::Exception("Property must be owned by a document object.");
+            throw Base::RuntimeError("Property must be owned by a document object.");
 
         if (property.size() > 0) {
             const Document * doc = docObj->getDocument();
@@ -322,7 +322,7 @@ std::string ObjectIdentifier::toString() const
 }
 
 /**
- * @brief Escape toString representation so it is suitable for being embeddded in a python command.
+ * @brief Escape toString representation so it is suitable for being embedded in a python command.
  * @return Escaped string.
  */
 
@@ -332,7 +332,7 @@ std::string ObjectIdentifier::toEscapedString() const
 }
 
 /**
- * @brief Modifiy object identifier given that document object \a oldName gets the new name \a newName.
+ * @brief Modify object identifier given that document object \a oldName gets the new name \a newName.
  * @param oldName Name of current document object
  * @param newName New name of document object
  */
@@ -354,6 +354,24 @@ bool ObjectIdentifier::renameDocumentObject(const std::string &oldName, const st
         ResolveResults result(*this);
 
         if (result.propertyIndex == 1 && result.resolvedDocumentObjectName == oldName) {
+            if (ExpressionParser::isTokenAnIndentifier(newName))
+                components[0].name = newName;
+            else
+                components[0].name = ObjectIdentifier::String(newName, true);
+
+            return true;
+        }
+    }
+
+    // If object identifier uses the label then resolving the document object will fail.
+    // So, it must be checked if using the new label will succeed
+    if (!components.empty() && components[0].getName() == oldName) {
+        ObjectIdentifier id(*this);
+        id.components[0].name = newName;
+
+        ResolveResults result(id);
+
+        if (result.propertyIndex == 1 && result.resolvedDocumentObjectName == newName) {
             if (ExpressionParser::isTokenAnIndentifier(newName))
                 components[0].name = newName;
             else
@@ -385,6 +403,18 @@ bool ObjectIdentifier::validDocumentObjectRename(const std::string &oldName, con
         if (result.propertyIndex == 1 && result.resolvedDocumentObjectName == oldName)
             return true;
     }
+
+    // If object identifier uses the label then resolving the document object will fail.
+    // So, it must be checked if using the new label will succeed
+    if (!components.empty() && components[0].getName() == oldName) {
+        ObjectIdentifier id(*this);
+        id.components[0].name = newName;
+
+        ResolveResults result(id);
+
+        if (result.propertyIndex == 1 && result.resolvedDocumentObjectName == newName)
+            return true;
+    }
     return false;
 }
 
@@ -411,7 +441,6 @@ bool ObjectIdentifier::renameDocument(const std::string &oldName, const std::str
             return true;
         }
     }
-
     return false;
 }
 
@@ -713,7 +742,7 @@ void ObjectIdentifier::resolve(ResolveResults &results) const
             }
             else {
 
-                /* Document name set explicitely? */
+                /* Document name set explicitly? */
                 if (documentName.getString().size() > 0) {
                     /* Yes; then document object must follow */
                     results.resolvedDocumentObjectName = String(components[0].name, false, false);
@@ -857,13 +886,13 @@ ObjectIdentifier ObjectIdentifier::relativeTo(const ObjectIdentifier &other) con
 
 ObjectIdentifier ObjectIdentifier::parse(const DocumentObject *docObj, const std::string &str)
 {
-    std::auto_ptr<Expression> expr(ExpressionParser::parse(docObj, str.c_str()));
+    std::unique_ptr<Expression> expr(ExpressionParser::parse(docObj, str.c_str()));
     VariableExpression * v = freecad_dynamic_cast<VariableExpression>(expr.get());
 
     if (v)
         return v->getPath();
     else
-        throw Base::Exception("Invalid property specification.");
+        throw Base::RuntimeError("Invalid property specification.");
 }
 
 std::string ObjectIdentifier::resolveErrorString() const
@@ -1034,19 +1063,29 @@ boost::any ObjectIdentifier::getValue() const
     destructor d1(pyvalue);
 
     if (!pyvalue)
-        throw Base::Exception("Failed to get property value.");
-
+        throw Base::RuntimeError("Failed to get property value.");
+#if PY_MAJOR_VERSION < 3
     if (PyInt_Check(pyvalue))
         return boost::any(PyInt_AsLong(pyvalue));
+#else
+    if (PyLong_Check(pyvalue))
+        return boost::any(PyLong_AsLong(pyvalue));
+#endif
     else if (PyFloat_Check(pyvalue))
         return boost::any(PyFloat_AsDouble(pyvalue));
+#if PY_MAJOR_VERSION < 3
     else if (PyString_Check(pyvalue))
         return boost::any(PyString_AsString(pyvalue));
+#endif
     else if (PyUnicode_Check(pyvalue)) {
         PyObject * s = PyUnicode_AsUTF8String(pyvalue);
         destructor d2(s);
 
+#if PY_MAJOR_VERSION >= 3
+        return boost::any(PyUnicode_AsUTF8(s));
+#else
         return boost::any(PyString_AsString(s));
+#endif
     }
     else if (PyObject_TypeCheck(pyvalue, &Base::QuantityPy::Type)) {
         Base::QuantityPy * qp = static_cast<Base::QuantityPy*>(pyvalue);
@@ -1055,7 +1094,7 @@ boost::any ObjectIdentifier::getValue() const
         return boost::any(*q);
     }
     else {
-        throw Base::Exception("Invalid property type.");
+        throw Base::TypeError("Invalid property type.");
     }
 }
 

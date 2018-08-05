@@ -67,6 +67,7 @@ public:
     static void destruct();
 
     bool registerDockWindow(const char* name, QWidget* widget);
+    QWidget* unregisterDockWindow(const char* name);
     void setup(DockWindowItems*);
 
     /// Adds a QDockWidget to the main window and sets \a widget as its widget
@@ -75,7 +76,7 @@ public:
     /// Removes and destroys the QDockWidget and returns the widget
     /// with name \a name added with @ref addDockWindow.
     QWidget* removeDockWindow(const char* name);
-    /// Removes and destroys the QDockWidget that conains \a dock. \a dock
+    /// Removes and destroys the QDockWidget that contains \a dock. \a dock
     /// does not get destroyed.
     void removeDockWindow(QWidget* dock);
     /// Returns the widget with name \a name added with @ref addDockWindow.

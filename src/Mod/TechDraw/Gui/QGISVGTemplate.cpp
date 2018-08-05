@@ -28,7 +28,6 @@
 #include <QPen>
 #include <QSvgRenderer>
 #include <QGraphicsSvgItem>
-#include <strstream>
 #include <boost/regex.hpp>
 #endif // #ifndef _PreComp_
 
@@ -41,15 +40,15 @@
 #include <Mod/TechDraw/App/Geometry.h>
 #include <Mod/TechDraw/App/DrawSVGTemplate.h>
 
+#include "Rez.h"
 #include "ZVALUE.h"
 #include "TemplateTextField.h"
 #include "QGISVGTemplate.h"
 
 using namespace TechDrawGui;
 
-QGISVGTemplate::QGISVGTemplate(QGraphicsScene *scene, QWidget* srWidget)
+QGISVGTemplate::QGISVGTemplate(QGraphicsScene *scene)
     : QGITemplate(scene),
-      qgview(srWidget),
       firstTime(true)
 {
 
@@ -62,6 +61,10 @@ QGISVGTemplate::QGISVGTemplate(QGraphicsScene *scene, QWidget* srWidget)
     m_svgItem->setCacheMode(QGraphicsItem::NoCache);
 
     addToGroup(m_svgItem);
+
+    m_svgItem->setZValue(ZVALUE::SVGTEMPLATE);
+    setZValue(ZVALUE::SVGTEMPLATE);
+
 }
 
 QGISVGTemplate::~QGISVGTemplate()
@@ -78,7 +81,7 @@ QVariant QGISVGTemplate::itemChange(GraphicsItemChange change,
 
 void QGISVGTemplate::openFile(const QFile &file)
 {
-
+    Q_UNUSED(file);
 }
 
 void QGISVGTemplate::load(const QString &fileName)
@@ -101,15 +104,15 @@ void QGISVGTemplate::load(const QString &fileName)
         firstTime = false;
     }
 
-    //This is probably first time only logic too.
+    //convert from pixels or mm or inches in svg file to mm page size
     TechDraw::DrawSVGTemplate *tmplte = getSVGTemplate();
     double xaspect, yaspect;
     xaspect = tmplte->getWidth() / (double) size.width();
     yaspect = tmplte->getHeight() / (double) size.height();
 
     QTransform qtrans;
-    qtrans.translate(0.f, -tmplte->getHeight());
-    qtrans.scale(xaspect , yaspect);
+    qtrans.translate(0.f, Rez::guiX(-tmplte->getHeight()));
+    qtrans.scale(Rez::guiX(xaspect) , Rez::guiX(yaspect));
     m_svgItem->setTransform(qtrans);
 }
 
@@ -126,12 +129,12 @@ void QGISVGTemplate::draw()
     TechDraw::DrawSVGTemplate *tmplte = getSVGTemplate();
     if(!tmplte)
         throw Base::Exception("Template Feature not set for QGISVGTemplate");
-
     load(QString::fromUtf8(tmplte->PageResult.getValue()));
 }
 
 void QGISVGTemplate::updateView(bool update)
 {
+    Q_UNUSED(update);
     draw();
 }
 
@@ -181,6 +184,10 @@ void QGISVGTemplate::createClickHandles(void)
 
     //TODO: Find location of special fields (first/third angle) and make graphics items for them
 
+    Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter()
+        .GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("Mod/TechDraw/General");
+    double dotSize = hGrp->GetFloat("TemplateDotSize", 3.0);
+
     while (boost::regex_search(begin, end, tagMatch, tagRegex)) {
         if ( boost::regex_search(tagMatch[1].first, tagMatch[1].second, nameMatch, editableNameRegex) &&
              boost::regex_search(tagMatch[1].first, tagMatch[1].second, xMatch, xRegex) &&
@@ -188,23 +195,22 @@ void QGISVGTemplate::createClickHandles(void)
 
             QString xStr = QString::fromStdString(xMatch[1].str());
             QString yStr = QString::fromStdString(yMatch[1].str());
-            QString editableName = QString::fromStdString(nameMatch[1].str());
 
-            double x = xStr.toDouble();
-            double y = yStr.toDouble();
+            double x = Rez::guiX(xStr.toDouble());
+            double y = Rez::guiX(yStr.toDouble());
 
-            //TODO: this should probably be configurable without a code change
-            double editClickBoxSize = 1.5;
+            double editClickBoxSize = Rez::guiX(dotSize);
             QColor editClickBoxColor = Qt::green;
+            editClickBoxColor.setAlpha(128);              //semi-transparent
 
             double width = editClickBoxSize;
             double height = editClickBoxSize;
 
-            TemplateTextField *item = new TemplateTextField(this, tmplte, nameMatch[1].str(), qgview);
+            auto item( new TemplateTextField(this, tmplte, nameMatch[1].str()) );
             float pad = 1;
-            item->setRect(x - pad, -tmplte->getHeight() + y - height - pad,
-                          width + 2 * pad, height + 2 * pad);
 
+            item->setRect(x - pad, Rez::guiX(-tmplte->getHeight()) + y - height - pad,
+                          width + 2 * pad, height + 2 * pad);
             QPen myPen;
             QBrush myBrush(editClickBoxColor,Qt::SolidPattern);
             myPen.setStyle(Qt::SolidLine);
@@ -213,14 +219,13 @@ void QGISVGTemplate::createClickHandles(void)
             item->setPen(myPen);
             item->setBrush(myBrush);
 
-            item->setZValue(ZVALUE::SVGTEMPLATE);
+            item->setZValue(ZVALUE::SVGTEMPLATE + 1);
             addToGroup(item);
             textFields.push_back(item);
         }
 
         begin = tagMatch[0].second;
     }
-
 }
 
 #include <Mod/TechDraw/Gui/moc_QGISVGTemplate.cpp>

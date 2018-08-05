@@ -56,6 +56,9 @@ public:
     /// Check whether the given feature is a datum feature
     static bool isDatum(const App::DocumentObject* feature);
 
+    /// Returns the body the feature is in, or none
+    Body* getFeatureBody();
+    
     /**
      * Returns the BaseFeature property's object (if any)
      * @param silent if couldn't determine the base feature and silent == true,
@@ -68,12 +71,19 @@ public:
     /// Returns the BaseFeature property's TopoShape (if any)
     const Part::TopoShape getBaseTopoShape() const;
 
+    virtual PyObject* getPyObject(void);
+
+    virtual const char* getViewProviderName() const {
+        return "PartDesignGui::ViewProvider";
+    }
+
 protected:
 
     /**
      * Get a solid of the given shape. If no solid is found an exception is raised.
      */
     static TopoDS_Shape getSolid(const TopoDS_Shape&);    
+    static int countSolids(const TopoDS_Shape&, TopAbs_ShapeEnum type = TopAbs_SOLID );    
 
     /// Grab any point from the given face
     static const gp_Pnt getPointFromFace(const TopoDS_Face& f);    
@@ -81,6 +91,8 @@ protected:
     static gp_Pln makePlnFromPlane(const App::DocumentObject* obj);
     static TopoDS_Shape makeShapeFromPlane(const App::DocumentObject* obj);
 };
+
+typedef App::FeaturePythonT<Feature> FeaturePython;
 
 } //namespace PartDesign
 

@@ -122,11 +122,11 @@ public:
     void touch();
     /// Test if this property is touched 
     inline bool isTouched(void) const {
-        return StatusBits.test(0);
+        return StatusBits.test(Touched);
     }
     /// Reset this property touched 
     inline void purgeTouched(void) {
-        StatusBits.reset(0);
+        StatusBits.reset(Touched);
     }
     /// return the status bits
     inline unsigned long getStatus() const {
@@ -149,8 +149,6 @@ public:
     virtual Property *Copy(void) const = 0;
     /// Paste the value from the property (mainly for Undo/Redo and transactions)
     virtual void Paste(const Property &from) = 0;
-    /// Encodes an attribute upon saving.
-    static std::string encodeAttribute(const std::string&);
 
 
     friend class PropertyContainer;

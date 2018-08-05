@@ -74,6 +74,7 @@ public:
         clipView->plane.setValue(SbPlane(SbVec3f(0,0,1),0));
         clipView->ref();
 
+        node = 0;
         sensor = new SoTimerSensor(moveCallback, this);
     }
     ~Private()
@@ -86,6 +87,7 @@ public:
     }
     static void moveCallback(void * data, SoSensor * sensor)
     {
+        Q_UNUSED(sensor); 
         Private* self = reinterpret_cast<Private*>(data);
         if (self->view) {
             Gui::View3DInventorViewer* view = self->view->getViewer();

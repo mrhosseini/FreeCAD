@@ -33,6 +33,7 @@
 #include <QPlainTextEdit>
 #include <QBasicTimer>
 #include <QTime>
+#include <QToolButton>
 
 namespace Gui {
 class PrefCheckBox;
@@ -134,6 +135,33 @@ private:
 
 // ------------------------------------------------------------------------------
 
+/**
+ * The ClearLineEdit class adds a clear button at the right side.
+ * http://stackoverflow.com/questions/21232224/qlineedit-with-custom-button
+ */
+class GuiExport ClearLineEdit : public QLineEdit
+{
+  Q_OBJECT
+
+public:
+    ClearLineEdit (QWidget * parent=0);
+
+protected:
+    void resizeEvent(QResizeEvent *);
+
+private Q_SLOTS:
+    void updateClearButton(const QString &text);
+
+private:
+#if QT_VERSION >= 0x050200
+    QAction *clearAction;
+#else
+    QToolButton *clearButton;
+#endif
+};
+
+// ------------------------------------------------------------------------------
+
 typedef QPair<QString, bool> CheckListItem;
 
 /**
@@ -190,6 +218,9 @@ public:
 
     void setModal(bool);
     bool isModal() const;
+
+    void setAutoChangeColor(bool);
+    bool autoChangeColor() const;
 
 public Q_SLOTS:
     void onChooseColor();
@@ -267,14 +298,15 @@ public Q_SLOTS:
     void setValue(const QVariant&);
 
 protected:
-    virtual void showValue(const QVariant&) = 0;
+    virtual void showValue(const QVariant& data);
     void resizeEvent(QResizeEvent*);
 
 protected Q_SLOTS:
-    virtual void browse() = 0;
+    virtual void browse();
 
 Q_SIGNALS:
     void valueChanged(const QVariant &);
+    void buttonClicked();
 
 private:
     QLabel *label;
@@ -397,12 +429,16 @@ public:
 public Q_SLOTS:
     virtual void setText(const QString &);
     virtual void setButtonText (const QString &);
+    virtual void validateText (const QString &);
 
 Q_SIGNALS:
     void textChanged(const QString &);
 
 private Q_SLOTS:
     void changeText();
+
+protected:
+    void resizeEvent(QResizeEvent*);
 
 private:
     InputType type;

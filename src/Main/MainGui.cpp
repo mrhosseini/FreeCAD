@@ -58,7 +58,7 @@
 
 void PrintInitHelp(void);
 
-const char sBanner[] = "\xc2\xa9 Juergen Riegel, Werner Mayer, Yorik van Havre 2001-2015\n"\
+const char sBanner[] = "\xc2\xa9 Juergen Riegel, Werner Mayer, Yorik van Havre 2001-2018\n"\
 "  #####                 ####  ###   ####  \n" \
 "  #                    #      # #   #   # \n" \
 "  #     ##  #### ####  #     #   #  #   # \n" \
@@ -70,6 +70,29 @@ const char sBanner[] = "\xc2\xa9 Juergen Riegel, Werner Mayer, Yorik van Havre 2
 #if defined(_MSC_VER)
 void InitMiniDumpWriter(const std::string&);
 #endif
+
+class Redirection
+{
+public:
+    Redirection(FILE* f)
+        : fi(Base::FileInfo::getTempFileName()), file(f)
+    {
+#ifdef WIN32
+        _wfreopen(fi.toStdWString().c_str(),L"w",file);
+#else
+        freopen(fi.filePath().c_str(),"w",file);
+#endif
+    }
+    ~Redirection()
+    {
+        fclose(file);
+        fi.deleteFile();
+    }
+
+private:
+    Base::FileInfo fi;
+    FILE* file;
+};
 
 #if defined (FC_OS_LINUX) || defined(FC_OS_BSD)
 QString myDecoderFunc(const QByteArray &localFileName)
@@ -91,22 +114,29 @@ int main( int argc, char ** argv )
     // Make sure to setup the Qt locale system before setting LANG and LC_ALL to C.
     // which is needed to use the system locale settings.
     (void)QLocale::system();
+#if QT_VERSION < 0x050000
     // http://www.freecadweb.org/tracker/view.php?id=399
     // Because of setting LANG=C the Qt automagic to use the correct encoding
     // for file names is broken. This is a workaround to force the use of UTF-8 encoding
     QFile::setEncodingFunction(myEncoderFunc);
     QFile::setDecodingFunction(myDecoderFunc);
-    // Make sure that we use '.' as decimal point. See also
-    // http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=559846
+#endif
+    // See https://forum.freecadweb.org/viewtopic.php?f=18&t=20600
+    // See Gui::Application::runApplication()
     putenv("LC_NUMERIC=C");
     putenv("PYTHONPATH=");
 #elif defined(FC_OS_MACOSX)
     (void)QLocale::system();
-    putenv("LC_NUMERIC=C");
     putenv("PYTHONPATH=");
 #else
-    setlocale(LC_NUMERIC, "C");
     _putenv("PYTHONPATH=");
+    // https://forum.freecadweb.org/viewtopic.php?f=4&t=18288
+    // https://forum.freecadweb.org/viewtopic.php?f=3&t=20515
+    const char* fc_py_home = getenv("FC_PYTHONHOME");
+    if (fc_py_home)
+        _putenv_s("PYTHONHOME", fc_py_home);
+    else
+        _putenv("PYTHONHOME=");
 #endif
 
 #if defined (FC_OS_WIN32)
@@ -126,11 +156,18 @@ int main( int argc, char ** argv )
     }
 #endif
 
+#if PY_MAJOR_VERSION >= 3
+#if defined(_MSC_VER) && _MSC_VER <= 1800
+    // See InterpreterSingleton::init
+    Redirection out(stdout), err(stderr), inp(stdin);
+#endif
+#endif // PY_MAJOR_VERSION
+
     // Name and Version of the Application
     App::Application::Config()["ExeName"] = "FreeCAD";
     App::Application::Config()["ExeVendor"] = "FreeCAD";
     App::Application::Config()["AppDataSkipVendor"] = "true";
-    App::Application::Config()["MaintainerUrl"] = "http://www.freecadweb.org/wiki/index.php?title=Main_Page";
+    App::Application::Config()["MaintainerUrl"] = "http://www.freecadweb.org/wiki/Main_Page";
 
     // set the banner (for logging and console)
     App::Application::Config()["CopyrightInfo"] = sBanner;
@@ -146,6 +183,7 @@ int main( int argc, char ** argv )
         // Init phase ===========================================================
         // sets the default run mode for FC, starts with gui if not overridden in InitConfig...
         App::Application::Config()["RunMode"] = "Gui";
+        App::Application::Config()["Console"] = "0";
 
         // Inits the Application 
 #if defined (FC_OS_WIN32)
@@ -184,9 +222,15 @@ int main( int argc, char ** argv )
     catch (const Base::ProgramInformation& e) {
         QApplication app(argc,argv);
         QString appName = QString::fromLatin1(App::Application::Config()["ExeName"].c_str());
-        QString msg = QString::fromLatin1(e.what());
+        QString msg = QString::fromUtf8(e.what());
         QString s = QLatin1String("<pre>") + msg + QLatin1String("</pre>");
-        QMessageBox::information(0, appName, s);
+
+        QMessageBox msgBox;
+        msgBox.setIcon(QMessageBox::Information);
+        msgBox.setWindowTitle(appName);
+        msgBox.setDetailedText(msg);
+        msgBox.setText(s);
+        msgBox.exec();
         exit(0);
     }
     catch (const Base::Exception& e) {
@@ -194,11 +238,19 @@ int main( int argc, char ** argv )
         QApplication app(argc,argv);
         QString appName = QString::fromLatin1(App::Application::Config()["ExeName"].c_str());
         QString msg;
-        msg = QObject::tr("While initializing %1 the  following exception occurred: '%2'\n\n"
+        msg = QObject::tr("While initializing %1 the following exception occurred: '%2'\n\n"
                           "Python is searching for its files in the following directories:\n%3\n\n"
                           "Python version information:\n%4\n")
                           .arg(appName).arg(QString::fromUtf8(e.what()))
+#if PY_MAJOR_VERSION >= 3
+#if PY_MINOR_VERSION >= 5
+                          .arg(QString::fromUtf8(Py_EncodeLocale(Py_GetPath(),NULL))).arg(QString::fromLatin1(Py_GetVersion()));
+#else
+                          .arg(QString::fromUtf8(_Py_wchar2char(Py_GetPath(),NULL))).arg(QString::fromLatin1(Py_GetVersion()));
+#endif
+#else
                           .arg(QString::fromUtf8(Py_GetPath())).arg(QString::fromLatin1(Py_GetVersion()));
+#endif
         const char* pythonhome = getenv("PYTHONHOME");
         if (pythonhome) {
             msg += QObject::tr("\nThe environment variable PYTHONHOME is set to '%1'.")
@@ -231,7 +283,11 @@ int main( int argc, char ** argv )
     std::streambuf* oldcerr = std::cerr.rdbuf(&stdcerr);
 
     try {
-        if (App::Application::Config()["RunMode"] == "Gui")
+        // if console option is set then run in cmd mode
+        if (App::Application::Config()["Console"] == "1")
+            App::Application::runApplication();
+        if (App::Application::Config()["RunMode"] == "Gui" ||
+            App::Application::Config()["RunMode"] == "Internal")
             Gui::Application::runApplication();
         else
             App::Application::runApplication();
@@ -241,9 +297,11 @@ int main( int argc, char ** argv )
     }
     catch (const Base::Exception& e) {
         e.ReportException();
+        exit(1);
     }
     catch (...) {
         Base::Console().Error("Application unexpectedly terminated\n");
+        exit(1);
     }
 
     std::cout.rdbuf(oldcout);
@@ -303,7 +361,7 @@ static LONG __stdcall MyCrashHandlerExceptionFilter(EXCEPTION_POINTERS* pEx)
 #ifdef _M_IX86 
   if (pEx->ExceptionRecord->ExceptionCode == EXCEPTION_STACK_OVERFLOW)   
   { 
-    // be sure that we have enought space... 
+    // be sure that we have enough space... 
     static char MyStack[1024*128];   
     // it assumes that DS and SS are the same!!! (this is the case for Win32) 
     // change the stack only if the selectors are the same (this is the case for Win32) 
@@ -329,7 +387,7 @@ static LONG __stdcall MyCrashHandlerExceptionFilter(EXCEPTION_POINTERS* pEx)
     stMDEI.ThreadId = GetCurrentThreadId(); 
     stMDEI.ExceptionPointers = pEx; 
     stMDEI.ClientPointers = true; 
-    // try to create an miniDump: 
+    // try to create a miniDump: 
     if (s_pMDWD( 
       GetCurrentProcess(), 
       GetCurrentProcessId(), 
@@ -340,7 +398,7 @@ static LONG __stdcall MyCrashHandlerExceptionFilter(EXCEPTION_POINTERS* pEx)
       NULL 
       )) 
     { 
-      bFailed = false;  // suceeded 
+      bFailed = false;  // succeeded 
     } 
     CloseHandle(hFile); 
   } 
@@ -367,7 +425,7 @@ void InitMiniDumpWriter(const std::string& filename)
     return;
   s_szMiniDumpFileName = filename;
 
-  // Initialize the member, so we do not load the dll after the exception has occured
+  // Initialize the member, so we do not load the dll after the exception has occurred
   // which might be not possible anymore...
   s_hDbgHelpMod = LoadLibrary(("dbghelp.dll"));
   if (s_hDbgHelpMod != NULL)

@@ -62,7 +62,7 @@ SET(Module_SRCS
 )
 SOURCE_GROUP("Module" FILES ${Module_SRCS})
 
-#externalisation is not possible for msvc as a stupid bug prevents the function definition resolving
+#externalization is not possible for msvc as a stupid bug prevents the function definition resolving
 if(MSVC)
 	set(Solver_SRC )
 else(MSVC)
@@ -103,6 +103,9 @@ SET(Assembly_SRCS
 )
 
 add_library(Assembly SHARED ${Assembly_SRCS})
+if(CMAKE_COMPILER_IS_GNUCXX)
+	set_target_properties(Assembly PROPERTIES COMPILE_FLAGS "-fext-numeric-literals")
+endif()
 target_link_libraries(Assembly ${Assembly_LIBS} ${log_LIB})
 
 

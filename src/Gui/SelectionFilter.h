@@ -57,6 +57,9 @@ public:
 
     /// Set a new filter string 
     void setFilter(const char* filter);
+    const std::string& getFilter() const {
+        return Filter;
+    }
     /** Test to current selection
      *  This method tests the current selection set
      *  against the filter and returns true if the 
@@ -92,7 +95,7 @@ protected:
  * This object is a link between the selection 
  * filter class and the selection singleton. Created with a 
  * filter string and registered in the selection it will only 
- * allow the descibed object types to be selected.
+ * allow the described object types to be selected.
  * @see SelectionFilter
  * @see SelectionSingleton
  */
@@ -104,6 +107,9 @@ public:
     SelectionFilterGate(SelectionFilter* filter);
     ~SelectionFilterGate();
     virtual bool allow(App::Document*,App::DocumentObject*, const char*);
+
+protected:
+    SelectionFilterGate();
 
 protected:
     SelectionFilter *Filter;
@@ -128,6 +134,10 @@ private:
 
 /**
  * Python binding for SelectionFilter class.
+ * \code
+ * filter=Gui.Selection.Filter("SELECT Part::Feature SUBELEMENT Edge")
+ * Gui.Selection.addSelectionGate(filter)
+ * \endcode
  * @see SelectionFilter
  * @author Werner Mayer
  */
@@ -154,6 +164,18 @@ private:
 
 /**
  * A Python wrapper around SelectionFilterPy to implement the SelectionGate interface
+ * \code
+ * class SelectionGate(object):
+ *   def allow(self, doc, obj, sub):
+ *     if not obj.isDerivedFrom("Part::Feature"):
+ *       return False
+ *     if not str(sub).startswith("Edge"):
+ *       return False
+ *     return True
+ *
+ * gate=SelectionGate()
+ * Gui.Selection.addSelectionGate(gate)
+ * \endcode
  * @author Werner Mayer
  */
 class SelectionFilterGatePython : public SelectionGate

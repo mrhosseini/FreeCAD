@@ -28,7 +28,8 @@
 #endif
 
 
-#include <strstream>
+#include <App/DocumentObject.h>
+#include <App/PropertyContainer.h>
 #include <Base/Console.h>
 #include <Base/Writer.h>
 #include <Base/Reader.h>
@@ -110,24 +111,50 @@ void PropertyPath::Save (Base::Writer &writer) const
 void PropertyPath::Restore(Base::XMLReader &reader)
 {
     reader.readElement("Path");
-    std::string file (reader.getAttribute("file") );
 
+    std::string file (reader.getAttribute("file") );
     if (!file.empty()) {
         // initate a file read
         reader.addFile(file.c_str(),this);
     }
+
+    if (reader.hasAttribute("version")) {
+        int version = reader.getAttributeAsInteger("version");
+        if (version >= Toolpath::SchemaVersion) {
+            reader.readElement("Center");
+            double x = reader.getAttributeAsFloat("x");
+            double y = reader.getAttributeAsFloat("y");
+            double z = reader.getAttributeAsFloat("z");
+            Base::Vector3d center(x, y, z);
+            _Path.setCenter(center);
+        }
+    }
 }
 
-void PropertyPath::SaveDocFile (Base::Writer &writer) const
+void PropertyPath::SaveDocFile (Base::Writer &) const
 {
     // does nothing
 }
 
 void PropertyPath::RestoreDocFile(Base::Reader &reader)
 {
+    App::PropertyContainer *container = getContainer();
+    App::DocumentObject *obj = 0;
+    if (container->isDerivedFrom(App::DocumentObject::getClassTypeId())) {
+        obj = static_cast<App::DocumentObject*>(container);
+    }
+
+    if (obj) {
+        obj->setStatus(App::ObjectStatus::Restore, true);
+    }
+
     aboutToSetValue();
     _Path.RestoreDocFile(reader);
     hasSetValue();
+
+    if (obj) {
+        obj->setStatus(App::ObjectStatus::Restore, false);
+    }
 }
 
 

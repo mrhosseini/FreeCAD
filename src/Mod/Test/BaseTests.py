@@ -22,7 +22,7 @@
 #*   Juergen Riegel 2004                                                   *
 #***************************************************************************/
 
-import FreeCAD, os, unittest, tempfile
+import FreeCAD, os, unittest, tempfile, math
 
 class ConsoleTestCase(unittest.TestCase):
     def setUp(self):
@@ -35,7 +35,11 @@ class ConsoleTestCase(unittest.TestCase):
         FreeCAD.Console.PrintLog("   Printing Log\n")
 
     def testSynchronPrintFromThread(self):
-        import thread, time
+        # http://python-kurs.eu/threads.php
+        try:
+            import _thread as thread, time
+        except:
+            import thread, time
         def adder():
             lock.acquire()
             self.count=self.count+1
@@ -52,7 +56,11 @@ class ConsoleTestCase(unittest.TestCase):
         FreeCAD.Console.PrintMessage(str(self.count)+"\n")
 
     def testAsynchronPrintFromThread(self):
-        import thread, time
+        # http://python-kurs.eu/threads.php
+        try:
+            import _thread as thread, time
+        except:
+            import thread, time
         def adder():
             self.count=self.count+1
             # call of Console method is thread-safe
@@ -170,6 +178,61 @@ class ParameterTestCase(unittest.TestCase):
         self.failUnless(m2==m3*m4    ,"Wrong multiplication order")
         self.failUnless(not m2==m4*m3,"Wrong multiplication order")
 
+    def testRotation(self):
+        r=FreeCAD.Rotation(1,0,0,0) # 180 deg around (1,0,0)
+        self.assertEqual(r.Axis, FreeCAD.Vector(1,0,0))
+        self.assertAlmostEqual(math.fabs(r.Angle), math.fabs(math.pi))
+
+        r=r.multiply(r) # identity
+        self.assertEqual(r.Axis, FreeCAD.Vector(0,0,1))
+        self.assertAlmostEqual(r.Angle, 0)
+
+        r=FreeCAD.Rotation(1,0,0,0)
+        r.Q=(0,0,0,1) # update axis and angle
+        s=FreeCAD.Rotation(0,0,0,1)
+        self.assertEqual(r.Axis, s.Axis)
+        self.assertAlmostEqual(r.Angle, s.Angle)
+        self.assertTrue(r.isSame(s))
+
+        r=FreeCAD.Rotation(1,0,0,0)
+        r.Matrix=FreeCAD.Matrix() # update axis and angle
+        s=FreeCAD.Rotation(0,0,0,1)
+        self.assertEqual(r.Axis, s.Axis)
+        self.assertAlmostEqual(r.Angle, s.Angle)
+        self.assertTrue(r.isSame(s))
+
+        r=FreeCAD.Rotation(1,0,0,0)
+        r.Axes=(FreeCAD.Vector(0,0,1),FreeCAD.Vector(0,0,1)) # update axis and angle
+        s=FreeCAD.Rotation(0,0,0,1)
+        self.assertEqual(r.Axis, s.Axis)
+        self.assertAlmostEqual(r.Angle, s.Angle)
+        self.assertTrue(r.isSame(s))
+
+        #add 360 deg to angle
+        r=FreeCAD.Rotation(FreeCAD.Vector(1,0,0),270)
+        s=FreeCAD.Rotation(FreeCAD.Vector(1,0,0),270+360)
+        self.assertEqual(r.Axis, s.Axis)
+        #self.assertAlmostEqual(r.Angle, s.Angle + 2*math.pi)
+        self.assertTrue(r.isSame(s))
+
+        #subtract 360 deg from angle using Euler angles
+        r=FreeCAD.Rotation(0,0,180)
+        r.invert()
+        s=FreeCAD.Rotation(0,0,-180)
+        self.assertTrue(r.isSame(s))
+
+        #subtract 360 deg from angle using quaternion
+        r=FreeCAD.Rotation(1,0,0,0)
+        s=FreeCAD.Rotation(-1,0,0,0)
+        #angles have the same sign
+        if r.Angle * s.Angle > 0:
+            self.assertEqual(r.Axis, s.Axis*(-1))
+        else:
+            self.assertAlmostEqual(r.Angle, -s.Angle)
+        self.assertTrue(r.isSame(s))
+        r.invert()
+        self.assertTrue(r.isSame(s))
+
     def testBounding(self):
         b=FreeCAD.BoundBox()
         b.setVoid()
@@ -191,14 +254,14 @@ class ParameterTestCase(unittest.TestCase):
         # Parameter testing
         #FreeCAD.Console.PrintLog("Base::ParameterTestCase::testNesting\n")
         for i in range(50):
-            self.TestPar.SetFloat(`i`,4711.4711)
-            self.TestPar.SetInt(`i`,4711)
-            self.TestPar.SetBool(`i`,1)
-            Temp = self.TestPar.GetGroup(`i`)
+            self.TestPar.SetFloat(str(i),4711.4711)
+            self.TestPar.SetInt(str(i),4711)
+            self.TestPar.SetBool(str(i),1)
+            Temp = self.TestPar.GetGroup(str(i))
             for l in range(50):
-                Temp.SetFloat(`l`,4711.4711)
-                Temp.SetInt(`l`,4711)
-                Temp.SetBool(`l`,1)
+                Temp.SetFloat(str(l),4711.4711)
+                Temp.SetInt(str(l),4711)
+                Temp.SetBool(str(l),1)
         Temp = 0
         
     def testExportImport(self):

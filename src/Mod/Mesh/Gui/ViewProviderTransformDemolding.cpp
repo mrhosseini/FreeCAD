@@ -65,6 +65,8 @@ ViewProviderMeshTransformDemolding::ViewProviderMeshTransformDemolding()
 {
   pcTrackballDragger = new SoTrackballDragger;
   pcTrackballDragger->ref();
+  pcTransformDrag = 0;
+  pcColorMat = 0;
 }
 
 ViewProviderMeshTransformDemolding::~ViewProviderMeshTransformDemolding()
@@ -74,7 +76,7 @@ ViewProviderMeshTransformDemolding::~ViewProviderMeshTransformDemolding()
 
 void ViewProviderMeshTransformDemolding::attach(App::DocumentObject *pcFeat)
 {
-  // creats the satandard viewing modes
+  // creates the standard viewing modes
   ViewProviderMesh::attach(pcFeat);
 
   SoGroup* pcDemoldRoot = new SoGroup();
@@ -121,8 +123,8 @@ void ViewProviderMeshTransformDemolding::attach(App::DocumentObject *pcFeat)
 
   calcNormalVector();
   calcMaterialIndex(SbRotation());
-  // geting center point
-  center = dynamic_cast<Feature*>(pcObject)->Mesh.getValue().getKernel().GetBoundBox().GetCenter();
+  // getting center point
+  center = static_cast<Feature*>(pcObject)->Mesh.getValue().getKernel().GetBoundBox().GetCenter();
 
   //SoGetBoundingBoxAction  boxAction;
   //pcHighlight->getBoundingBox(&boxAction);
@@ -131,7 +133,7 @@ void ViewProviderMeshTransformDemolding::attach(App::DocumentObject *pcFeat)
 
 void ViewProviderMeshTransformDemolding::calcNormalVector(void)
 {
-  const MeshKernel& cMesh = dynamic_cast<Feature*>(pcObject)->Mesh.getValue().getKernel();
+  const MeshKernel& cMesh = static_cast<Feature*>(pcObject)->Mesh.getValue().getKernel();
 
   MeshFacetIterator cFIt(cMesh);
   for( cFIt.Init(); cFIt.More(); cFIt.Next())
@@ -181,7 +183,7 @@ void ViewProviderMeshTransformDemolding::DragEndCallback(void)
   SbRotation rot = pcTrackballDragger->rotation.getValue();
   calcMaterialIndex(rot);
 
-  Base::Console().Log("View: Finish draging\n");
+  Base::Console().Log("View: Finish dragging\n");
 
 }
 
@@ -199,7 +201,7 @@ void ViewProviderMeshTransformDemolding::valueChangedCallback(void)
                      rot,               // rotation from the dragger
                      SbVec3f(1,1,1),    // no scaling
                      SbRotation() ,     // no scaling oriantation
-                     SbVec3f(center.x,center.y,center.z)); // center of rotaion
+                     SbVec3f(center.x,center.y,center.z)); // center of rotation
   pcTransformDrag->setMatrix( temp );
 }
 

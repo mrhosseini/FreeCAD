@@ -31,17 +31,16 @@
 /// Here the FreeCAD includes sorted by Base,App,Gui......
 #include <Base/Console.h>
 #include <Base/Parameter.h>
-#include <Base/Exception.h>
-#include <Base/Sequencer.h>
+//#include <Base/Exception.h>
 #include <App/Application.h>
 #include <App/Document.h>
 #include <App/DocumentObject.h>
-#include <Gui/SoFCSelection.h>
-#include <Gui/Selection.h>
 
-#include <Mod/TechDraw/App/DrawViewPart.h>
 #include <Mod/TechDraw/App/DrawViewDimension.h>
+#include <Mod/TechDraw/App/DrawViewMulti.h>
 #include <Mod/TechDraw/App/DrawHatch.h>
+#include <Mod/TechDraw/App/DrawGeomHatch.h>
+#include <Mod/TechDraw/App/LineGroup.h>
 
 #include<Mod/TechDraw/App/DrawPage.h>
 #include "ViewProviderViewPart.h"
@@ -56,16 +55,79 @@ PROPERTY_SOURCE(TechDrawGui::ViewProviderViewPart, TechDrawGui::ViewProviderDraw
 ViewProviderViewPart::ViewProviderViewPart()
 {
     sPixmap = "TechDraw_Tree_View";
+
+    static const char *group = "Lines";
+    static const char *dgroup = "Decoration";
+
+    //default line weights
+    Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter().GetGroup("BaseApp")->
+                                                    GetGroup("Preferences")->GetGroup("Mod/TechDraw/Decorations");
+    std::string lgName = hGrp->GetASCII("LineGroup","FC 0.70mm");
+    auto lg = TechDraw::LineGroup::lineGroupFactory(lgName);
+
+    double weight = lg->getWeight("Thick");
+    ADD_PROPERTY_TYPE(LineWidth,(weight),group,App::Prop_None,"The thickness of visible lines (line groups xx.2");
+
+    weight = lg->getWeight("Thin");
+    ADD_PROPERTY_TYPE(HiddenWidth,(weight),group,App::Prop_None,"The thickness of hidden lines, if enabled (line groups xx.1)");
+
+    weight = lg->getWeight("Graphic");
+    ADD_PROPERTY_TYPE(IsoWidth,(weight),group,App::Prop_None,"The thickness of isoparameter lines, if enabled");
+
+    weight = lg->getWeight("Extra");
+    ADD_PROPERTY_TYPE(ExtraWidth,(weight),group,App::Prop_None,"The thickness of LineGroup Extra lines, if enabled");
+    delete lg;                            //Coverity CID 174664
+
+    //decorations
+    ADD_PROPERTY_TYPE(HorizCenterLine ,(false),dgroup,App::Prop_None,"Show a horizontal centerline through view");
+    ADD_PROPERTY_TYPE(VertCenterLine ,(false),dgroup,App::Prop_None,"Show a vertical centerline through view");
+    ADD_PROPERTY_TYPE(ArcCenterMarks ,(true),dgroup,App::Prop_None,"Center marks on/off");
+    ADD_PROPERTY_TYPE(CenterScale,(2.0),dgroup,App::Prop_None,"Center mark size adjustment, if enabled");
+
+    //properties that affect Section Line
+    ADD_PROPERTY_TYPE(ShowSectionLine ,(true)    ,dgroup,App::Prop_None,"Show/hide section line if applicable");
 }
 
 ViewProviderViewPart::~ViewProviderViewPart()
 {
+
 }
+
+void ViewProviderViewPart::updateData(const App::Property* prop)
+{
+    ViewProviderDrawingView::updateData(prop);
+}
+
+void ViewProviderViewPart::onChanged(const App::Property* prop)
+{
+    if (prop == &(LineWidth)   ||
+        prop == &(HiddenWidth) ||
+        prop == &(IsoWidth) ||
+        prop == &(ExtraWidth) ||
+        prop == &(ArcCenterMarks) ||
+        prop == &(CenterScale) ||
+        prop == &(ShowSectionLine)  ||
+        prop == &(HorizCenterLine)  ||
+        prop == &(VertCenterLine) ) {
+        // redraw QGIVP
+        QGIView* qgiv = getQView();
+        if (qgiv) {
+            qgiv->updateView(true);
+        }
+     }
+
+    ViewProviderDrawingView::onChanged(prop);
+}
+
 
 void ViewProviderViewPart::attach(App::DocumentObject *pcFeat)
 {
-    // call parent attach method
-    ViewProviderDocumentObject::attach(pcFeat);
+    TechDraw::DrawViewMulti* dvm = dynamic_cast<TechDraw::DrawViewMulti*>(pcFeat);
+    if (dvm != nullptr) {
+        sPixmap = "TechDraw_Tree_Multi";
+    }
+
+    ViewProviderDrawingView::attach(pcFeat);
 }
 
 void ViewProviderViewPart::setDisplayMode(const char* ModeName)
@@ -88,20 +150,28 @@ std::vector<App::DocumentObject*> ViewProviderViewPart::claimChildren(void) cons
     // valid children of a ViewPart are:
     //    - Dimensions
     //    - Hatches
+    //    - GeomHatches
     std::vector<App::DocumentObject*> temp;
     const std::vector<App::DocumentObject *> &views = getViewPart()->getInList();
     try {
       for(std::vector<App::DocumentObject *>::const_iterator it = views.begin(); it != views.end(); ++it) {
           if((*it)->getTypeId().isDerivedFrom(TechDraw::DrawViewDimension::getClassTypeId())) {
-              TechDraw::DrawViewDimension *dim = dynamic_cast<TechDraw::DrawViewDimension *>(*it);
-              const std::vector<App::DocumentObject *> &refs = dim->References2D.getValues();
-              for(std::vector<App::DocumentObject *>::const_iterator it = refs.begin(); it != refs.end(); ++it) {
-                  if(strcmp(getViewPart()->getNameInDocument(), (*it)->getNameInDocument()) == 0) {        //wf: isn't this test redundant?
-                     temp.push_back(dim);                                                                  // if a dim is in the inlist,
-                                                                                                           // it's a child of this ViewPart??
+              //TODO: make a list, then prune it.  should be faster?
+              bool skip = false;
+              std::string dimName = (*it)->getNameInDocument();
+              for (auto& t: temp) {                              //only add dim once even if it references 2 geometries
+                  std::string tName = t->getNameInDocument();
+                  if (dimName == tName) {
+                      skip = true;
+                      break;
                   }
               }
+              if (!skip) {
+                  temp.push_back(*it);
+              }
           } else if ((*it)->getTypeId().isDerivedFrom(TechDraw::DrawHatch::getClassTypeId())) {
+              temp.push_back((*it));
+          } else if ((*it)->getTypeId().isDerivedFrom(TechDraw::DrawGeomHatch::getClassTypeId())) {
               temp.push_back((*it));
           }
       }
@@ -112,7 +182,12 @@ std::vector<App::DocumentObject*> ViewProviderViewPart::claimChildren(void) cons
     }
 }
 
-TechDraw::DrawViewPart* ViewProviderViewPart::getViewPart() const
+TechDraw::DrawViewPart* ViewProviderViewPart::getViewObject() const
 {
     return dynamic_cast<TechDraw::DrawViewPart*>(pcObject);
+}
+
+TechDraw::DrawViewPart* ViewProviderViewPart::getViewPart() const
+{
+    return getViewObject();
 }

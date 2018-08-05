@@ -24,6 +24,7 @@
 #ifndef _PreComp_
 # include <BRepAdaptor_Curve.hxx>
 # include <BRepCheck_Analyzer.hxx>
+# include <BRepFeat_SplitShape.hxx>
 # include <BRepPrimAPI_MakeBox.hxx>
 # include <BRepPrimAPI_MakeCone.hxx>
 # include <BRepPrimAPI_MakeTorus.hxx>
@@ -75,6 +76,7 @@
 # include <TColgp_HArray2OfPnt.hxx>
 # include <TColStd_Array1OfReal.hxx>
 # include <TColStd_Array1OfInteger.hxx>
+# include <TopTools_ListIteratorOfListOfShape.hxx>
 # include <Precision.hxx>
 # include <Standard_Version.hxx>
 #endif
@@ -124,12 +126,18 @@
 #include "ImportIges.h"
 #include "ImportStep.h"
 #include "edgecluster.h"
+#include "FaceMaker.h"
+#include "PartPyCXX.h"
 
 #ifdef FCUseFreeType
 #  include "FT2FC.h"
 #endif
 
 extern const char* BRepBuilderAPI_FaceErrorText(BRepBuilderAPI_FaceError fe);
+
+namespace Part {
+extern Py::Object shape2pyshape(const TopoDS_Shape &shape);
+}
 
 #ifndef M_PI
 #define M_PI    3.14159265358979323846 /* pi */
@@ -142,20 +150,22 @@ extern const char* BRepBuilderAPI_FaceErrorText(BRepBuilderAPI_FaceError fe);
 namespace Part {
 struct EdgePoints {
     gp_Pnt v1, v2;
+    std::list<TopoDS_Edge>::iterator it;
     TopoDS_Edge edge;
 };
 
-static std::list<TopoDS_Edge> sort_Edges(double tol3d, const std::vector<TopoDS_Edge>& edges)
+PartExport std::list<TopoDS_Edge> sort_Edges(double tol3d, std::list<TopoDS_Edge>& edges)
 {
     tol3d = tol3d * tol3d;
     std::list<EdgePoints>  edge_points;
     TopExp_Explorer xp;
-    for (std::vector<TopoDS_Edge>::const_iterator it = edges.begin(); it != edges.end(); ++it) {
+    for (std::list<TopoDS_Edge>::iterator it = edges.begin(); it != edges.end(); ++it) {
         EdgePoints ep;
         xp.Init(*it,TopAbs_VERTEX);
         ep.v1 = BRep_Tool::Pnt(TopoDS::Vertex(xp.Current()));
         xp.Next();
         ep.v2 = BRep_Tool::Pnt(TopoDS::Vertex(xp.Current()));
+        ep.it = it;
         ep.edge = *it;
         edge_points.push_back(ep);
     }
@@ -169,6 +179,7 @@ static std::list<TopoDS_Edge> sort_Edges(double tol3d, const std::vector<TopoDS_
     last  = edge_points.front().v2;
 
     sorted.push_back(edge_points.front().edge);
+    edges.erase(edge_points.front().it);
     edge_points.erase(edge_points.begin());
 
     while (!edge_points.empty()) {
@@ -178,6 +189,7 @@ static std::list<TopoDS_Edge> sort_Edges(double tol3d, const std::vector<TopoDS_
             if (pEI->v1.SquareDistance(last) <= tol3d) {
                 last = pEI->v2;
                 sorted.push_back(pEI->edge);
+                edges.erase(pEI->it);
                 edge_points.erase(pEI);
                 pEI = edge_points.begin();
                 break;
@@ -185,6 +197,7 @@ static std::list<TopoDS_Edge> sort_Edges(double tol3d, const std::vector<TopoDS_
             else if (pEI->v2.SquareDistance(first) <= tol3d) {
                 first = pEI->v1;
                 sorted.push_front(pEI->edge);
+                edges.erase(pEI->it);
                 edge_points.erase(pEI);
                 pEI = edge_points.begin();
                 break;
@@ -192,11 +205,12 @@ static std::list<TopoDS_Edge> sort_Edges(double tol3d, const std::vector<TopoDS_
             else if (pEI->v2.SquareDistance(last) <= tol3d) {
                 last = pEI->v1;
                 Standard_Real first, last;
-                const Handle_Geom_Curve & curve = BRep_Tool::Curve(pEI->edge, first, last);
+                const Handle(Geom_Curve) & curve = BRep_Tool::Curve(pEI->edge, first, last);
                 first = curve->ReversedParameter(first);
                 last = curve->ReversedParameter(last);
                 TopoDS_Edge edgeReversed = BRepBuilderAPI_MakeEdge(curve->Reversed(), last, first);
                 sorted.push_back(edgeReversed);
+                edges.erase(pEI->it);
                 edge_points.erase(pEI);
                 pEI = edge_points.begin();
                 break;
@@ -204,11 +218,12 @@ static std::list<TopoDS_Edge> sort_Edges(double tol3d, const std::vector<TopoDS_
             else if (pEI->v1.SquareDistance(first) <= tol3d) {
                 first = pEI->v2;
                 Standard_Real first, last;
-                const Handle_Geom_Curve & curve = BRep_Tool::Curve(pEI->edge, first, last);
+                const Handle(Geom_Curve) & curve = BRep_Tool::Curve(pEI->edge, first, last);
                 first = curve->ReversedParameter(first);
                 last = curve->ReversedParameter(last);
                 TopoDS_Edge edgeReversed = BRepBuilderAPI_MakeEdge(curve->Reversed(), last, first);
                 sorted.push_front(edgeReversed);
+                edges.erase(pEI->it);
                 edge_points.erase(pEI);
                 pEI = edge_points.begin();
                 break;
@@ -244,13 +259,17 @@ public:
             "read(string) -- Load the file and return the shape."
         );
         add_varargs_method("show",&Module::show,
-            "show(shape) -- Add the shape to the active document or create one if no document exists."
+            "show(shape,[string]) -- Add the shape to the active document or create one if no document exists."
         );
         add_varargs_method("makeCompound",&Module::makeCompound,
             "makeCompound(list) -- Create a compound out of a list of shapes."
         );
         add_varargs_method("makeShell",&Module::makeShell,
             "makeShell(list) -- Create a shell out of a list of faces."
+        );
+        add_varargs_method("makeFace",&Module::makeFace,
+            "makeFace(list_of_shapes_or_compound, maker_class_name) -- Create a face (faces) using facemaker class.\n"
+            "maker_class_name is a string like 'Part::FaceMakerSimple'."
         );
         add_varargs_method("makeFilledFace",&Module::makeFilledFace,
             "makeFilledFace(list) -- Create a face out of a list of edges."
@@ -274,10 +293,30 @@ public:
             "By default pnt=Vector(0,0,0) and dir=Vector(0,0,1)"
         );
         add_varargs_method("makeLine",&Module::makeLine,
-            "makeLine((x1,y1,z1),(x2,y2,z2)) -- Make a line of two points"
+            "makeLine(startpnt,endpnt) -- Make a line between two points\n"
+            "\n"
+            "Args:\n"
+            "    startpnt (Vector or tuple): Vector or 3 element tuple \n"
+            "        containing the x,y and z coordinates of the start point,\n"
+            "        i.e. (x1,y1,z1).\n"
+            "    endpnt (Vector or tuple): Vector or 3 element tuple \n"
+            "        containing the x,y and z coordinates of the start point,\n"
+            "        i.e. (x1,y1,z1).\n"
+            "\n"
+            "Returns:\n"
+            "    Edge: Part.Edge object\n"
         );
         add_varargs_method("makePolygon",&Module::makePolygon,
-            "makePolygon(list) -- Make a polygon of a list of points"
+            "makePolygon(pntslist) -- Make a polygon from a list of points\n"
+            "\n"
+            "Args:\n"
+            "    pntslist (list(Vector)): list of Vectors representing the \n"
+            "        points of the polygon.\n"
+            "\n"
+            "Returns:\n"
+            "    Wire: Part.Wire object. If the last point in the list is \n"
+            "        not the same as the first point, the Wire will not be \n"
+            "        closed and cannot be used to create a face.\n"
         );
         add_varargs_method("makeCircle",&Module::makeCircle,
             "makeCircle(radius,[pnt,dir,angle1,angle2]) -- Make a circle with a given radius\n"
@@ -331,10 +370,30 @@ public:
             "makeSweepSurface(edge(path),edge(profile),[float]) -- Create a profile along a path."
         );
         add_varargs_method("makeLoft",&Module::makeLoft,
-            "makeLoft(list of wires,[solid=False,ruled=False,closed=False]) -- Create a loft shape."
+            "makeLoft(list of wires,[solid=False,ruled=False,closed=False,maxDegree=5]) -- Create a loft shape."
         );
         add_varargs_method("makeWireString",&Module::makeWireString,
             "makeWireString(string,fontdir,fontfile,height,[track]) -- Make list of wires in the form of a string's characters."
+        );
+        add_varargs_method("makeSplitShape",&Module::makeSplitShape,
+            "makeSplitShape(shape, list of shape pairs,[check Interior=True]) -> two lists of shapes.\n"
+            "The following shape pairs are supported:\n"
+            "* Wire, Face\n"
+            "* Edge, Face\n"
+            "* Compound, Face\n"
+            "* Edge, Edge\n"
+            "* The face must be part of the specified shape and the edge, wire or compound must\n"
+            "lie on the face.\n"
+            "Output:\n"
+            "The first list contains the faces that are the left of the projected wires.\n"
+            "The second list contains the left part on the shape.\n\n"
+            "Example:\n"
+            "face = ...\n"
+            "edges = ...\n"
+            "split = [(edges[0],face),(edges[1],face)]\n"
+            "r = Part.makeSplitShape(face, split)\n"
+            "Part.show(r[0][0])\n"
+            "Part.show(r[1][0])\n"
         );
         add_varargs_method("exportUnits",&Module::exportUnits,
             "exportUnits([string=MM|M|IN]) -- Set units for exporting STEP/IGES files and returns the units."
@@ -351,6 +410,9 @@ public:
         add_varargs_method("__sortEdges__",&Module::sortEdges,
             "__sortEdges__(list of edges) -- Helper method to sort an unsorted list of edges so that afterwards\n"
             "two adjacent edges share a common vertex"
+        );
+        add_varargs_method("sortEdges",&Module::sortEdges2,
+            "sortEdges(list of edges) -- Helper method to sort a list of edges into a list of list of connected edges"
         );
         add_varargs_method("__toPythonOCC__",&Module::toPythonOCC,
             "__toPythonOCC__(shape) -- Helper method to convert an internal shape to pythonocc shape"
@@ -545,17 +607,17 @@ private:
     }
     Py::Object show(const Py::Tuple& args)
     {
-        PyObject *pcObj;
-        if (!PyArg_ParseTuple(args.ptr(), "O!", &(TopoShapePy::Type), &pcObj))
+        PyObject *pcObj = 0;
+        char *name = "Shape";
+        if (!PyArg_ParseTuple(args.ptr(), "O!|s", &(TopoShapePy::Type), &pcObj, &name))
             throw Py::Exception();
 
         App::Document *pcDoc = App::GetApplication().getActiveDocument(); 	 
         if (!pcDoc)
             pcDoc = App::GetApplication().newDocument();
         TopoShapePy* pShape = static_cast<TopoShapePy*>(pcObj);
-        Part::Feature *pcFeature = (Part::Feature *)pcDoc->addObject("Part::Feature", "Shape");
+        Part::Feature *pcFeature = static_cast<Part::Feature*>(pcDoc->addObject("Part::Feature", name));
         // copy the data
-        //TopoShape* shape = new MeshObject(*pShape->getTopoShapeObjectPtr());
         pcFeature->Shape.setValue(pShape->getTopoShapePtr()->getShape());
         pcDoc->recompute();
 
@@ -582,9 +644,8 @@ private:
                 }
             }
         }
-        catch (Standard_Failure) {
-            Handle_Standard_Failure e = Standard_Failure::Caught();
-            throw Py::Exception(PartExceptionOCCError, e->GetMessageString());
+        catch (Standard_Failure& e) {
+            throw Py::Exception(PartExceptionOCCError, e.GetMessageString());
         }
 
         return Py::asObject(new TopoShapeCompoundPy(new TopoShape(Comp)));
@@ -619,12 +680,67 @@ private:
                 shape = sewShell.ApplySewing(shell);
             }
         }
-        catch (Standard_Failure) {
-            Handle_Standard_Failure e = Standard_Failure::Caught();
-            throw Py::Exception(PartExceptionOCCError, e->GetMessageString());
+        catch (Standard_Failure& e) {
+            throw Py::Exception(PartExceptionOCCError, e.GetMessageString());
         }
 
         return Py::asObject(new TopoShapeShellPy(new TopoShape(shape)));
+    }
+    Py::Object makeFace(const Py::Tuple& args)
+    {
+        try {
+            char* className = 0;
+            PyObject* pcPyShapeOrList = nullptr;
+            PyErr_Clear();
+            if (PyArg_ParseTuple(args.ptr(), "Os", &pcPyShapeOrList, &className)) {
+                std::unique_ptr<FaceMaker> fm = Part::FaceMaker::ConstructFromType(className);
+
+                //dump all supplied shapes to facemaker, no matter what type (let facemaker decide).
+                if (PySequence_Check(pcPyShapeOrList)){
+                    Py::Sequence list(pcPyShapeOrList);
+                    for (Py::Sequence::iterator it = list.begin(); it != list.end(); ++it) {
+                        PyObject* item = (*it).ptr();
+                        if (PyObject_TypeCheck(item, &(Part::TopoShapePy::Type))) {
+                            const TopoDS_Shape& sh = static_cast<Part::TopoShapePy*>(item)->getTopoShapePtr()->getShape();
+                            fm->addShape(sh);
+                        } else {
+                            throw Py::TypeError("Object is not a shape.");
+                        }
+                    }
+                } else if (PyObject_TypeCheck(pcPyShapeOrList, &(Part::TopoShapePy::Type))) {
+                    const TopoDS_Shape& sh = static_cast<Part::TopoShapePy*>(pcPyShapeOrList)->getTopoShapePtr()->getShape();
+                    if (sh.IsNull())
+                        throw Base::Exception("Shape is null!");
+                    if (sh.ShapeType() == TopAbs_COMPOUND)
+                        fm->useCompound(TopoDS::Compound(sh));
+                    else
+                        fm->addShape(sh);
+                } else {
+                    throw Py::Exception(PyExc_TypeError, "First argument is neither a shape nor list of shapes.");
+                }
+
+                fm->Build();
+
+                if(fm->Shape().IsNull())
+                    return Py::asObject(new TopoShapePy(new TopoShape(fm->Shape())));
+
+                switch(fm->Shape().ShapeType()){
+                case TopAbs_FACE:
+                    return Py::asObject(new TopoShapeFacePy(new TopoShape(fm->Shape())));
+                case TopAbs_COMPOUND:
+                    return Py::asObject(new TopoShapeCompoundPy(new TopoShape(fm->Shape())));
+                default:
+                    return Py::asObject(new TopoShapePy(new TopoShape(fm->Shape())));
+                }
+            }
+
+            throw Py::Exception(Base::BaseExceptionFreeCADError, std::string("Argument type signature not recognized. Should be either (list, string), or (shape, string)"));
+
+        } catch (Standard_Failure& e) {
+            throw Py::Exception(PartExceptionOCCError, e.GetMessageString());
+        } catch (Base::Exception &e){
+            throw Py::Exception(Base::BaseExceptionFreeCADError, e.what());
+        }
     }
     Py::Object makeFilledFace(const Py::Tuple& args)
     {
@@ -681,9 +797,8 @@ private:
                 throw Py::Exception(PartExceptionOCCError, "Failed to created face by filling edges");
             }
         }
-        catch (Standard_Failure) {
-            Handle_Standard_Failure e = Standard_Failure::Caught();
-            throw Py::Exception(PartExceptionOCCError, e->GetMessageString());
+        catch (Standard_Failure& e) {
+            throw Py::Exception(PartExceptionOCCError, e.GetMessageString());
         }
     }
     Py::Object makeSolid(const Py::Tuple& args)
@@ -764,7 +879,7 @@ private:
                 Base::Vector3d vec = static_cast<Base::VectorPy*>(pDirZ)->value();
                 d.SetCoord(vec.x, vec.y, vec.z);
             }
-            Handle_Geom_Plane aPlane;
+            Handle(Geom_Plane) aPlane;
             if (pDirX) {
                 Base::Vector3d vec = static_cast<Base::VectorPy*>(pDirX)->value();
                 gp_Dir dx;
@@ -973,9 +1088,8 @@ private:
 
             return Py::asObject(new TopoShapeWirePy(new TopoShape(mkPoly.Wire())));
         }
-        catch (Standard_Failure) {
-            Handle_Standard_Failure e = Standard_Failure::Caught();
-            throw Py::Exception(PartExceptionOCCError, e->GetMessageString());
+        catch (Standard_Failure& e) {
+            throw Py::Exception(PartExceptionOCCError, e.GetMessageString());
         }
     }
     Py::Object makeCircle(const Py::Tuple& args)
@@ -1005,7 +1119,7 @@ private:
             circle.SetAxis(axis);
             circle.SetRadius(radius);
 
-            Handle_Geom_Circle hCircle = new Geom_Circle (circle);
+            Handle(Geom_Circle) hCircle = new Geom_Circle (circle);
             BRepBuilderAPI_MakeEdge aMakeEdge(hCircle, angle1*(M_PI/180), angle2*(M_PI/180));
             TopoDS_Edge edge = aMakeEdge.Edge();
             return Py::asObject(new TopoShapeEdgePy(new TopoShape(edge)));
@@ -1153,9 +1267,8 @@ private:
                                                 anIsLeft, anIsVertHeight);
             return Py::asObject(new TopoShapeWirePy(new TopoShape(wire)));
         }
-        catch (Standard_Failure) {
-            Handle_Standard_Failure e = Standard_Failure::Caught();
-            throw Py::Exception(PartExceptionOCCError, e->GetMessageString());
+        catch (Standard_Failure& e) {
+            throw Py::Exception(PartExceptionOCCError, e.GetMessageString());
         }
     }
     Py::Object makeLongHelix(const Py::Tuple& args)
@@ -1164,7 +1277,7 @@ private:
         PyObject *pleft=Py_False;
         if (!PyArg_ParseTuple(args.ptr(), "ddd|dO!", &pitch, &height, &radius, &angle,
                                                &(PyBool_Type), &pleft)) {
-            throw Py::Exception("Part.makeLongHelix fails on parms");
+            throw Py::RuntimeError("Part.makeLongHelix fails on parms");
         }
 
         try {
@@ -1173,9 +1286,8 @@ private:
             TopoDS_Shape wire = helix.makeLongHelix(pitch, height, radius, angle, anIsLeft);
             return Py::asObject(new TopoShapeWirePy(new TopoShape(wire)));
         }
-        catch (Standard_Failure) {
-            Handle_Standard_Failure e = Standard_Failure::Caught();
-            throw Py::Exception(PartExceptionOCCError, e->GetMessageString());
+        catch (Standard_Failure& e) {
+            throw Py::Exception(PartExceptionOCCError, e.GetMessageString());
         }
     }
     Py::Object makeThread(const Py::Tuple& args)
@@ -1189,9 +1301,8 @@ private:
             TopoDS_Shape wire = helix.makeThread(pitch, depth, height, radius);
             return Py::asObject(new TopoShapeWirePy(new TopoShape(wire)));
         }
-        catch (Standard_Failure) {
-            Handle_Standard_Failure e = Standard_Failure::Caught();
-            throw Py::Exception(PartExceptionOCCError, e->GetMessageString());
+        catch (Standard_Failure& e) {
+            throw Py::Exception(PartExceptionOCCError, e.GetMessageString());
         }
     }
     Py::Object makeRevolution(const Py::Tuple& args)
@@ -1199,7 +1310,7 @@ private:
         double vmin = DBL_MAX, vmax=-DBL_MAX;
         double angle=360;
         PyObject *pPnt=0, *pDir=0, *pCrv;
-        Handle_Geom_Curve curve;
+        Handle(Geom_Curve) curve;
         union PyType_Object defaultType = {&Part::TopoShapeSolidPy::Type};
         PyObject* type = defaultType.o;
         if (PyArg_ParseTuple(args.ptr(), "O!|dddO!O!O!", &(GeometryPy::Type), &pCrv,
@@ -1208,7 +1319,7 @@ private:
                                                    &(Base::VectorPy::Type), &pDir,
                                                    &(PyType_Type), &type)) {
             GeometryPy* pcGeo = static_cast<GeometryPy*>(pCrv);
-            curve = Handle_Geom_Curve::DownCast
+            curve = Handle(Geom_Curve)::DownCast
                 (pcGeo->getGeometryPtr()->handle());
             if (curve.IsNull()) {
                 throw Py::Exception(PyExc_TypeError, "geometry is not a curve");
@@ -1238,10 +1349,10 @@ private:
             const TopoDS_Edge& edge = TopoDS::Edge(shape);
             BRepAdaptor_Curve adapt(edge);
 
-            const Handle_Geom_Curve& hCurve = adapt.Curve().Curve();
+            const Handle(Geom_Curve)& hCurve = adapt.Curve().Curve();
             // Apply placement of the shape to the curve
             TopLoc_Location loc = edge.Location();
-            curve = Handle_Geom_Curve::DownCast(hCurve->Transformed(loc.Transformation()));
+            curve = Handle(Geom_Curve)::DownCast(hCurve->Transformed(loc.Transformation()));
             if (curve.IsNull()) {
                 throw Py::Exception(PartExceptionOCCError, "invalid curve in edge");
             }
@@ -1355,9 +1466,8 @@ private:
             TopoDS_Shape face = myShape.makeTube(radius, tolerance, cont, maxdegree, maxsegment);
             return Py::asObject(new TopoShapeFacePy(new TopoShape(face)));
         }
-        catch (Standard_Failure) {
-            Handle_Standard_Failure e = Standard_Failure::Caught();
-            throw Py::Exception(PartExceptionOCCError, e->GetMessageString());
+        catch (Standard_Failure& e) {
+            throw Py::Exception(PartExceptionOCCError, e.GetMessageString());
         }
     }
     Py::Object makeSweepSurface(const Py::Tuple& args)
@@ -1380,9 +1490,8 @@ private:
             TopoDS_Shape face = myShape.makeSweep(prof_shape, tolerance, fillMode);
             return Py::asObject(new TopoShapeFacePy(new TopoShape(face)));
         }
-        catch (Standard_Failure) {
-            Handle_Standard_Failure e = Standard_Failure::Caught();
-            throw Py::Exception(PartExceptionOCCError, e->GetMessageString());
+        catch (Standard_Failure& e) {
+            throw Py::Exception(PartExceptionOCCError, e.GetMessageString());
         }
     }
     Py::Object makeLoft(const Py::Tuple& args)
@@ -1392,11 +1501,11 @@ private:
         if (!PyArg_ParseTuple(args.ptr(), "O", &pcObj))
             throw Py::Exception;
 
-        NCollection_List<Handle_Geom_Curve> theSections;
+        NCollection_List<Handle(Geom_Curve)> theSections;
         Py::Sequence list(pcObj);
         for (Py::Sequence::iterator it = list.begin(); it != list.end(); ++it) {
             if (PyObject_TypeCheck((*it).ptr(), &(Part::GeometryCurvePy::Type))) {
-                Handle_Geom_Curve hCurve = Handle_Geom_Curve::DownCast(
+                Handle(Geom_Curve) hCurve = Handle(Geom_Curve)::DownCast(
                     static_cast<GeometryCurvePy*>((*it).ptr())->getGeomCurvePtr()->handle());
                 theSections.Append(hCurve);
             }
@@ -1404,13 +1513,13 @@ private:
 
         //populate section generator
         GeomFill_SectionGenerator aSecGenerator;
-        for (NCollection_List<Handle_Geom_Curve>::Iterator anIt(theSections); anIt.More(); anIt.Next()) {
-            const Handle_Geom_Curve& aCurve = anIt.Value();
+        for (NCollection_List<Handle(Geom_Curve)>::Iterator anIt(theSections); anIt.More(); anIt.Next()) {
+            const Handle(Geom_Curve)& aCurve = anIt.Value();
             aSecGenerator.AddCurve (aCurve);
         }
         aSecGenerator.Perform (Precision::PConfusion());
 
-        Handle_GeomFill_Line aLine = new GeomFill_Line (theSections.Size());
+        Handle(GeomFill_Line) aLine = new GeomFill_Line (theSections.Size());
 
         //parameters
         const Standard_Integer aMinDeg = 1, aMaxDeg = BSplCLib::MaxDegree(), aNbIt = 0;
@@ -1425,7 +1534,7 @@ private:
             return 0;
         }
 
-        Handle_Geom_BSplineSurface aRes;
+        Handle(Geom_BSplineSurface) aRes;
         aRes = new Geom_BSplineSurface(anAlgo.SurfPoles(), anAlgo.SurfWeights(),
             anAlgo.SurfUKnots(), anAlgo.SurfVKnots(), anAlgo.SurfUMults(), anAlgo.SurfVMults(),
             anAlgo.UDegree(), anAlgo.VDegree());
@@ -1435,10 +1544,12 @@ private:
         PyObject *psolid=Py_False;
         PyObject *pruled=Py_False;
         PyObject *pclosed=Py_False;
-        if (!PyArg_ParseTuple(args.ptr(), "O|O!O!O!", &pcObj,
+        int degMax = 5;
+        if (!PyArg_ParseTuple(args.ptr(), "O|O!O!O!i", &pcObj,
                                               &(PyBool_Type), &psolid,
                                               &(PyBool_Type), &pruled,
-                                              &(PyBool_Type), &pclosed)) {
+                                              &(PyBool_Type), &pclosed,
+                                              &degMax)) {
             throw Py::Exception();
         }
 
@@ -1457,9 +1568,83 @@ private:
         Standard_Boolean anIsSolid = PyObject_IsTrue(psolid) ? Standard_True : Standard_False;
         Standard_Boolean anIsRuled = PyObject_IsTrue(pruled) ? Standard_True : Standard_False;
         Standard_Boolean anIsClosed = PyObject_IsTrue(pclosed) ? Standard_True : Standard_False;
-        TopoDS_Shape aResult = myShape.makeLoft(profiles, anIsSolid, anIsRuled,anIsClosed);
+        TopoDS_Shape aResult = myShape.makeLoft(profiles, anIsSolid, anIsRuled, anIsClosed, degMax);
         return Py::asObject(new TopoShapePy(new TopoShape(aResult)));
 #endif
+    }
+    Py::Object makeSplitShape(const Py::Tuple& args)
+    {
+        PyObject* shape;
+        PyObject* list;
+        PyObject* checkInterior = Py_True;
+        if (!PyArg_ParseTuple(args.ptr(), "O!O|O!", &(TopoShapePy::Type), &shape, &list,
+                                                    &PyBool_Type, &checkInterior))
+            throw Py::Exception();
+
+        try {
+            TopoDS_Shape initShape = static_cast<TopoShapePy*>
+                    (shape)->getTopoShapePtr()->getShape();
+            BRepFeat_SplitShape splitShape(initShape);
+            splitShape.SetCheckInterior(PyObject_IsTrue(checkInterior) ? Standard_True : Standard_False);
+
+            Py::Sequence seq(list);
+            for (Py::Sequence::iterator it = seq.begin(); it != seq.end(); ++it) {
+                Py::Tuple tuple(*it);
+                Py::TopoShape sh1(tuple[0]);
+                Py::TopoShape sh2(tuple[1]);
+                const TopoDS_Shape& shape1= sh1.extensionObject()->getTopoShapePtr()->getShape();
+                const TopoDS_Shape& shape2= sh2.extensionObject()->getTopoShapePtr()->getShape();
+                if (shape1.IsNull() || shape2.IsNull())
+                    throw Py::RuntimeError("Cannot add null shape");
+                if (shape2.ShapeType() == TopAbs_FACE) {
+                    if (shape1.ShapeType() == TopAbs_EDGE) {
+                        splitShape.Add(TopoDS::Edge(shape1), TopoDS::Face(shape2));
+                    }
+                    else if (shape1.ShapeType() == TopAbs_WIRE) {
+                        splitShape.Add(TopoDS::Wire(shape1), TopoDS::Face(shape2));
+                    }
+                    else if (shape1.ShapeType() == TopAbs_COMPOUND) {
+                        splitShape.Add(TopoDS::Compound(shape1), TopoDS::Face(shape2));
+                    }
+                    else {
+                        throw Py::TypeError("First item in tuple must be Edge, Wire or Compound");
+                    }
+                }
+                else if (shape2.ShapeType() == TopAbs_EDGE) {
+                    if (shape1.ShapeType() == TopAbs_EDGE) {
+                        splitShape.Add(TopoDS::Edge(shape1), TopoDS::Edge(shape2));
+                    }
+                    else {
+                        throw Py::TypeError("First item in tuple must be Edge");
+                    }
+                }
+                else {
+                    throw Py::TypeError("Second item in tuple must be Face or Edge");
+                }
+            }
+
+            splitShape.Build();
+            const TopTools_ListOfShape& d = splitShape.DirectLeft();
+            const TopTools_ListOfShape& l = splitShape.Left();
+
+            Py::List list1;
+            for (TopTools_ListIteratorOfListOfShape it(d); it.More(); it.Next()) {
+                list1.append(shape2pyshape(it.Value()));
+            }
+
+            Py::List list2;
+            for (TopTools_ListIteratorOfListOfShape it(l); it.More(); it.Next()) {
+                list2.append(shape2pyshape(it.Value()));
+            }
+
+            Py::Tuple tuple(2);
+            tuple.setItem(0, list1);
+            tuple.setItem(1, list2);
+            return tuple;
+        }
+        catch (Standard_Failure& e) {
+            throw Py::Exception(PartExceptionOCCError, e.GetMessageString());
+        }
     }
     Py::Object makeWireString(const Py::Tuple& args)
     {
@@ -1497,8 +1682,14 @@ private:
             }
         }
 
+#if PY_MAJOR_VERSION >= 3
+        //FIXME: Test this!
+        if (PyBytes_Check(intext)) {
+            PyObject *p = Base::PyAsUnicodeObject(PyBytes_AsString(intext));
+#else
         if (PyString_Check(intext)) {
-            PyObject *p = Base::PyAsUnicodeObject(PyString_AsString(intext));    
+            PyObject *p = Base::PyAsUnicodeObject(PyString_AsString(intext));
+#endif
             if (!p) {
                 throw Py::TypeError("** makeWireString can't convert PyString.");
             }
@@ -1532,7 +1723,6 @@ private:
 #else
         throw Py::RuntimeError("FreeCAD compiled without FreeType support! This method is disabled...");
 #endif
-        return Py::None();
     }
     Py::Object exportUnits(const Py::Tuple& args)
     {
@@ -1574,8 +1764,13 @@ private:
         PyErr_Clear();
         PyObject* index_or_value;
         if (PyArg_ParseTuple(args.ptr(), "sO", &name, &index_or_value)) {
+#if PY_MAJOR_VERSION >= 3
+            if (PyLong_Check(index_or_value)) {
+                int ival = (int)PyLong_AsLong(index_or_value);
+#else
             if (PyInt_Check(index_or_value)) {
                 int ival = (int)PyInt_AsLong(index_or_value);
+#endif
                 if (!Interface_Static::SetIVal(name, ival)) {
                     std::stringstream str;
                     str << "Failed to set '" << name << "'";
@@ -1681,7 +1876,7 @@ private:
         }
 
         Py::Sequence list(obj);
-        std::vector<TopoDS_Edge> edges;
+        std::list<TopoDS_Edge> edges;
         for (Py::Sequence::iterator it = list.begin(); it != list.end(); ++it) {
             PyObject* item = (*it).ptr();
             if (PyObject_TypeCheck(item, &(Part::TopoShapePy::Type))) {
@@ -1704,6 +1899,41 @@ private:
         }
 
         return sorted_list;
+    }
+    Py::Object sortEdges2(const Py::Tuple& args)
+    {
+        PyObject *obj;
+        if (!PyArg_ParseTuple(args.ptr(), "O", &obj)) {
+            throw Py::Exception(PartExceptionOCCError, "list of edges expected");
+        }
+
+        Py::Sequence list(obj);
+        std::list<TopoDS_Edge> edges;
+        for (Py::Sequence::iterator it = list.begin(); it != list.end(); ++it) {
+            PyObject* item = (*it).ptr();
+            if (PyObject_TypeCheck(item, &(Part::TopoShapePy::Type))) {
+                const TopoDS_Shape& sh = static_cast<Part::TopoShapePy*>(item)->getTopoShapePtr()->getShape();
+                if (sh.ShapeType() == TopAbs_EDGE)
+                    edges.push_back(TopoDS::Edge(sh));
+                else {
+                    throw Py::TypeError("shape is not an edge");
+                }
+            }
+            else {
+                throw Py::TypeError("item is not a shape");
+            }
+        }
+
+        Py::List root_list;
+        while(edges.size()) {
+            std::list<TopoDS_Edge> sorted = sort_Edges(Precision::Confusion(), edges);
+            Py::List sorted_list;
+            for (std::list<TopoDS_Edge>::iterator it = sorted.begin(); it != sorted.end(); ++it) {
+                sorted_list.append(Py::Object(new TopoShapeEdgePy(new TopoShape(*it)),true));
+            }
+            root_list.append(sorted_list);
+        }
+        return root_list;
     }
     Py::Object toPythonOCC(const Py::Tuple& args)
     {

@@ -45,11 +45,11 @@ DEF_STD_CMD(StdCmdFeatRecompute);
 StdCmdFeatRecompute::StdCmdFeatRecompute()
   :Command("Std_Recompute")
 {
-    // seting the
+    // setting the
     sGroup        = QT_TR_NOOP("File");
     sMenuText     = QT_TR_NOOP("&Recompute");
     sToolTipText  = QT_TR_NOOP("Recompute feature or document");
-    sWhatsThis    = QT_TR_NOOP("Recompute feature or document");
+    sWhatsThis    = "Std_Recompute";
     sStatusTip    = QT_TR_NOOP("Recompute feature or document");
     sPixmap       = "view-refresh";
     sAccel        = "Ctrl+R";
@@ -57,6 +57,7 @@ StdCmdFeatRecompute::StdCmdFeatRecompute()
 
 void StdCmdFeatRecompute::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
 }
 
 //===========================================================================
@@ -71,12 +72,14 @@ StdCmdRandomColor::StdCmdRandomColor()
     sGroup        = QT_TR_NOOP("File");
     sMenuText     = QT_TR_NOOP("Random color");
     sToolTipText  = QT_TR_NOOP("Random color");
-    sWhatsThis    = QT_TR_NOOP("Random color");
+    sWhatsThis    = "Std_RandomColor";
     sStatusTip    = QT_TR_NOOP("Random color");
 }
 
 void StdCmdRandomColor::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
+
     // get the complete selection
     std::vector<SelectionSingleton::SelObj> sel = Selection().getCompleteSelection();
     for (std::vector<SelectionSingleton::SelObj>::iterator it = sel.begin(); it != sel.end(); ++it) {

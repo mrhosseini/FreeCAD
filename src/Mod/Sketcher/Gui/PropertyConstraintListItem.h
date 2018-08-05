@@ -43,8 +43,10 @@ namespace SketcherGui {
 class PropertyConstraintListItem: public Gui::PropertyEditor::PropertyItem
 {
     Q_OBJECT
-    TYPESYSTEM_HEADER();
+    PROPERTYITEM_HEADER
 
+    virtual ~PropertyConstraintListItem();
+    virtual void assignProperty(const App::Property* prop);
     virtual QWidget* createEditor(QWidget* parent, const QObject* receiver, const char* method) const;
     virtual void setEditorData(QWidget *editor, const QVariant& data) const;
     virtual QVariant editorData(QWidget *editor) const;

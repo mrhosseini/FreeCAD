@@ -24,6 +24,7 @@
 #include "PreCompiled.h"
 
 #ifndef _PreComp_
+# include <QAction>
 #endif
 
 #include "ui_TaskThicknessParameters.h"
@@ -136,6 +137,8 @@ void TaskThicknessParameters::onRefDeleted(void)
     pcThickness->Base.setValue(base, faces);
     ui->listWidgetReferences->model()->removeRow(ui->listWidgetReferences->currentRow());
     pcThickness->getDocument()->recomputeFeature(pcThickness);
+    clearButtons(none);
+    exitSelectionMode();
 }
 
 void TaskThicknessParameters::onValueChanged(double angle)
@@ -163,7 +166,7 @@ void TaskThicknessParameters::onModeChanged(int mode) {
 }
 
 
-const double TaskThicknessParameters::getValue(void) const
+double TaskThicknessParameters::getValue(void) const
 {
     return ui->Value->value().getValue();
 }
@@ -175,17 +178,17 @@ void TaskThicknessParameters::onReversedChanged(const bool on) {
     pcThickness->getDocument()->recomputeFeature(pcThickness);
 }
 
-const bool TaskThicknessParameters::getReversed(void) const
+bool TaskThicknessParameters::getReversed(void) const
 {
     return ui->checkReverse->isChecked();
 }
 
-const int TaskThicknessParameters::getJoinType(void) const {
+int TaskThicknessParameters::getJoinType(void) const {
     
     return ui->joinComboBox->currentIndex();
 }
 
-const int TaskThicknessParameters::getMode(void) const {
+int TaskThicknessParameters::getMode(void) const {
 
     return ui->modeComboBox->currentIndex();
 }

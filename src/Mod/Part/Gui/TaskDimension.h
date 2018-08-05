@@ -63,7 +63,7 @@ namespace PartGui
    */
   bool getShapeFromStrings(TopoDS_Shape &shapeOut, const std::string &doc, const std::string &object, const std::string &sub);
   /*!examine pre selection
-   * @param shape1 firt shape in current selection
+   * @param shape1 first shape in current selection
    * @param shape2 second shape in current selection
    * @return signal if preselection is valid. false means shape1 and shape2 are invalid.
    */
@@ -99,7 +99,7 @@ namespace PartGui
   void toggle3d();
   /*!toggles the display status of the delta dimensions*/
   void toggleDelta();
-  /*!make sure measure command isn't working with everthing invisible. Confusing the user*/
+  /*!make sure measure command isn't working with everything invisible. Confusing the user*/
   void ensureSomeDimensionVisible();
   /*!make sure angle measure command isn't working with 3d off. Confusing the user*/
   void ensure3dDimensionVisible();
@@ -198,7 +198,7 @@ protected:
   QPixmap *stepActive;
   QPixmap *stepDone;
   
-private slots:
+private Q_SLOTS:
   void selectionSlot(bool checked);
   void buildPixmaps();
   
@@ -229,7 +229,7 @@ class DimensionControl : public QWidget
 public:
     explicit DimensionControl(QWidget* parent);
     QPushButton *resetButton;
-public slots:
+public Q_SLOTS:
   void toggle3dSlot(bool);
   void toggleDeltaSlot(bool);
   void clearAllSlot(bool);
@@ -250,7 +250,7 @@ public:
 protected:
   virtual void onSelectionChanged(const Gui::SelectionChanges& msg);
     
-protected slots:
+protected Q_SLOTS:
   void selection1Slot(bool checked);
   void selection2Slot(bool checked);
   void resetDialogSlot(bool);
@@ -326,7 +326,7 @@ public:
 protected:
   virtual void onSelectionChanged(const Gui::SelectionChanges& msg);
     
-protected slots:
+protected Q_SLOTS:
   void selection1Slot(bool checked);
   void selection2Slot(bool checked);
   void resetDialogSlot(bool);
@@ -349,7 +349,7 @@ private:
 /*!start of the measure angular command*/
 void goDimensionAngularRoot();
 /*!examine angular pre selection
-  * @param vector1Out firt shape in current selection
+  * @param vector1Out first shape in current selection
   * @param vector2Out second shape in current selection
   * @return signal if preselection is valid. false means vector1Out and vector2Out are invalid.
   */

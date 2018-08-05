@@ -27,10 +27,10 @@
 #ifndef _DrawViewAnnotation_h_
 #define _DrawViewAnnotation_h_
 
-
 #include <App/DocumentObject.h>
 #include <App/PropertyLinks.h>
 #include <App/PropertyStandard.h>
+#include <App/PropertyUnits.h>
 #include <App/FeaturePython.h>
 
 #include "DrawView.h"
@@ -39,8 +39,6 @@ namespace TechDraw
 {
 
 
-/** Base class of all View Features in the drawing module
- */
 class TechDrawExport DrawViewAnnotation : public TechDraw::DrawView
 {
     PROPERTY_HEADER(TechDraw::DrawViewAnnotation);
@@ -51,14 +49,16 @@ public:
     virtual ~DrawViewAnnotation();
 
     App::PropertyStringList   Text;
-    App::PropertyString       Font;
+    App::PropertyFont         Font;
     App::PropertyColor        TextColor;
-    App::PropertyInteger      TextSize;
+    App::PropertyLength       TextSize;
     App::PropertyInteger      LineSpace;
     App::PropertyEnumeration  TextStyle; // Plain,Bold,Italic,Bold-Italic
     App::PropertyFloat        MaxWidth;
 
-    /** @name methods overide Feature */
+    virtual QRectF getRect() const;
+
+    /** @name methods override Feature */
     //@{
     /// recalculate the Feature
     virtual App::DocumentObjectExecReturn *execute(void);

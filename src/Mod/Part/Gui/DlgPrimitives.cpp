@@ -30,6 +30,7 @@
 #include <GC_MakeArcOfCircle.hxx>
 #include <Geom_Circle.hxx>
 #include <Geom_TrimmedCurve.hxx>
+#include <Python.h>
 #include <Inventor/SoPickedPoint.h>
 #include <Inventor/events/SoMouseButtonEvent.h>
 #endif
@@ -100,10 +101,10 @@ void Picker::createPrimitive(QWidget* widget, const QString& descr, Gui::Documen
 
         // Execute the Python block
         doc->openCommand(descr.toUtf8());
-        Gui::Command::doCommand(Gui::Command::Doc, (const char*)cmd.toLatin1());
+        Gui::Command::runCommand(Gui::Command::Doc, cmd.toLatin1());
         doc->commitCommand();
-        Gui::Command::doCommand(Gui::Command::Doc, "App.ActiveDocument.recompute()");
-        Gui::Command::doCommand(Gui::Command::Gui, "Gui.SendMsgToActiveView(\"ViewFit\")");
+        Gui::Command::runCommand(Gui::Command::Doc, "App.ActiveDocument.recompute()");
+        Gui::Command::runCommand(Gui::Command::Gui, "Gui.SendMsgToActiveView(\"ViewFit\")");
     }
     catch (const Base::Exception& e) {
         QMessageBox::warning(widget, descr, QString::fromLatin1(e.what()));
@@ -154,8 +155,8 @@ public:
         GC_MakeArcOfCircle arc(points[0], points[1], points[2]);
         if (!arc.IsDone())
             throw Base::Exception(gce_ErrorStatusText(arc.Status()));
-        Handle_Geom_TrimmedCurve trim = arc.Value();
-        Handle_Geom_Circle circle = Handle_Geom_Circle::DownCast(trim->BasisCurve());
+        Handle(Geom_TrimmedCurve) trim = arc.Value();
+        Handle(Geom_Circle) circle = Handle(Geom_Circle)::DownCast(trim->BasisCurve());
 
         QString name = QString::fromLatin1(doc->getUniqueObjectName("Circle").c_str());
         return QString::fromLatin1(
@@ -666,10 +667,10 @@ void DlgPrimitives::createPrimitive(const QString& placement)
         // Execute the Python block
         QString prim = tr("Create %1").arg(ui.comboBox1->currentText());
         Gui::Application::Instance->activeDocument()->openCommand(prim.toUtf8());
-        Gui::Command::doCommand(Gui::Command::Doc, (const char*)cmd.toUtf8());
+        Gui::Command::runCommand(Gui::Command::Doc, cmd.toUtf8());
         Gui::Application::Instance->activeDocument()->commitCommand();
-        Gui::Command::doCommand(Gui::Command::Doc, "App.ActiveDocument.recompute()");
-        Gui::Command::doCommand(Gui::Command::Gui, "Gui.SendMsgToActiveView(\"ViewFit\")");
+        Gui::Command::runCommand(Gui::Command::Doc, "App.ActiveDocument.recompute()");
+        Gui::Command::runCommand(Gui::Command::Gui, "Gui.SendMsgToActiveView(\"ViewFit\")");
     }
     catch (const Base::PyException& e) {
         QMessageBox::warning(this, tr("Create %1")
@@ -683,6 +684,8 @@ void DlgPrimitives::createPrimitive(const QString& placement)
 
 Location::Location(QWidget* parent)
 {
+    Q_UNUSED(parent);
+    mode = 0;
     ui.setupUi(this);
 }
 

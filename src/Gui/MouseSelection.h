@@ -55,7 +55,7 @@ class View3DInventorViewer;
 class GuiExport AbstractMouseSelection
 {
 public:
-    enum { Continue=0, Restart=1, Finish=2, Cancel=3 };
+    enum { Continue=0, Restart=1, Finish=2, Cancel=3, Ignore=4 };
 
     AbstractMouseSelection();
     virtual ~AbstractMouseSelection(void) {}
@@ -80,13 +80,13 @@ public:
     //@}
 
 protected:
-    virtual int mouseButtonEvent(const SoMouseButtonEvent* const e, const QPoint& pos) {
+    virtual int mouseButtonEvent(const SoMouseButtonEvent* const, const QPoint&) {
         return 0;
     };
-    virtual int locationEvent(const SoLocation2Event*    const e, const QPoint& pos) {
+    virtual int locationEvent(const SoLocation2Event*    const, const QPoint&) {
         return 0;
     };
-    virtual int keyboardEvent(const SoKeyboardEvent*     const e)                   {
+    virtual int keyboardEvent(const SoKeyboardEvent*     const)                   {
         return 0;
     };
 
@@ -143,6 +143,7 @@ protected:
     virtual void draw();
     virtual int popupMenu();
 
+protected:
     Gui::Polyline polyline;
     bool lastConfirmed;
 };

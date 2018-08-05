@@ -54,12 +54,22 @@
 
 #include <assert.h>
 
+#include <Quarter/QuarterWidget.h>
+#include <Quarter/eventhandlers/EventFilter.h>
+#include <Quarter/eventhandlers/DragDropHandler.h>
+
 #include <QtCore/QEvent>
 #include <QtCore/QDebug>
 #include <QtCore/QFile>
 #include <QAction>
+#include <QApplication>
 #include <QPaintEvent>
 #include <QResizeEvent>
+
+#if defined(HAVE_QT5_OPENGL)
+#include <QOpenGLDebugMessage>
+#include <QOpenGLDebugLogger>
+#endif
 
 #include <Inventor/SbViewportRegion.h>
 #include <Inventor/system/gl.h>
@@ -79,15 +89,18 @@
 #include <Inventor/scxml/ScXML.h>
 #include <Inventor/scxml/SoScXMLStateMachine.h>
 
-#include <Quarter/QuarterWidget.h>
-#include <Quarter/eventhandlers/EventFilter.h>
-#include <Quarter/eventhandlers/DragDropHandler.h>
-
 #include <ctime>
 
 #include "InteractionMode.h"
 #include "QuarterWidgetP.h"
 #include "QuarterP.h"
+
+#if QT_VERSION >= 0x050000
+#include <QWindow>
+#include <QGuiApplication>
+#include <QMetaObject>
+#endif
+
 
 using namespace SIM::Coin3D::Quarter;
 
@@ -98,7 +111,7 @@ using namespace SIM::Coin3D::Quarter;
   the scene. Some of the settings will provide faster rendering, while
   others gives you better quality rendering.
 
-  See \ref SoGLRenderAction::TransparencyType for a full descrition of the modes
+  See \ref SoGLRenderAction::TransparencyType for a full description of the modes
 */
 
 /*!
@@ -106,7 +119,7 @@ using namespace SIM::Coin3D::Quarter;
 
   Sets how rendering of primitives is done.
 
-  See \ref SoRenderManager::RenderMode for a full descrition of the modes
+  See \ref SoRenderManager::RenderMode for a full description of the modes
 */
 
 /*!
@@ -114,7 +127,7 @@ using namespace SIM::Coin3D::Quarter;
 
   Sets how stereo rendering is performed.
 
-  See \ref SoRenderManager::StereoMode for a full descrition of the modes
+  See \ref SoRenderManager::StereoMode for a full description of the modes
 */
 
   enum StereoMode {
@@ -130,8 +143,86 @@ using namespace SIM::Coin3D::Quarter;
 #ifndef GL_MULTISAMPLE_BIT_EXT
 #define GL_MULTISAMPLE_BIT_EXT 0x20000000
 #endif
-  
-//We need to avoid buffer swaping when initializing a QPainter on this widget
+
+//We need to avoid buffer swapping when initializing a QPainter on this widget
+#if defined(HAVE_QT5_OPENGL)
+class CustomGLWidget : public QOpenGLWidget {
+public:
+    QSurfaceFormat myFormat;
+
+    CustomGLWidget(const QSurfaceFormat& format, QWidget* parent = 0, const QOpenGLWidget* shareWidget = 0, Qt::WindowFlags f = 0)
+     : QOpenGLWidget(parent, f), myFormat(format)
+    {
+        Q_UNUSED(shareWidget);
+        QSurfaceFormat surfaceFormat(format);
+        surfaceFormat.setSwapBehavior(QSurfaceFormat::DoubleBuffer);
+        // With the settings below we could determine deprecated OpenGL API
+        // but can't do this since otherwise it will complain about almost any
+        // OpenGL call in Coin3d
+        //surfaceFormat.setMajorVersion(3);
+        //surfaceFormat.setMinorVersion(2);
+        //surfaceFormat.setProfile(QSurfaceFormat::CoreProfile);
+#if defined (_DEBUG) && 0
+        surfaceFormat.setOption(QSurfaceFormat::DebugContext);
+#endif
+        setFormat(surfaceFormat);
+    }
+    void initializeGL()
+    {
+        QOpenGLContext *context = QOpenGLContext::currentContext();
+#if defined (_DEBUG) && 0
+        if (context && context->hasExtension(QByteArrayLiteral("GL_KHR_debug"))) {
+            QOpenGLDebugLogger *logger = new QOpenGLDebugLogger(this);
+            connect(logger, &QOpenGLDebugLogger::messageLogged, this, &CustomGLWidget::handleLoggedMessage);
+
+            if (logger->initialize())
+                logger->startLogging(QOpenGLDebugLogger::SynchronousLogging);
+        }
+#endif
+        if (context) {
+            connect(context, &QOpenGLContext::aboutToBeDestroyed,
+                this, &CustomGLWidget::aboutToDestroyGLContext, Qt::DirectConnection);
+        }
+        connect(this, &CustomGLWidget::resized, this, &CustomGLWidget::slotResized);
+    }
+    void aboutToDestroyGLContext()
+    {
+        QMetaObject::invokeMethod(parent(), "aboutToDestroyGLContext",
+            Qt::DirectConnection,
+            QGenericReturnArgument());
+    }
+    bool event(QEvent *e)
+    {
+        // If a debug logger is activated then Qt's default implementation
+        // first releases the context before stopping the logger. However,
+        // the logger needs the active context and thus crashes because it's
+        // null.
+        if (e->type() == QEvent::WindowChangeInternal) {
+            if (!qApp->testAttribute(Qt::AA_ShareOpenGLContexts)) {
+                QOpenGLDebugLogger* logger = this->findChild<QOpenGLDebugLogger*>();
+                if (logger) {
+                    logger->stopLogging();
+                    delete logger;
+                }
+            }
+        }
+
+        return QOpenGLWidget::event(e);
+    }
+    void handleLoggedMessage(const QOpenGLDebugMessage &message)
+    {
+        qDebug() << message;
+    }
+    void showEvent(QShowEvent*)
+    {
+        update(); // force update when changing window mode
+    }
+    void slotResized()
+    {
+        update(); // fixes flickering on some systems
+    }
+};
+#else
 class CustomGLWidget : public QGLWidget {
 public:
     CustomGLWidget(const QGLFormat& fo, QWidget* parent = 0, const QGLWidget* shareWidget = 0, Qt::WindowFlags f = 0)
@@ -140,30 +231,34 @@ public:
          setAutoBufferSwap(false);
     }
 };
+#endif
 
 /*! constructor */
-QuarterWidget::QuarterWidget(const QGLFormat & format, QWidget * parent, const QGLWidget * sharewidget, Qt::WindowFlags f)
+QuarterWidget::QuarterWidget(const QtGLFormat & format, QWidget * parent, const QtGLWidget * sharewidget, Qt::WindowFlags f)
   : inherited(parent)
 {
+  Q_UNUSED(f); 
   this->constructor(format, sharewidget);
 }
 
 /*! constructor */
-QuarterWidget::QuarterWidget(QWidget * parent, const QGLWidget * sharewidget, Qt::WindowFlags f)
+QuarterWidget::QuarterWidget(QWidget * parent, const QtGLWidget * sharewidget, Qt::WindowFlags f)
   : inherited(parent)
 {
-  this->constructor(QGLFormat(), sharewidget);
+  Q_UNUSED(f); 
+  this->constructor(QtGLFormat(), sharewidget);
 }
 
 /*! constructor */
-QuarterWidget::QuarterWidget(QGLContext * context, QWidget * parent, const QGLWidget * sharewidget, Qt::WindowFlags f)
+QuarterWidget::QuarterWidget(QtGLContext * context, QWidget * parent, const QtGLWidget * sharewidget, Qt::WindowFlags f)
   : inherited(parent)
 {
+  Q_UNUSED(f); 
   this->constructor(context->format(), sharewidget);
 }
 
 void
-QuarterWidget::constructor(const QGLFormat & format, const QGLWidget * sharewidget)
+QuarterWidget::constructor(const QtGLFormat & format, const QtGLWidget * sharewidget)
 {
   QGraphicsScene* scene = new QGraphicsScene;
   setScene(scene);
@@ -213,8 +308,27 @@ QuarterWidget::constructor(const QGLFormat & format, const QGLWidget * sharewidg
 
   this->installEventFilter(PRIVATE(this)->eventfilter);
   this->installEventFilter(PRIVATE(this)->interactionmode);
-  
+
   initialized = false;
+}
+
+void
+QuarterWidget::replaceViewport()
+{
+#if defined(HAVE_QT5_OPENGL)
+  CustomGLWidget* oldvp = static_cast<CustomGLWidget*>(viewport());
+  CustomGLWidget* newvp = new CustomGLWidget(oldvp->myFormat, this);
+  PRIVATE(this)->replaceGLWidget(newvp);
+  setViewport(newvp);
+
+  setAutoFillBackground(false);
+  viewport()->setAutoFillBackground(false);
+#endif
+}
+
+void
+QuarterWidget::aboutToDestroyGLContext()
+{
 }
 
 /*! destructor */
@@ -266,7 +380,7 @@ QuarterWidget::stateCursor(const SbName & state)
 */
 
 /*!
-  Enable/disable the headlight. This wille toggle the SoDirectionalLight::on
+  Enable/disable the headlight. This will toggle the SoDirectionalLight::on
   field (returned from getHeadlight()).
 */
 void
@@ -352,7 +466,7 @@ QuarterWidget::clearWindow(void) const
 /*!
   Enable/disable interaction mode.
 
-  Specifies wether you may use the alt-key to enter interaction mode.
+  Specifies whether you may use the alt-key to enter interaction mode.
 */
 void
 QuarterWidget::setInteractionModeEnabled(bool onoff)
@@ -483,6 +597,23 @@ QuarterWidget::stereoMode(void) const
 {
   assert(PRIVATE(this)->sorendermanager);
   return static_cast<StereoMode>(PRIVATE(this)->sorendermanager->getStereoMode());
+}
+
+/*!
+  \property QuarterWidget::devicePixelRatio
+
+  \copydetails QuarterWidget::devicePixelRatio
+*/
+
+/*!
+  The ratio between logical and physical pixel sizes -- obtained from the window that
+the widget is located within, and updated whenever any change occurs, emitting a devicePixelRatioChanged signal.  Only available for version Qt 5.6 and above (will be 1.0 for all previous versions)
+ */
+
+qreal
+QuarterWidget::devicePixelRatio(void) const
+{
+  return PRIVATE(this)->device_pixel_ratio;
 }
 
 /*!
@@ -672,12 +803,42 @@ QuarterWidget::seek(void)
     }
   }
 }
+
+bool
+QuarterWidget::updateDevicePixelRatio(void) {
+#if QT_VERSION >= 0x050000
+    qreal dev_pix_ratio = 1.0;
+    QWidget* winwidg = window();
+    QWindow* win = NULL;
+    if(winwidg) {
+        win = winwidg->windowHandle();
+    }
+    if(win) {
+        dev_pix_ratio = win->devicePixelRatio();
+    }
+    else {
+        dev_pix_ratio = ((QGuiApplication*)QGuiApplication::instance())->devicePixelRatio();
+    }
+    if(PRIVATE(this)->device_pixel_ratio != dev_pix_ratio) {
+        PRIVATE(this)->device_pixel_ratio = dev_pix_ratio;
+        emit devicePixelRatioChanged(dev_pix_ratio);
+        return true;
+    }
+#endif
+    return false;
+}
+
 /*!
   Overridden from QGLWidget to resize the Coin scenegraph
  */
 void QuarterWidget::resizeEvent(QResizeEvent* event)
 {
-    SbViewportRegion vp(event->size().width(), event->size().height());
+    updateDevicePixelRatio();
+    qreal dev_pix_ratio = devicePixelRatio();
+    int width = static_cast<int>(dev_pix_ratio * event->size().width());
+    int height = static_cast<int>(dev_pix_ratio * event->size().height());
+
+    SbViewportRegion vp(width, height);
     PRIVATE(this)->sorendermanager->setViewportRegion(vp);
     PRIVATE(this)->soeventmanager->setViewportRegion(vp);
     if (scene())
@@ -690,20 +851,31 @@ void QuarterWidget::resizeEvent(QResizeEvent* event)
 */
 void QuarterWidget::paintEvent(QPaintEvent* event)
 {
-    std::clock_t begin = std::clock();
+    if (updateDevicePixelRatio()) {
+        qreal dev_pix_ratio = devicePixelRatio();
+        int width = static_cast<int>(dev_pix_ratio * this->width());
+        int height = static_cast<int>(dev_pix_ratio * this->height());
+        SbViewportRegion vp(width, height);
+        PRIVATE(this)->sorendermanager->setViewportRegion(vp);
+        PRIVATE(this)->soeventmanager->setViewportRegion(vp);
+    }
 
     if(!initialized) {
+#if !defined(HAVE_QT5_OPENGL)
         glEnable(GL_DEPTH_TEST);
+#endif
         this->getSoRenderManager()->reinitialize();
         initialized = true;
     }
 
     getSoRenderManager()->activate();
 
+#if !defined(HAVE_QT5_OPENGL)
     glEnable(GL_DEPTH_TEST);
+#endif
     glMatrixMode(GL_PROJECTION);
 
-    QGLWidget* w = static_cast<QGLWidget*>(this->viewport());
+    QtGLWidget* w = static_cast<QtGLWidget*>(this->viewport());
     assert(w->isValid() && "No valid GL context found!");
     // We might have to process the delay queue here since we don't know
     // if paintGL() is called from Qt, and we might have some sensors
@@ -729,7 +901,12 @@ void QuarterWidget::paintEvent(QPaintEvent* event)
 
     assert(w->isValid() && "No valid GL context found!");
 
+#if defined(HAVE_QT5_OPENGL)
+    // Causes an OpenGL error on resize
+    //glDrawBuffer(w->format().swapBehavior() == QSurfaceFormat::DoubleBuffer ? GL_BACK : GL_FRONT);
+#else
     glDrawBuffer(w->doubleBuffer() ? GL_BACK : GL_FRONT);
+#endif
 
     w->makeCurrent();
     this->actualRedraw();
@@ -741,16 +918,19 @@ void QuarterWidget::paintEvent(QPaintEvent* event)
     inherited::paintEvent(event);
     glPopAttrib();
 
+#if defined(HAVE_QT5_OPENGL)
+    // Causes an OpenGL error on resize
+    //if (w->format().swapBehavior() == QSurfaceFormat::DoubleBuffer)
+    //    w->context()->swapBuffers(w->context()->surface());
+#else
     if (w->doubleBuffer()) { w->swapBuffers(); }
+#endif
 
     PRIVATE(this)->autoredrawenabled = true;
 
     // process the delay queue the next time we enter this function,
     // unless we get here after a call to redraw().
     PRIVATE(this)->processdelayqueue = true;
-
-    std::clock_t end = std::clock();
-    renderTime = double(double(end-begin)/CLOCKS_PER_SEC)*1000.0;
 }
 
 bool QuarterWidget::viewportEvent(QEvent* event)
@@ -821,7 +1001,12 @@ QuarterWidget::redraw(void)
   // we're triggering the next paintGL(). Set a flag to remember this
   // to avoid that we process the delay queue in paintGL()
   PRIVATE(this)->processdelayqueue = false;
+#if QT_VERSION >= 0x050500 && QT_VERSION < 0x050600
+  // With Qt 5.5.x there is a major performance problem
+  this->viewport()->update();
+#else
   this->viewport()->repaint();
+#endif
 }
 
 /*!
@@ -1003,8 +1188,8 @@ QuarterWidget::renderModeActions(void) const
 /*!
   \property QuarterWidget::navigationModeFile
 
-  An url to a navigation mode file which is a scxml file which defines
-  the possible states for the Coin navigation system
+  A url pointing to a navigation mode file which is a scxml file
+  that defines the possible states for the Coin navigation system
 
   Supports:
   \li \b coin for internal coinresources

@@ -25,6 +25,7 @@
 #define PARTGUI_ViewProviderBody_H
 
 #include <Mod/Part/Gui/ViewProvider.h>
+#include <Gui/ViewProviderOriginGroupExtension.h>
 #include <QCoreApplication>
 
 class SoGroup;
@@ -34,15 +35,15 @@ class SoGetBoundingBoxAction;
 namespace PartDesignGui {
 
 /** ViewProvider of the Body feature
- *  This class manage the visual apperance of the features in the
- *  Body feature. That mean while editing all visible features are shown.
+ *  This class manages the visual appearance of the features in the
+ *  Body feature. That means while editing all visible features are shown.
  *  If the Body is not active it shows only the result shape (tip).
  * \author jriegel
  */
-class PartDesignGuiExport ViewProviderBody : public PartGui::ViewProviderPart
+class PartDesignGuiExport ViewProviderBody : public PartGui::ViewProviderPart, public Gui::ViewProviderOriginGroupExtension
 {
     Q_DECLARE_TR_FUNCTIONS(PartDesignGui::ViewProviderBody)
-    PROPERTY_HEADER(PartDesignGui::ViewProviderBody);
+    PROPERTY_HEADER_WITH_EXTENSIONS(PartDesignGui::ViewProviderBody);
 
 public:
     /// constructor
@@ -56,11 +57,8 @@ public:
 
     virtual bool doubleClicked(void);
     virtual void setupContextMenu(QMenu* menu, QObject* receiver, const char* member);
-    virtual std::vector<App::DocumentObject*> claimChildren(void)const;
 
-    // returns the root node where the children gets collected(3D)
-    virtual SoGroup* getChildRoot(void) const {return pcBodyChildren;}
-    virtual std::vector<App::DocumentObject*> claimChildren3D(void)const;
+    virtual std::vector< std::string > getDisplayModes(void) const;
     virtual void setDisplayMode(const char* ModeName);
     virtual void setOverrideMode(const std::string& mode);
 
@@ -80,6 +78,13 @@ public:
      */
     SbBox3f getBoundBox ();
 
+    /** Check whether objects can be added to the view provider by drag and drop */
+    virtual bool canDropObjects() const;
+    /** Check whether the object can be dropped to the view provider by drag and drop */
+    virtual bool canDropObject(App::DocumentObject*) const;
+    /** Add an object to the view provider by drag and drop */
+    virtual void dropObject(App::DocumentObject*);
+
 protected:
     void slotChangedObjectApp ( const App::DocumentObject& obj, const App::Property& prop );
     void slotChangedObjectGui ( const Gui::ViewProviderDocumentObject& obj, const App::Property& prop );
@@ -89,9 +94,6 @@ protected:
     /// Set Feature viewprovider into visual body mode
     void setVisualBodyMode(bool bodymode);
 private:
-    /// group used to store children collected by claimChildren3D() in the through (edit) mode.
-    SoGroup *pcBodyChildren;
-
     static const char* BodyModeEnum[];
 
     boost::signals::connection connectChangedObjectApp;

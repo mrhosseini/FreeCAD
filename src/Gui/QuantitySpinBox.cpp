@@ -43,7 +43,11 @@
 #include "Command.h"
 #include <Base/Tools.h>
 #include <Base/Exception.h>
+#include <App/Application.h>
+#include <App/Document.h>
+#include <App/DocumentObject.h>
 #include <App/Expression.h>
+#include <App/PropertyGeo.h>
 #include <sstream>
 #include <boost/math/special_functions/round.hpp>
 
@@ -140,22 +144,19 @@ public:
                 goto end;
             }
             else if (len > 1) {
-                const int dec = copy.indexOf(locale.decimalPoint());
-                if (dec != -1) {
-                    if (dec + 1 < copy.size() && copy.at(dec + 1) == locale.decimalPoint() && pos == dec + 1) {
-                        copy.remove(dec + 1, 1);
-                    }
-                    else if (copy.indexOf(locale.decimalPoint(), dec + 1) != -1) {
-                        // trying to add a second decimal point is not allowed
-                        state = QValidator::Invalid;
-                        goto end;
-                    }
-                    for (int i=dec + 1; i<copy.size(); ++i) {
-                        // a group separator after the decimal point is not allowed
-                        if (copy.at(i) == locale.groupSeparator()) {
+                bool decOccurred = false;
+                for (int i = 0; i<copy.size(); i++) {
+                    if (copy.at(i) == locale.decimalPoint()) {
+                        // Disallow multiple decimal points within the same numeric substring
+                        if (decOccurred) {
                             state = QValidator::Invalid;
                             goto end;
                         }
+                        decOccurred = true;
+                    }
+                    // Reset decOcurred if non-numeric character found
+                    else if (!(copy.at(i) == locale.groupSeparator() || copy.at(i).isDigit())) {
+                        decOccurred = false;
                     }
                 }
             }
@@ -287,12 +288,85 @@ void Gui::QuantitySpinBox::setExpression(boost::shared_ptr<Expression> expr)
     }
 }
 
-void Gui::QuantitySpinBox::onChange() {
-    
+QString QuantitySpinBox::boundToName() const
+{
+    if (isBound()) {
+        std::string path = getPath().toString();
+        return QString::fromStdString(path);
+    }
+    return QString();
+}
+
+/**
+ * @brief Create an object identifier by name.
+ *
+ * An identifier is written as document#documentobject.property.subproperty1...subpropertyN
+ * document# may be dropped, in this case the active document is used.
+ */
+void QuantitySpinBox::setBoundToByName(const QString &name)
+{
+    try {
+        // get document
+        App::Document *doc = App::GetApplication().getActiveDocument();
+        QStringList list = name.split(QLatin1Char('#'));
+        if (list.size() > 1) {
+            doc = App::GetApplication().getDocument(list.front().toLatin1());
+            list.pop_front();
+        }
+
+        if (!doc) {
+            qDebug() << "No such document";
+            return;
+        }
+
+        // first element is assumed to be the document name
+        list = list.front().split(QLatin1Char('.'));
+
+        // get object
+        App::DocumentObject* obj = doc->getObject(list.front().toLatin1());
+        if (!obj) {
+            qDebug() << "No object " << list.front() << " in document";
+            return;
+        }
+        list.pop_front();
+
+        // the rest of the list defines the property and eventually subproperties
+        App::ObjectIdentifier path(obj);
+        path.setDocumentName(std::string(doc->getName()), true);
+        path.setDocumentObjectName(std::string(obj->getNameInDocument()), true);
+
+        for (QStringList::iterator it = list.begin(); it != list.end(); ++it) {
+            path << App::ObjectIdentifier::Component::SimpleComponent(it->toLatin1().constData());
+        }
+
+        if (path.getProperty())
+            bind(path);
+    }
+    catch (const Base::Exception& e) {
+        qDebug() << e.what();
+    }
+}
+
+QString Gui::QuantitySpinBox::expressionText() const
+{
+    try {
+        if (hasExpression()) {
+            return QString::fromStdString(getExpressionString());
+        }
+    }
+    catch (const Base::Exception& e) {
+        qDebug() << e.what();
+    }
+    return QString();
+}
+
+
+void Gui::QuantitySpinBox::onChange()
+{
     Q_ASSERT(isBound());
     
     if (getExpression()) {
-        std::auto_ptr<Expression> result(getExpression()->eval());
+        std::unique_ptr<Expression> result(getExpression()->eval());
         NumberExpression * value = freecad_dynamic_cast<NumberExpression>(result.get());
 
         if (value) {
@@ -327,7 +401,24 @@ void Gui::QuantitySpinBox::onChange() {
 bool QuantitySpinBox::apply(const std::string & propName)
 {
     if (!ExpressionBinding::apply(propName)) {
-        Gui::Command::doCommand(Gui::Command::Doc, "%s = %f", propName.c_str(), value().getValue());
+        double dValue = value().getValue();
+        if (isBound()) {
+            const App::ObjectIdentifier & path = getPath();
+            const Property * prop = path.getProperty();
+            
+            /* Skip update if property is bound and we know it is read-only */
+            if (prop && prop->isReadOnly())
+                return true;
+
+            if (prop && prop->getTypeId().isDerivedFrom(App::PropertyPlacement::getClassTypeId())) {
+                std::string p = path.getSubPathStr();
+                if (p == ".Rotation.Angle") {
+                    dValue = Base::toRadians(dValue);
+                }
+            }
+        }
+
+        Gui::Command::doCommand(Gui::Command::Doc, "%s = %f", propName.c_str(), dValue);
         return true;
     }
     else
@@ -345,7 +436,7 @@ void QuantitySpinBox::resizeEvent(QResizeEvent * event)
 
     try {
         if (isBound() && getExpression()) {
-            std::auto_ptr<Expression> result(getExpression()->eval());
+            std::unique_ptr<Expression> result(getExpression()->eval());
             NumberExpression * value = freecad_dynamic_cast<NumberExpression>(result.get());
 
             if (value) {
@@ -406,6 +497,12 @@ Base::Quantity QuantitySpinBox::value() const
 {
     Q_D(const QuantitySpinBox);
     return d->quantity;
+}
+
+double QuantitySpinBox::rawValue() const
+{
+    Q_D(const QuantitySpinBox);
+    return d->quantity.getValue();
 }
 
 void QuantitySpinBox::setValue(const Base::Quantity& value)

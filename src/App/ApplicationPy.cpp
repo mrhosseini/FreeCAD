@@ -58,6 +58,9 @@ using namespace App;
 PyMethodDef Application::Methods[] = {
     {"ParamGet",       (PyCFunction) Application::sGetParam,       1,
      "Get parameters by path"},
+    {"saveParameter",  (PyCFunction) Application::sSaveParameter,  1,
+     "saveParameter(config='User parameter') -> None\n"
+     "Save parameter set to file. The default set is 'User parameter'"},
     {"Version",        (PyCFunction) Application::sGetVersion,     1,
      "Print the version to the output."},
     {"ConfigGet",      (PyCFunction) Application::sGetConfig,      1,
@@ -82,6 +85,10 @@ PyMethodDef Application::Methods[] = {
      "Get the root directory of all resources"},
     {"getUserAppDataDir", (PyCFunction) Application::sGetUserAppDataDir  ,1,
      "Get the root directory of user settings"},
+    {"getUserMacroDir", (PyCFunction) Application::sGetUserMacroDir  ,1,
+     "Get the directory of the user's macro directory"},
+    {"getHelpDir", (PyCFunction) Application::sGetHelpDir  ,1,
+     "Get the directory of the documentation"},
     {"getHomePath",    (PyCFunction) Application::sGetHomePath  ,1,
      "Get the home path, i.e. the parent directory of the executable"},
 
@@ -129,6 +136,11 @@ PyMethodDef Application::Methods[] = {
     {"removeDocumentObserver",  (PyCFunction) Application::sRemoveDocObserver  ,1,
      "removeDocumentObserver() -> None\n\n"
      "Remove an added document observer."},
+    {"setLogLevel",          (PyCFunction) Application::sSetLogLevel, 1,
+     "setLogLevel(tag, level) -- Set the log level for a string tag.\n"
+     "'level' can either be string 'Log', 'Msg', 'Wrn', 'Error', or an integer value"},
+    {"getLogLevel",          (PyCFunction) Application::sGetLogLevel, 1,
+     "getLogLevel(tag) -- Get the log level of a string tag"},
 
     {NULL, NULL, 0, NULL}		/* Sentinel */
 };
@@ -148,7 +160,7 @@ PyObject* Application::sLoadFile(PyObject * /*self*/, PyObject *args,PyObject * 
 
         std::string module = mod;
         if (module.empty()) {
-            std::string ext = fi.extension(false);
+            std::string ext = fi.extension();
             std::vector<std::string> modules = GetApplication().getImportModules(ext.c_str());
             if (modules.empty()) {
                 PyErr_Format(PyExc_IOError, "Filetype %s is not supported.", ext.c_str());
@@ -205,11 +217,14 @@ PyObject* Application::sNewDocument(PyObject * /*self*/, PyObject *args,PyObject
 {
     char *docName = 0;
     char *usrName = 0;
-    if (!PyArg_ParseTuple(args, "|ss", &docName, &usrName))     // convert args: Python->C
-        return NULL;                             // NULL triggers exception
+    if (!PyArg_ParseTuple(args, "|etet", "utf-8", &docName, "utf-8", &usrName))
+        return NULL;
 
     PY_TRY {
-        return GetApplication().newDocument(docName, usrName)->getPyObject();
+        App::Document* doc = GetApplication().newDocument(docName, usrName);
+        PyMem_Free(docName);
+        PyMem_Free(usrName);
+        return doc->getPyObject();
     }PY_CATCH;
 }
 
@@ -334,6 +349,33 @@ PyObject* Application::sGetParam(PyObject * /*self*/, PyObject *args,PyObject * 
     }PY_CATCH;
 }
 
+PyObject* Application::sSaveParameter(PyObject * /*self*/, PyObject *args,PyObject * /*kwd*/)
+{
+    char *pstr = "User parameter";
+    if (!PyArg_ParseTuple(args, "|s", &pstr))
+        return NULL;
+
+    PY_TRY {
+        ParameterManager* param = App::GetApplication().GetParameterSet(pstr);
+        if (!param) {
+            std::stringstream str;
+            str << "No parameter set found with name: " << pstr;
+            PyErr_SetString(PyExc_ValueError, str.str().c_str());
+            return NULL;
+        }
+        else if (!param->HasSerializer()) {
+            std::stringstream str;
+            str << "Parameter set cannot be serialized: " << pstr;
+            PyErr_SetString(PyExc_RuntimeError, str.str().c_str());
+            return NULL;
+        }
+
+        param->SaveDocument();
+        Py_INCREF(Py_None);
+        return Py_None;
+    }PY_CATCH;
+}
+
 
 PyObject* Application::sGetConfig(PyObject * /*self*/, PyObject *args,PyObject * /*kwd*/)
 {
@@ -349,7 +391,11 @@ PyObject* Application::sGetConfig(PyObject * /*self*/, PyObject *args,PyObject *
     }
     else {
         // do not set an error because this may break existing python code
+#if PY_MAJOR_VERSION >= 3
+        return PyUnicode_FromString("");
+#else
         return PyString_FromString("");
+#endif
     }
 }
 
@@ -361,7 +407,11 @@ PyObject* Application::sDumpConfig(PyObject * /*self*/, PyObject *args,PyObject 
     PyObject *dict = PyDict_New();
     for (std::map<std::string,std::string>::iterator It= GetApplication()._mConfig.begin();
          It!=GetApplication()._mConfig.end();++It) {
+#if PY_MAJOR_VERSION >= 3
+        PyDict_SetItemString(dict,It->first.c_str(), PyUnicode_FromString(It->second.c_str()));
+#else
         PyDict_SetItemString(dict,It->first.c_str(), PyString_FromString(It->second.c_str()));
+#endif
     }
     return dict;
 }
@@ -536,6 +586,24 @@ PyObject* Application::sGetUserAppDataDir(PyObject * /*self*/, PyObject *args,Py
     return Py::new_reference_to(user_data_dir);
 }
 
+PyObject* Application::sGetUserMacroDir(PyObject * /*self*/, PyObject *args,PyObject * /*kwd*/)
+{
+    if (!PyArg_ParseTuple(args, ""))     // convert args: Python->C
+        return NULL;                       // NULL triggers exception
+
+    Py::String user_macro_dir(Application::getUserMacroDir(),"utf-8");
+    return Py::new_reference_to(user_macro_dir);
+}
+
+PyObject* Application::sGetHelpDir(PyObject * /*self*/, PyObject *args,PyObject * /*kwd*/)
+{
+    if (!PyArg_ParseTuple(args, ""))     // convert args: Python->C
+        return NULL;                       // NULL triggers exception
+
+    Py::String user_macro_dir(Application::getHelpDir(),"utf-8");
+    return Py::new_reference_to(user_macro_dir);
+}
+
 PyObject* Application::sGetHomePath(PyObject * /*self*/, PyObject *args,PyObject * /*kwd*/)
 {
     if (!PyArg_ParseTuple(args, ""))     // convert args: Python->C
@@ -556,7 +624,11 @@ PyObject* Application::sListDocuments(PyObject * /*self*/, PyObject *args,PyObje
 
         for (std::map<std::string,Document*>::const_iterator It = GetApplication().DocMap.begin();
              It != GetApplication().DocMap.end();++It) {
+#if PY_MAJOR_VERSION >= 3
+            pKey   = PyUnicode_FromString(It->first.c_str());
+#else
             pKey   = PyString_FromString(It->first.c_str());
+#endif
             // GetPyObject() increments
             pValue = static_cast<Base::PyObjectBase*>(It->second->getPyObject());
             PyDict_SetItem(pDict, pKey, pValue);
@@ -589,3 +661,95 @@ PyObject* Application::sRemoveDocObserver(PyObject * /*self*/, PyObject *args,Py
         Py_Return;
     } PY_CATCH;
 }
+
+PyObject *Application::sSetLogLevel(PyObject * /*self*/, PyObject *args, PyObject * /*kwd*/)
+{
+    char *tag;
+    PyObject *pcObj;
+    if (!PyArg_ParseTuple(args, "sO", &tag, &pcObj))
+        return NULL;
+    PY_TRY{
+        int l;
+#if PY_MAJOR_VERSION < 3
+        if (PyString_Check(pcObj)) {
+            const char *pstr = PyString_AsString(pcObj);
+#else
+        if (PyUnicode_Check(pcObj)) {
+            const char *pstr = PyUnicode_AsUTF8(pcObj);
+#endif
+            if(strcmp(pstr,"Log") == 0)
+                l = FC_LOGLEVEL_LOG;
+            else if(strcmp(pstr,"Warning") == 0)
+                l = FC_LOGLEVEL_WARN;
+            else if(strcmp(pstr,"Message") == 0)
+                l = FC_LOGLEVEL_MSG;
+            else if(strcmp(pstr,"Error") == 0)
+                l = FC_LOGLEVEL_ERR;
+            else if(strcmp(pstr,"Trace") == 0)
+                l = FC_LOGLEVEL_TRACE;
+            else if(strcmp(pstr,"Default") == 0)
+                l = FC_LOGLEVEL_DEFAULT;
+            else {
+                Py_Error(Base::BaseExceptionFreeCADError,
+                        "Unknown Log Level (use 'Default', 'Error', 'Warning', 'Message', 'Log', 'Trace' or an integer)");
+                return NULL;
+            }
+        }else 
+            l = PyLong_AsLong(pcObj);
+        GetApplication().GetParameterGroupByPath("User parameter:BaseApp/LogLevels")->SetInt(tag,l);
+        if(strcmp(tag,"Default") == 0) {
+#ifndef FC_DEBUG
+            if(l>=0) Base::Console().SetDefaultLogLevel(l);
+#endif
+        }else if(strcmp(tag,"DebugDefault") == 0) {
+#ifdef FC_DEBUG
+            if(l>=0) Base::Console().SetDefaultLogLevel(l);
+#endif
+        }else
+            *Base::Console().GetLogLevel(tag) = l;
+        Py_INCREF(Py_None);
+        return Py_None;
+    }PY_CATCH;
+}
+
+PyObject *Application::sGetLogLevel(PyObject * /*self*/, PyObject *args, PyObject * /*kwd*/)
+{
+    char *tag;
+    if (!PyArg_ParseTuple(args, "s", &tag))
+        return NULL;
+
+    PY_TRY{
+        int l = -1;
+        if(strcmp(tag,"Default")==0) {
+#ifdef FC_DEBUG
+            l = _pcUserParamMngr->GetGroup("BaseApp/LogLevels")->GetInt(tag,-1);
+#endif
+        }else if(strcmp(tag,"DebugDefault")==0) {
+#ifndef FC_DEBUG
+            l = _pcUserParamMngr->GetGroup("BaseApp/LogLevels")->GetInt(tag,-1);
+#endif
+        }else{
+            int *pl = Base::Console().GetLogLevel(tag,false);
+            l = pl?*pl:-1;
+        }
+        // For performance reason, we only output integer value
+        return Py_BuildValue("i",Base::Console().LogLevel(l));
+
+        // switch(l) {
+        // case FC_LOGLEVEL_LOG:
+        //     return Py_BuildValue("s","Log");
+        // case FC_LOGLEVEL_WARN:
+        //     return Py_BuildValue("s","Warning");
+        // case FC_LOGLEVEL_ERR:
+        //     return Py_BuildValue("s","Error");
+        // case FC_LOGLEVEL_MSG:
+        //     return Py_BuildValue("s","Message");
+        // case FC_LOGLEVEL_TRACE:
+        //     return Py_BuildValue("s","Trace");
+        // default:
+        //     return Py_BuildValue("i",l);
+        // }
+    } PY_CATCH;
+}
+
+

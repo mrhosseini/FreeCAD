@@ -25,11 +25,11 @@
 #ifndef _DrawViewClip_h_
 #define _DrawViewClip_h_
 
-
 #include <App/DocumentObject.h>
 #include <App/DocumentObjectGroup.h>
 #include <App/PropertyLinks.h>
 #include <App/PropertyStandard.h>
+#include <App/PropertyUnits.h>
 #include <App/FeaturePython.h>
 
 #include "DrawView.h"
@@ -46,8 +46,8 @@ public:
     DrawViewClip(void);
     virtual ~DrawViewClip();
 
-    App::PropertyFloat Width;
-    App::PropertyFloat Height;
+    App::PropertyLength Width;
+    App::PropertyLength Height;
     App::PropertyBool ShowFrame;
     App::PropertyBool ShowLabels;
     App::PropertyLinkList Views;
@@ -56,7 +56,7 @@ public:
     void removeView(DrawView *view);
     short mustExecute() const;
 
-    /** @name methods overide Feature */
+    /** @name methods override Feature */
     //@{
     /// recalculate the Feature
     virtual App::DocumentObjectExecReturn *execute(void);
@@ -71,6 +71,7 @@ public:
 
     std::vector<std::string> getChildViewNames();
     bool isViewInClip(App::DocumentObject* view);
+    virtual QRectF getRect(void) const { return QRectF(0,0,Width.getValue(),Height.getValue()); }
 
 
 protected:

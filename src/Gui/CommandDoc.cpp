@@ -41,6 +41,7 @@
 #include <Base/FileInfo.h>
 #include <Base/Interpreter.h>
 #include <Base/Sequencer.h>
+#include <Base/Tools.h>
 #include <App/Document.h>
 #include <App/DocumentObjectGroup.h>
 #include <App/DocumentObject.h>
@@ -81,7 +82,7 @@ DEF_STD_CMD(StdCmdOpen);
 StdCmdOpen::StdCmdOpen()
   : Command("Std_Open")
 {
-    // seting the
+    // setting the
     sGroup        = QT_TR_NOOP("File");
     sMenuText     = QT_TR_NOOP("&Open...");
     sToolTipText  = QT_TR_NOOP("Open a document or import files");
@@ -93,6 +94,8 @@ StdCmdOpen::StdCmdOpen()
 
 void StdCmdOpen::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
+
     // fill the list of registered endings
     QString formatList;
     const char* supported = QT_TR_NOOP("Supported formats");
@@ -161,7 +164,7 @@ DEF_STD_CMD_A(StdCmdImport);
 StdCmdImport::StdCmdImport()
   : Command("Std_Import")
 {
-    // seting the
+    // setting the
     sGroup        = QT_TR_NOOP("File");
     sMenuText     = QT_TR_NOOP("&Import...");
     sToolTipText  = QT_TR_NOOP("Import a file in the active document");
@@ -173,6 +176,8 @@ StdCmdImport::StdCmdImport()
 
 void StdCmdImport::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
+
     // fill the list of registered endings
     QString formatList;
     const char* supported = QT_TR_NOOP("Supported formats");
@@ -245,7 +250,7 @@ DEF_STD_CMD_A(StdCmdExport);
 StdCmdExport::StdCmdExport()
   : Command("Std_Export")
 {
-    // seting the
+    // setting the
     sGroup        = QT_TR_NOOP("File");
     sMenuText     = QT_TR_NOOP("&Export...");
     sToolTipText  = QT_TR_NOOP("Export an object in the active document");
@@ -258,6 +263,8 @@ StdCmdExport::StdCmdExport()
 
 void StdCmdExport::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
+
     if (Gui::Selection().countObjectsOfType(App::DocumentObject::getClassTypeId()) == 0) {
         QMessageBox::warning(Gui::getMainWindow(),
             QString::fromUtf8(QT_TR_NOOP("No selection")),
@@ -313,12 +320,14 @@ StdCmdMergeProjects::StdCmdMergeProjects()
     sGroup        = QT_TR_NOOP("File");
     sMenuText     = QT_TR_NOOP("Merge project...");
     sToolTipText  = QT_TR_NOOP("Merge project");
-    sWhatsThis    = QT_TR_NOOP("Merge project");
+    sWhatsThis    = "Std_MergeProjects";
     sStatusTip    = QT_TR_NOOP("Merge project");
 }
 
 void StdCmdMergeProjects::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
+
     QString exe = qApp->applicationName();
     QString project = QFileDialog::getOpenFileName(Gui::getMainWindow(),
         QString::fromUtf8(QT_TR_NOOP("Merge project")), FileDialog::getWorkingDirectory(),
@@ -359,7 +368,7 @@ DEF_STD_CMD_A(StdCmdExportGraphviz);
 StdCmdExportGraphviz::StdCmdExportGraphviz()
   : Command("Std_ExportGraphviz")
 {
-    // seting the
+    // setting the
     sGroup        = QT_TR_NOOP("Tools");
     sMenuText     = QT_TR_NOOP("Dependency graph...");
     sToolTipText  = QT_TR_NOOP("Show the dependency graph of the objects in the active document");
@@ -370,6 +379,7 @@ StdCmdExportGraphviz::StdCmdExportGraphviz()
 
 void StdCmdExportGraphviz::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     App::Document* doc = App::GetApplication().getActiveDocument();
     Gui::GraphvizView* view = new Gui::GraphvizView(*doc);
     view->setWindowTitle(qApp->translate("Std_ExportGraphviz","Dependency graph"));
@@ -401,10 +411,11 @@ StdCmdNew::StdCmdNew()
 
 void StdCmdNew::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     QString cmd;
     cmd = QString::fromLatin1("App.newDocument(\"%1\")")
         .arg(qApp->translate("StdCmdNew","Unnamed"));
-    doCommand(Command::Doc,(const char*)cmd.toUtf8());
+    runCommand(Command::Doc,cmd.toUtf8());
 }
 
 //===========================================================================
@@ -427,6 +438,7 @@ StdCmdSave::StdCmdSave()
 
 void StdCmdSave::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
 #if 0
   Gui::Document* pActiveDoc = getActiveGuiDocument();
   if ( pActiveDoc )
@@ -468,6 +480,7 @@ StdCmdSaveAs::StdCmdSaveAs()
 
 void StdCmdSaveAs::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
 #if 0
   Gui::Document* pActiveDoc = getActiveGuiDocument();
   if ( pActiveDoc )
@@ -505,6 +518,7 @@ StdCmdSaveCopy::StdCmdSaveCopy()
 
 void StdCmdSaveCopy::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
 #if 0
   Gui::Document* pActiveDoc = getActiveGuiDocument();
   if ( pActiveDoc )
@@ -537,6 +551,7 @@ StdCmdRevert::StdCmdRevert()
 
 void StdCmdRevert::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     QMessageBox msgBox(Gui::getMainWindow());
     msgBox.setIcon(QMessageBox::Question);
     msgBox.setWindowTitle(qApp->translate("Std_Revert","Revert document"));
@@ -563,7 +578,7 @@ DEF_STD_CMD_A(StdCmdProjectInfo);
 StdCmdProjectInfo::StdCmdProjectInfo()
   :Command("Std_ProjectInfo")
 {
-  // seting the
+  // setting the
   sGroup        = QT_TR_NOOP("File");
   sMenuText     = QT_TR_NOOP("Project i&nformation...");
   sToolTipText  = QT_TR_NOOP("Show details of the currently active project");
@@ -576,8 +591,9 @@ StdCmdProjectInfo::StdCmdProjectInfo()
 
 void StdCmdProjectInfo::activated(int iMsg)
 {
-  Gui::Dialog::DlgProjectInformationImp dlg(getActiveGuiDocument()->getDocument(), getMainWindow());
-  dlg.exec();
+    Q_UNUSED(iMsg); 
+    Gui::Dialog::DlgProjectInformationImp dlg(getActiveGuiDocument()->getDocument(), getMainWindow());
+    dlg.exec();
 }
 
 bool StdCmdProjectInfo::isActive(void)
@@ -594,7 +610,7 @@ DEF_STD_CMD_A(StdCmdProjectUtil);
 StdCmdProjectUtil::StdCmdProjectUtil()
   :Command("Std_ProjectUtil")
 {
-    // seting the
+    // setting the
     sGroup        = QT_TR_NOOP("Tools");
     sWhatsThis    = "Std_ProjectUtil";
     sMenuText     = QT_TR_NOOP("Project utility...");
@@ -604,6 +620,7 @@ StdCmdProjectUtil::StdCmdProjectUtil()
 
 void StdCmdProjectUtil::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     Gui::Dialog::DlgProjectUtility dlg(getMainWindow());
     dlg.exec();
 }
@@ -632,6 +649,7 @@ StdCmdPrint::StdCmdPrint()
 
 void StdCmdPrint::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     if (getMainWindow()->activeWindow()) {
         getMainWindow()->showMessage(QObject::tr("Printing..."));
         getMainWindow()->activeWindow()->print();
@@ -661,6 +679,7 @@ StdCmdPrintPreview::StdCmdPrintPreview()
 
 void StdCmdPrintPreview::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     if (getMainWindow()->activeWindow()) {
         getMainWindow()->activeWindow()->printPreview();
     }
@@ -688,6 +707,7 @@ StdCmdPrintPdf::StdCmdPrintPdf()
 
 void StdCmdPrintPdf::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     if (getMainWindow()->activeWindow()) {
         getMainWindow()->showMessage(QObject::tr("Exporting PDF..."));
         getMainWindow()->activeWindow()->printPdf();
@@ -721,6 +741,7 @@ StdCmdQuit::StdCmdQuit()
 
 void StdCmdQuit::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     // close the main window and exit the event loop
     getMainWindow()->close();
 }
@@ -746,8 +767,9 @@ StdCmdUndo::StdCmdUndo()
 
 void StdCmdUndo::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
 //  Application::Instance->slotUndo();
-  getGuiApplication()->sendMsgToActiveView("Undo");
+    getGuiApplication()->sendMsgToActiveView("Undo");
 }
 
 bool StdCmdUndo::isActive(void)
@@ -789,8 +811,9 @@ StdCmdRedo::StdCmdRedo()
 
 void StdCmdRedo::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
 //  Application::Instance->slotRedo();
-  getGuiApplication()->sendMsgToActiveView("Redo");
+    getGuiApplication()->sendMsgToActiveView("Redo");
 }
 
 bool StdCmdRedo::isActive(void)
@@ -830,6 +853,7 @@ StdCmdCut::StdCmdCut()
 
 void StdCmdCut::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     getGuiApplication()->sendMsgToActiveView("Cut");
 }
 
@@ -857,6 +881,7 @@ StdCmdCopy::StdCmdCopy()
 
 void StdCmdCopy::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     bool done = getGuiApplication()->sendMsgToActiveView("Copy");
     if (!done) {
         QMimeData * mimeData = getMainWindow()->createMimeDataFromSelection();
@@ -891,6 +916,7 @@ StdCmdPaste::StdCmdPaste()
 
 void StdCmdPaste::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     bool done = getGuiApplication()->sendMsgToActiveView("Paste");
     if (!done) {
         QClipboard* cb = QApplication::clipboard();
@@ -921,12 +947,13 @@ StdCmdDuplicateSelection::StdCmdDuplicateSelection()
     sGroup        = QT_TR_NOOP("Edit");
     sMenuText     = QT_TR_NOOP("Duplicate selection");
     sToolTipText  = QT_TR_NOOP("Put duplicates of the selected objects to the active document");
-    sWhatsThis    = QT_TR_NOOP("Put duplicates of the selected objects to the active document");
+    sWhatsThis    = "Std_DuplicateSelection";
     sStatusTip    = QT_TR_NOOP("Put duplicates of the selected objects to the active document");
 }
 
 void StdCmdDuplicateSelection::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     std::vector<SelectionSingleton::SelObj> sel = Selection().getCompleteSelection();
     std::set<App::DocumentObject*> unique_objs;
     std::map< App::Document*, std::vector<App::DocumentObject*> > objs;
@@ -1008,6 +1035,7 @@ StdCmdSelectAll::StdCmdSelectAll()
 
 void StdCmdSelectAll::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     SelectionSingleton& rSel = Selection();
     App::Document* doc = App::GetApplication().getActiveDocument();
     std::vector<App::DocumentObject*> objs = doc->getObjectsOfType(App::DocumentObject::getClassTypeId());
@@ -1041,6 +1069,8 @@ StdCmdDelete::StdCmdDelete()
 
 void StdCmdDelete::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
+
     // go through all documents
     const SelectionSingleton& rSel = Selection();
     const std::vector<App::Document*> docs = App::GetApplication().getDocuments();
@@ -1070,10 +1100,9 @@ void StdCmdDelete::activated(int iMsg)
                         }
                         break;
                     }
-                }
-            }
-            else {
-                // check if we can delete the object
+                } 
+            } else { 
+                // check if we can delete the object - linked objects
                 std::set<QString> affectedLabels;
                 for (std::vector<Gui::SelectionObject>::iterator ft = sel.begin(); ft != sel.end(); ++ft) {
                     App::DocumentObject* obj = ft->getObject();
@@ -1081,39 +1110,63 @@ void StdCmdDelete::activated(int iMsg)
                     if (!links.empty()) {
                         // check if the referenced objects are groups or are selected too
                         for (std::vector<App::DocumentObject*>::iterator lt = links.begin(); lt != links.end(); ++lt) {
-                            if (
-                                  (!(*lt)->getTypeId().isDerivedFrom(App::DocumentObjectGroup::getClassTypeId())) &&
-                                  (!(*lt)->getTypeId().isDerivedFrom(App::Origin::getClassTypeId())) &&
-                                  (!rSel.isSelected(*lt)) &&
-                                  (!(*lt)->getTypeId().isDerivedFrom(Base::Type::fromName("Part::BodyBase")))
-                                ){
-                                // TODO Do something with this hack of Part::BodyBase (2015-09-09, Fat-Zer)
-                                autoDeletion = false;
-                                affectedLabels.insert(QString::fromUtf8((*lt)->Label.getValue()));
+                            if (!rSel.isSelected(*lt)) {
+                                ViewProvider* vp = pGuiDoc->getViewProvider(*lt);
+                                if (!vp->canDelete(obj)) {
+                                    autoDeletion = false;
+                                    affectedLabels.insert(QString::fromUtf8((*lt)->Label.getValue()));
+                                }
                             }
-                        }
-
-                        if (!autoDeletion) {
-                            break;
                         }
                     }
                 }
-
-                if (!autoDeletion) {
+                
+                //check for inactive objects in selection  Mantis #3477
+                std::set<QString> inactiveLabels;
+                App::Application& app = App::GetApplication();
+                App::Document* actDoc = app.getActiveDocument();
+                for (std::vector<Gui::SelectionObject>::iterator ft = sel.begin(); ft != sel.end(); ++ft) {
+                    App::DocumentObject* obj = ft->getObject();
+                    App::Document* objDoc = obj->getDocument();
+                    if (actDoc != objDoc) {
+                        inactiveLabels.insert(QString::fromUtf8(obj->Label.getValue()));
+                        autoDeletion = false;
+                    }
+                }
+    
+                if (!autoDeletion) {   //can't just delete, need to ask
                     QString bodyMessage;
                     QTextStream bodyMessageStream(&bodyMessage);
+
+                    //message for linked items
+                    if (!affectedLabels.empty()) {
+                        bodyMessageStream << qApp->translate("Std_Delete",
+                                                             "These items are linked to items selected for deletion and might break.\n\n");
+                        for (const auto &currentLabel : affectedLabels)
+                          bodyMessageStream << currentLabel << '\n';
+                    }
+
+                    //message for inactive items
+                    if (!inactiveLabels.empty()) {
+                        if (!affectedLabels.empty()) {
+                            bodyMessageStream << "\n";
+                        }
+                        std::string thisDoc = pGuiDoc->getDocument()->getName();
+                        bodyMessageStream << qApp->translate("Std_Delete", 
+                                             "These items are selected for deletion, but are not in the active document. \n\n"); 
+                        for (const auto &currentLabel : inactiveLabels)
+                          bodyMessageStream << currentLabel << " / " << Base::Tools::fromStdString(thisDoc) << '\n';
+                    }
                     bodyMessageStream << qApp->translate("Std_Delete",
-                                                         "The following, referencing objects might break.\n\n"
-                                                         "Are you sure you want to continue?\n\n");
-                    for (const auto &currentLabel : affectedLabels)
-                      bodyMessageStream << currentLabel << '\n';
+                                                         "\n\nAre you sure you want to continue?");
 
                     int ret = QMessageBox::question(Gui::getMainWindow(),
-                        qApp->translate("Std_Delete", "Object dependencies"), bodyMessage,
+                        qApp->translate("Std_Delete", "Delete Selection Issues"), bodyMessage,
                         QMessageBox::Yes, QMessageBox::No);
                     if (ret == QMessageBox::Yes)
                         autoDeletion = true;
                 }
+
                 if (autoDeletion) {
                     Gui::getMainWindow()->setUpdatesEnabled(false);
                     (*it)->openTransaction("Delete");
@@ -1121,12 +1174,14 @@ void StdCmdDelete::activated(int iMsg)
                         Gui::ViewProvider* vp = pGuiDoc->getViewProvider(ft->getObject());
                         if (vp) {
                             // ask the ViewProvider if it wants to do some clean up
-                            if (vp->onDelete(ft->getSubNames()))
+                            if (vp->onDelete(ft->getSubNames())) {
                                 doCommand(Doc,"App.getDocument(\"%s\").removeObject(\"%s\")"
                                          ,(*it)->getName(), ft->getFeatName());
+                            }
                         }
                     }
                     (*it)->commitTransaction();
+
                     Gui::getMainWindow()->setUpdatesEnabled(true);
                     Gui::getMainWindow()->update();
                 }
@@ -1161,10 +1216,12 @@ StdCmdRefresh::StdCmdRefresh()
 
 void StdCmdRefresh::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     if (getActiveGuiDocument()) {
         //Note: Don't add the recompute to undo/redo because it complicates
         //testing the changes of properties.
         //openCommand("Refresh active document");
+        this->getDocument()->setStatus(App::Document::SkipRecompute, false);
         doCommand(Doc,"App.activeDocument().recompute()");
         //commitCommand();
     }
@@ -1192,6 +1249,7 @@ StdCmdTransform::StdCmdTransform()
 
 void StdCmdTransform::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     Gui::Control().showDialog(new Gui::Dialog::TaskTransform());
 }
 
@@ -1217,6 +1275,7 @@ StdCmdPlacement::StdCmdPlacement()
 
 void StdCmdPlacement::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     std::vector<App::DocumentObject*> sel = Gui::Selection().getObjectsOfType(App::GeoFeature::getClassTypeId());
     Gui::Dialog::TaskPlacement* plm = new Gui::Dialog::TaskPlacement();
     if (!sel.empty()) {
@@ -1249,6 +1308,7 @@ StdCmdTransformManip::StdCmdTransformManip()
 
 void StdCmdTransformManip::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     if (getActiveGuiDocument()->getInEdit())
         getActiveGuiDocument()->resetEdit();
     std::vector<App::DocumentObject*> sel = Gui::Selection().getObjectsOfType(App::GeoFeature::getClassTypeId());
@@ -1281,6 +1341,7 @@ StdCmdAlignment::StdCmdAlignment()
 
 void StdCmdAlignment::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     std::vector<App::DocumentObject*> sel = Gui::Selection().getObjectsOfType
         (App::GeoFeature::getClassTypeId());
     ManualAlignment* align = ManualAlignment::instance();
@@ -1353,6 +1414,7 @@ StdCmdEdit::StdCmdEdit()
 
 void StdCmdEdit::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     Gui::MDIView* view = Gui::getMainWindow()->activeWindow();
     if (view && view->isDerivedFrom(Gui::View3DInventor::getClassTypeId())) {
         Gui::View3DInventorViewer* viewer = static_cast<Gui::View3DInventor*>(view)->getViewer();

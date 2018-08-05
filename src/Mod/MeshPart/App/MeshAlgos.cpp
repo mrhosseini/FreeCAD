@@ -53,7 +53,7 @@ void MeshAlgos::offset(MeshCore::MeshKernel* Mesh, float fSize)
   std::vector<Base::Vector3f> normals = Mesh->CalcVertexNormals();
 
   unsigned int i = 0;
-  // go throug all the Vertex normales
+  // go through all the Vertex normals
   for(std::vector<Base::Vector3f>::iterator It= normals.begin();It != normals.end();++It,i++)
     // and move each mesh point in the normal direction
     Mesh->MovePoint(i,It->Normalize() * fSize);
@@ -75,7 +75,7 @@ void MeshAlgos::offsetSpecial2(MeshCore::MeshKernel* Mesh, float fSize)
 
     unsigned int i = 0;
 
-    // go throug all the Vertex normales
+    // go through all the Vertex normals
     for(std::vector<Base::Vector3f>::iterator It= PointNormals.begin();It != PointNormals.end();++It,i++){
         builder.addSingleLine(Mesh->GetPoint(i),Mesh->GetPoint(i)+It->Normalize() * fSize);
         // and move each mesh point in the normal direction
@@ -97,12 +97,12 @@ void MeshAlgos::offsetSpecial2(MeshCore::MeshKernel* Mesh, float fSize)
                 fliped.insert(it.Position());
             }
         }
-        
-        // if there no flipped triangels -> stop
+
+        // if there are no flipped triangles -> stop
         //int f =fliped.size();
         if(fliped.size() == 0)
             break;
-      
+
         for(std::set<unsigned long>::iterator It= fliped.begin();It!=fliped.end();++It)
             alg.CollapseFacet(*It);
         fliped.clear();
@@ -125,7 +125,7 @@ void MeshAlgos::offsetSpecial(MeshCore::MeshKernel* Mesh, float fSize, float zma
   std::vector<Base::Vector3f> normals = Mesh->CalcVertexNormals();
 
   unsigned int i = 0;
-  // go throug all the Vertex normales
+  // go through all the Vertex normals
   for(std::vector<Base::Vector3f>::iterator It= normals.begin();It != normals.end();++It,i++)
   {
     Base::Vector3f Pnt = Mesh->GetPoint(i);
@@ -141,7 +141,7 @@ void MeshAlgos::offsetSpecial(MeshCore::MeshKernel* Mesh, float fSize, float zma
 }
 
 
-void MeshAlgos::coarsen(MeshCore::MeshKernel* Mesh, float f)
+void MeshAlgos::coarsen(MeshCore::MeshKernel* /*Mesh*/, float /*f*/)
 {
 #ifdef FC_USE_GTS
   GtsSurface * surface;
@@ -166,7 +166,10 @@ void MeshAlgos::coarsen(MeshCore::MeshKernel* Mesh, float f)
 }
 
 
-MeshCore::MeshKernel* MeshAlgos::boolean(MeshCore::MeshKernel* pMesh1, MeshCore::MeshKernel* pMesh2, MeshCore::MeshKernel* pResult,int Type)
+MeshCore::MeshKernel* MeshAlgos::boolean(MeshCore::MeshKernel* pMesh1,
+                                         MeshCore::MeshKernel* /*pMesh2*/,
+                                         MeshCore::MeshKernel* /*pResult*/,
+                                         int /*Type*/)
 {
 #ifdef FC_USE_GTS
   GtsSurface * s1, * s2, * s3;
@@ -180,7 +183,7 @@ MeshCore::MeshKernel* MeshAlgos::boolean(MeshCore::MeshKernel* pMesh1, MeshCore:
   s1 = MeshAlgos::createGTSSurface(pMesh1);
   s2 = MeshAlgos::createGTSSurface(pMesh2);
 
-  // clear the mesh (mermory)
+  // clear the mesh (memory)
   //Mesh1.clear();
   //Mesh2.clear();
 
@@ -188,7 +191,7 @@ MeshCore::MeshKernel* MeshAlgos::boolean(MeshCore::MeshKernel* pMesh1, MeshCore:
   if (!gts_surface_is_orientable (s1)) {
     gts_object_destroy (GTS_OBJECT (s1));
     gts_object_destroy (GTS_OBJECT (s2));
-    throw "surface 1 is not an orientable manifold\n" ;
+    throw "surface 1 is not an orientable manifold\n";
   }
   if (!gts_surface_is_orientable (s2)) {
     gts_object_destroy (GTS_OBJECT (s1));
@@ -218,7 +221,7 @@ MeshCore::MeshKernel* MeshAlgos::boolean(MeshCore::MeshKernel* pMesh1, MeshCore:
       gts_object_destroy (GTS_OBJECT (self_intersects));
       gts_object_destroy (GTS_OBJECT (s1));
       gts_object_destroy (GTS_OBJECT (s2));
-      throw"surface is self-intersecting\n";
+      throw "surface is self-intersecting\n";
     }
   }
 
@@ -237,14 +240,14 @@ MeshCore::MeshKernel* MeshAlgos::boolean(MeshCore::MeshKernel* pMesh1, MeshCore:
     gts_object_destroy (GTS_OBJECT (s1));
     gts_object_destroy (GTS_OBJECT (s2));
     gts_bb_tree_destroy (tree1, true);
-    gts_bb_tree_destroy (tree2, true);  
+    gts_bb_tree_destroy (tree2, true);
     throw"the intersection of 1 and  2 is not a closed curve\n";
   }
 
   s3 = gts_surface_new (gts_surface_class (),
 			gts_face_class (),
 			gts_edge_class (),
-			gts_vertex_class ());  
+			gts_vertex_class ());
   if (Type==0) { // union
     gts_surface_inter_boolean (si, s3, GTS_1_OUT_2);
     gts_surface_inter_boolean (si, s3, GTS_2_OUT_1);
@@ -265,7 +268,7 @@ MeshCore::MeshKernel* MeshAlgos::boolean(MeshCore::MeshKernel* pMesh1, MeshCore:
   else if (Type==4) { // cut outer
     gts_surface_inter_boolean (si, s3, GTS_1_OUT_2);
   }
-   
+
   // check that the resulting surface is not self-intersecting 
   if (check_self_intersection) {
     GtsSurface * self_intersects;
@@ -281,7 +284,7 @@ MeshCore::MeshKernel* MeshAlgos::boolean(MeshCore::MeshKernel* pMesh1, MeshCore:
       gts_object_destroy (GTS_OBJECT (s3));
       gts_object_destroy (GTS_OBJECT (si));
       gts_bb_tree_destroy (tree1, true);
-      gts_bb_tree_destroy (tree2, true);  
+      gts_bb_tree_destroy (tree2, true);
       throw "the resulting surface is self-intersecting\n";
     }
   }
@@ -302,8 +305,8 @@ MeshCore::MeshKernel* MeshAlgos::boolean(MeshCore::MeshKernel* pMesh1, MeshCore:
 
   // destroy bounding box trees (including bounding boxes) 
 //  gts_bb_tree_destroy (tree1, true);
-//  gts_bb_tree_destroy (tree2, true);  
-  
+//  gts_bb_tree_destroy (tree2, true);
+
 #endif
   return pMesh1;
 }
@@ -312,7 +315,7 @@ MeshCore::MeshKernel* MeshAlgos::boolean(MeshCore::MeshKernel* pMesh1, MeshCore:
 #ifdef FC_USE_GTS
 
 
-/// helper function - construct a Edge out of two Vertexes if not allready there
+/// helper function - construct a Edge out of two Vertexes if not already there
 static GtsEdge * new_edge (GtsVertex * v1, GtsVertex * v2)
 {
   GtsSegment * s = gts_vertices_are_connected (v1, v2);
@@ -334,7 +337,7 @@ GtsSurface* MeshAlgos::createGTSSurface(MeshCore::MeshKernel* Mesh)
   Base::Vector3f Vertex;
 
 
-  // Geting all the points
+  // Getting all the points
   GtsVertex ** aVertex = (GtsVertex **) malloc(Mesh->CountPoints() * sizeof (GtsVertex *));
   for (unsigned int PIter = 0;PIter < Mesh->CountPoints(); PIter++)
   {
@@ -345,7 +348,7 @@ GtsSurface* MeshAlgos::createGTSSurface(MeshCore::MeshKernel* Mesh)
     // cycling through the facets
   for (unsigned int pFIter = 0;pFIter < Mesh->CountFacets(); pFIter++)
   {
-    // geting the three points of the facet
+    // getting the three points of the facet
     Mesh->GetFacetPoints(pFIter,p1,p2,p3);
     
     // creating the edges and add the face to the surface
@@ -360,7 +363,7 @@ GtsSurface* MeshAlgos::createGTSSurface(MeshCore::MeshKernel* Mesh)
                                                                      gts_surface_vertex_number(Surf),
                                                                      gts_surface_edge_number(Surf),
                                                                      gts_surface_is_orientable (Surf)?"orientable":"not orientable",
-                                                                     gts_surface_is_self_intersecting(Surf)?"self-intersections":"no self-intersection" ); 
+                                                                     gts_surface_is_self_intersecting(Surf)?"self-intersections":"no self-intersection" );
 
   return Surf;
 
@@ -495,7 +498,7 @@ void MeshAlgos::LoftOnCurve(MeshCore::MeshKernel &ResultMesh, const TopoDS_Shape
     TopoDS_Vertex V1, V2;
     TopExp::Vertices(Edge, V1, V2);
     bool bBegin = false,bEnd = false;
-    // geting the geometric curve and the interval
+    // getting the geometric curve and the interval
     GeomLProp_CLProps prop(BRep_Tool::Curve(Edge,fBegin,fEnd),1,0.0000000001);
     int res = int((fEnd - fBegin)/MaxSize);
     // do at least 2 segments
@@ -506,7 +509,7 @@ void MeshAlgos::LoftOnCurve(MeshCore::MeshKernel &ResultMesh, const TopoDS_Shape
     std::vector<Base::Vector3f> prePoint(poly.size());
     std::vector<Base::Vector3f> actPoint(poly.size());
     
-    // checking if there is already a end to conect
+    // checking if there is already a end to connect
     if(ConnectMap.find(V1) != ConnectMap.end() ){
       bBegin = true;
       prePoint = ConnectMap[V1];
@@ -529,7 +532,7 @@ void MeshAlgos::LoftOnCurve(MeshCore::MeshKernel &ResultMesh, const TopoDS_Shape
                          (float)prop.Value().Z());
       Base::Vector3f Up (up);
       // normalize and calc the third vector of the plane coordinatesystem
-      Tng.Normalize(); 
+      Tng.Normalize();
       Up.Normalize();
       Base::Vector3f Third(Tng%Up);
 
@@ -543,7 +546,7 @@ void MeshAlgos::LoftOnCurve(MeshCore::MeshKernel &ResultMesh, const TopoDS_Shape
         actPoint[l] = ((Third*It->x)+(Up*It->y)+(Tng*It->z)+Ptn);
 
       if(i == res-1 && !bEnd)
-        // remeber the last row to conect to a otger edge with the same vertex
+        // remember the last row to connect to a otger edge with the same vertex
         ConnectMap[V2] = actPoint;
 
       if(i==1 && bBegin)
@@ -551,16 +554,16 @@ void MeshAlgos::LoftOnCurve(MeshCore::MeshKernel &ResultMesh, const TopoDS_Shape
         prePoint = ConnectMap[V1];
 
       if(i==0 && !bBegin)
-          // remember the first row for conection to a edge with the same vertex
+          // remember the first row for connection to a edge with the same vertex
           ConnectMap[V1] = actPoint;
 
-      if(i ) // not the first row or somthing to conect to
+      if(i ) // not the first row or something to connect to
       {
         for(l=0;l<actPoint.size();l++)
         {
           if(l) // not first point in row 
           {
-            if(i == res-1 && bEnd) // if last row and a end to conect
+            if(i == res-1 && bEnd) // if last row and a end to connect
               actPoint = ConnectMap[V2];
 
             Base::Vector3f p1 = prePoint[l-1],

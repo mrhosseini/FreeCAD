@@ -43,14 +43,18 @@
 using namespace Gui;
 
 
-PROPERTY_SOURCE(Gui::ViewProviderPart, Gui::ViewProviderOriginGroup)
+PROPERTY_SOURCE_WITH_EXTENSIONS(Gui::ViewProviderPart, Gui::ViewProviderDragger)
 
 
 /**
  * Creates the view provider for an object group.
  */
 ViewProviderPart::ViewProviderPart()
-{ }
+{ 
+    initExtension(this);
+
+    sPixmap = "Geofeaturegroup.svg";
+}
 
 ViewProviderPart::~ViewProviderPart()
 { }
@@ -61,7 +65,7 @@ ViewProviderPart::~ViewProviderPart()
  * associated view providers of the objects of the object group get changed as well.
  */
 void ViewProviderPart::onChanged(const App::Property* prop) {
-    ViewProviderOriginGroup::onChanged(prop);
+    ViewProviderDragger::onChanged(prop);
 }
 
 bool ViewProviderPart::doubleClicked(void)
@@ -92,30 +96,6 @@ bool ViewProviderPart::doubleClicked(void)
     }
 
     return true;
-}
-
-bool ViewProviderPart::canDropObject(App::DocumentObject* obj) const {
-    
-    //it is not allowed to have any part or assembly object within a part, hence we exclude origin groups
-    if(obj->isDerivedFrom(App::OriginGroup::getClassTypeId()))
-        return false;
-    
-    return Gui::ViewProvider::canDropObject(obj);
-}
-
-
-/**
- * Returns the pixmap for the list item.
- */
-QIcon ViewProviderPart::getIcon() const
-{
-    // TODO Make a nice icon for the part (2015-09-01, Fat-Zer)
-    QIcon groupIcon;
-    groupIcon.addPixmap(QApplication::style()->standardPixmap(QStyle::SP_DirClosedIcon),
-                        QIcon::Normal, QIcon::Off);
-    groupIcon.addPixmap(QApplication::style()->standardPixmap(QStyle::SP_DirOpenIcon),
-                        QIcon::Normal, QIcon::On);
-    return groupIcon;
 }
 
 // Python feature -----------------------------------------------------------------------

@@ -43,17 +43,26 @@
 # include <Geom_TrimmedCurve.hxx>
 # include <Geom_BezierCurve.hxx>
 # include <Geom_BSplineCurve.hxx>
+# include <Geom_OffsetCurve.hxx>
 # include <gp_Circ.hxx>
 # include <gp_Elips.hxx>
 # include <gp_Hypr.hxx>
 # include <gp_Parab.hxx>
 # include <gp_Lin.hxx>
+# include <Poly_Polygon2D.hxx>
+# include <Poly_Polygon3D.hxx>
+# include <Poly_Triangulation.hxx>
+# include <Poly_PolygonOnTriangulation.hxx>
+# include <TColStd_Array1OfReal.hxx>
+# include <TopExp.hxx>
 # include <TopoDS.hxx>
 # include <TopoDS_Shape.hxx>
 # include <TopoDS_Edge.hxx>
 # include <TopoDS_Vertex.hxx>
+# include <TopTools_IndexedDataMapOfShapeListOfShape.hxx>
 # include <ShapeAnalysis_Edge.hxx>
 # include <Standard_Failure.hxx>
+# include <Standard_Version.hxx>
 #endif
 
 #include <BRepGProp.hxx>
@@ -72,21 +81,22 @@
 #include "Tools.h"
 #include "OCCError.h"
 #include "TopoShape.h"
-#include "TopoShapeFacePy.h"
-#include "TopoShapeVertexPy.h"
-#include "TopoShapeWirePy.h"
-#include "TopoShapeEdgePy.h"
-#include "TopoShapeEdgePy.cpp"
+#include <Mod/Part/App/TopoShapeFacePy.h>
+#include <Mod/Part/App/TopoShapeVertexPy.h>
+#include <Mod/Part/App/TopoShapeWirePy.h>
+#include <Mod/Part/App/TopoShapeEdgePy.h>
+#include <Mod/Part/App/TopoShapeEdgePy.cpp>
 
 #include "Geometry.h"
-#include "GeometryPy.h"
-#include "LinePy.h"
-#include "CirclePy.h"
-#include "EllipsePy.h"
-#include "HyperbolaPy.h"
-#include "ParabolaPy.h"
-#include "BezierCurvePy.h"
-#include "BSplineCurvePy.h"
+#include <Mod/Part/App/GeometryPy.h>
+#include <Mod/Part/App/LinePy.h>
+#include <Mod/Part/App/CirclePy.h>
+#include <Mod/Part/App/EllipsePy.h>
+#include <Mod/Part/App/HyperbolaPy.h>
+#include <Mod/Part/App/ParabolaPy.h>
+#include <Mod/Part/App/BezierCurvePy.h>
+#include <Mod/Part/App/BSplineCurvePy.h>
+#include <Mod/Part/App/OffsetCurvePy.h>
 
 using namespace Part;
 
@@ -101,7 +111,7 @@ std::string TopoShapeEdgePy::representation(void) const
 
 PyObject *TopoShapeEdgePy::PyMake(struct _typeobject *, PyObject *, PyObject *)  // Python wrapper
 {
-    // create a new instance of TopoShapeEdgePy and the Twin object 
+    // create a new instance of TopoShapeEdgePy and the Twin object
     return new TopoShapeEdgePy(new TopoShape);
 }
 
@@ -112,7 +122,7 @@ int TopoShapeEdgePy::PyInit(PyObject* args, PyObject* /*kwd*/)
     double first=DBL_MAX, last=DBL_MAX;
     if (PyArg_ParseTuple(args, "O!|dd", &(Part::GeometryPy::Type), &pcObj, &first, &last)) {
         Geometry* geom = static_cast<GeometryPy*>(pcObj)->getGeometryPtr();
-        Handle_Geom_Curve curve = Handle_Geom_Curve::DownCast(geom->handle());
+        Handle(Geom_Curve) curve = Handle(Geom_Curve)::DownCast(geom->handle());
         if (curve.IsNull()) {
             PyErr_SetString(PartExceptionOCCError, "geometry is not a curve type");
             return -1;
@@ -128,9 +138,9 @@ int TopoShapeEdgePy::PyInit(PyObject* args, PyObject* /*kwd*/)
             getTopoShapePtr()->setShape(mkEdge.Edge());
             return 0;
         }
-        catch (Standard_Failure) {
-            Handle_Standard_Failure e = Standard_Failure::Caught();
-            PyErr_SetString(PartExceptionOCCError, e->GetMessageString());
+        catch (Standard_Failure& e) {
+    
+            PyErr_SetString(PartExceptionOCCError, e.GetMessageString());
             return -1;
         }
     }
@@ -161,9 +171,9 @@ int TopoShapeEdgePy::PyInit(PyObject* args, PyObject* /*kwd*/)
             getTopoShapePtr()->setShape(mkEdge.Edge());
             return 0;
         }
-        catch (Standard_Failure) {
-            Handle_Standard_Failure e = Standard_Failure::Caught();
-            PyErr_SetString(PartExceptionOCCError, e->GetMessageString());
+        catch (Standard_Failure& e) {
+    
+            PyErr_SetString(PartExceptionOCCError, e.GetMessageString());
             return -1;
         }
     }
@@ -177,7 +187,8 @@ int TopoShapeEdgePy::PyInit(PyObject* args, PyObject* /*kwd*/)
 PyObject* TopoShapeEdgePy::getParameterByLength(PyObject *args)
 {
     double u;
-    if (!PyArg_ParseTuple(args, "d",&u))
+    double t=Precision::Confusion();
+    if (!PyArg_ParseTuple(args, "d|d",&u,&t))
         return 0;
 
     const TopoDS_Edge& e = TopoDS::Edge(getTopoShapePtr()->getShape());
@@ -187,15 +198,17 @@ PyObject* TopoShapeEdgePy::getParameterByLength(PyObject *args)
     double first = BRepLProp_CurveTool::FirstParameter(adapt);
     double last = BRepLProp_CurveTool::LastParameter(adapt);
     if (!Precision::IsInfinite(first) && !Precision::IsInfinite(last)) {
-        double length = GCPnts_AbscissaPoint::Length(adapt);
+        double length = GCPnts_AbscissaPoint::Length(adapt,t);
 
-        if (u < 0 || u > length) {
+        if (u < -length || u > length) {
             PyErr_SetString(PyExc_ValueError, "value out of range");
             return 0;
         }
-
-        double stretch = (last - first) / length;
-        u = first + u*stretch;
+        if (u < 0)
+            u = length+u;
+        GCPnts_AbscissaPoint abscissaPoint(t,adapt,u,first);
+        double parm = abscissaPoint.Parameter();
+        return PyFloat_FromDouble(parm);
     }
 
     return PyFloat_FromDouble(u);
@@ -215,6 +228,65 @@ PyObject* TopoShapeEdgePy::valueAt(PyObject *args)
     BRepLProp_CLProps prop(adapt,u,0,Precision::Confusion());
     const gp_Pnt& V = prop.Value();
     return new Base::VectorPy(new Base::Vector3d(V.X(),V.Y(),V.Z()));
+}
+
+PyObject* TopoShapeEdgePy::parameters(PyObject *args)
+{
+    PyObject* pyface = 0;
+    if (!PyArg_ParseTuple(args, "|O!", &(TopoShapeFacePy::Type), &pyface))
+        return 0;
+
+    const TopoDS_Edge& e = TopoDS::Edge(getTopoShapePtr()->getShape());
+    TopLoc_Location aLoc;
+    Handle(Poly_Polygon3D) aPoly = BRep_Tool::Polygon3D(e, aLoc);
+    if (!aPoly.IsNull()) {
+        Py::List list;
+        if (!aPoly->HasParameters()) {
+            return Py::new_reference_to(list);
+        }
+
+        const TColStd_Array1OfReal& aNodes = aPoly->Parameters();
+        for (int i=aNodes.Lower(); i<=aNodes.Upper(); i++) {
+            list.append(Py::Float(aNodes(i)));
+        }
+
+        return Py::new_reference_to(list);
+    }
+    else if (pyface) {
+        // build up map edge->face
+        const TopoDS_Shape& face = static_cast<TopoShapeFacePy*>(pyface)->getTopoShapePtr()->getShape();
+        TopTools_IndexedDataMapOfShapeListOfShape edge2Face;
+        TopExp::MapShapesAndAncestors(TopoDS::Face(face), TopAbs_EDGE, TopAbs_FACE, edge2Face);
+        if (edge2Face.Contains(e)) {
+            Handle(Poly_Triangulation) aPolyTria = BRep_Tool::Triangulation(TopoDS::Face(face),aLoc);
+            if (!aPolyTria.IsNull()) {
+                Handle(Poly_PolygonOnTriangulation) aPoly = BRep_Tool::PolygonOnTriangulation(e, aPolyTria, aLoc);
+                if (!aPoly.IsNull()) {
+                    if (!aPoly->HasParameters()) {
+                        Py::List list;
+                        return Py::new_reference_to(list);
+                    }
+
+                    Handle(TColStd_HArray1OfReal) aNodes = aPoly->Parameters();
+                    if (!aNodes.IsNull()) {
+                        Py::List list;
+                        for (int i=aNodes->Lower(); i<=aNodes->Upper(); i++) {
+                            list.append(Py::Float(aNodes->Value(i)));
+                        }
+
+                        return Py::new_reference_to(list);
+                    }
+                }
+            }
+        }
+        else {
+            PyErr_SetString(PyExc_ValueError, "Edge is not part of the face");
+            return 0;
+        }
+    }
+
+    PyErr_SetString(PyExc_RuntimeError, "Edge has no polygon");
+    return 0;
 }
 
 PyObject* TopoShapeEdgePy::parameterAt(PyObject *args)
@@ -239,9 +311,9 @@ PyObject* TopoShapeEdgePy::parameterAt(PyObject *args)
             return PyFloat_FromDouble(par);
         }
     }
-    catch (Standard_Failure) {
-        Handle_Standard_Failure e = Standard_Failure::Caught();
-        PyErr_SetString(PartExceptionOCCError, e->GetMessageString());
+    catch (Standard_Failure& e) {
+
+        PyErr_SetString(PartExceptionOCCError, e.GetMessageString());
         return 0;
     }
 }
@@ -282,9 +354,9 @@ PyObject* TopoShapeEdgePy::normalAt(PyObject *args)
         prop.Normal(V);
         return new Base::VectorPy(new Base::Vector3d(V.X(),V.Y(),V.Z()));
     }
-    catch (Standard_Failure) {
-        Handle_Standard_Failure e = Standard_Failure::Caught();
-        PyErr_SetString(PartExceptionOCCError, e->GetMessageString());
+    catch (Standard_Failure& e) {
+
+        PyErr_SetString(PartExceptionOCCError, e.GetMessageString());
         return 0;
     }
 }
@@ -303,9 +375,9 @@ PyObject* TopoShapeEdgePy::curvatureAt(PyObject *args)
         double C = prop.Curvature();
         return Py::new_reference_to(Py::Float(C));
     }
-    catch (Standard_Failure) {
-        Handle_Standard_Failure e = Standard_Failure::Caught();
-        PyErr_SetString(PartExceptionOCCError, e->GetMessageString());
+    catch (Standard_Failure& e) {
+
+        PyErr_SetString(PartExceptionOCCError, e.GetMessageString());
         return 0;
     }
 }
@@ -325,9 +397,9 @@ PyObject* TopoShapeEdgePy::centerOfCurvatureAt(PyObject *args)
         prop.CentreOfCurvature(V);
         return new Base::VectorPy(new Base::Vector3d(V.X(),V.Y(),V.Z()));
     }
-    catch (Standard_Failure) {
-        Handle_Standard_Failure e = Standard_Failure::Caught();
-        PyErr_SetString(PartExceptionOCCError, e->GetMessageString());
+    catch (Standard_Failure& e) {
+
+        PyErr_SetString(PartExceptionOCCError, e.GetMessageString());
         return 0;
     }
 }
@@ -346,9 +418,9 @@ PyObject* TopoShapeEdgePy::derivative1At(PyObject *args)
         const gp_Vec& V = prop.D1();
         return new Base::VectorPy(new Base::Vector3d(V.X(),V.Y(),V.Z()));
     }
-    catch (Standard_Failure) {
-        Handle_Standard_Failure e = Standard_Failure::Caught();
-        PyErr_SetString(PartExceptionOCCError, e->GetMessageString());
+    catch (Standard_Failure& e) {
+
+        PyErr_SetString(PartExceptionOCCError, e.GetMessageString());
         return 0;
     }
 }
@@ -367,9 +439,9 @@ PyObject* TopoShapeEdgePy::derivative2At(PyObject *args)
         const gp_Vec& V = prop.D2();
         return new Base::VectorPy(new Base::Vector3d(V.X(),V.Y(),V.Z()));
     }
-    catch (Standard_Failure) {
-        Handle_Standard_Failure e = Standard_Failure::Caught();
-        PyErr_SetString(PartExceptionOCCError, e->GetMessageString());
+    catch (Standard_Failure& e) {
+
+        PyErr_SetString(PartExceptionOCCError, e.GetMessageString());
         return 0;
     }
 }
@@ -388,9 +460,9 @@ PyObject* TopoShapeEdgePy::derivative3At(PyObject *args)
         const gp_Vec& V = prop.D3();
         return new Base::VectorPy(new Base::Vector3d(V.X(),V.Y(),V.Z()));
     }
-    catch (Standard_Failure) {
-        Handle_Standard_Failure e = Standard_Failure::Caught();
-        PyErr_SetString(PartExceptionOCCError, e->GetMessageString());
+    catch (Standard_Failure& e) {
+
+        PyErr_SetString(PartExceptionOCCError, e.GetMessageString());
         return 0;
     }
 }
@@ -409,10 +481,17 @@ PyObject* TopoShapeEdgePy::discretize(PyObject *args, PyObject *kwds)
         // use no kwds
         PyObject* dist_or_num;
         if (PyArg_ParseTuple(args, "O", &dist_or_num)) {
+#if PY_MAJOR_VERSION >= 3
+            if (PyLong_Check(dist_or_num)) {
+                numPoints = PyLong_AsLong(dist_or_num);
+                uniformAbscissaPoints = true;
+            }
+#else
             if (PyInt_Check(dist_or_num)) {
                 numPoints = PyInt_AsLong(dist_or_num);
                 uniformAbscissaPoints = true;
             }
+#endif
             else if (PyFloat_Check(dist_or_num)) {
                 distance = PyFloat_AsDouble(dist_or_num);
                 uniformAbscissaDistance = true;
@@ -610,7 +689,7 @@ PyObject* TopoShapeEdgePy::split(PyObject *args)
         std::sort(par.begin(), par.end());
 
         BRepBuilderAPI_MakeWire mkWire;
-        Handle_Geom_Curve c = adapt.Curve().Curve();
+        Handle(Geom_Curve) c = adapt.Curve().Curve();
         std::vector<Standard_Real>::iterator end = par.end() - 1;
         for (std::vector<Standard_Real>::iterator it = par.begin(); it != end; ++it) {
             BRepBuilderAPI_MakeEdge mkBuilder(c, it[0], it[1]);
@@ -619,14 +698,11 @@ PyObject* TopoShapeEdgePy::split(PyObject *args)
 
         return new TopoShapeWirePy(new TopoShape(mkWire.Shape()));
     }
-    catch (Standard_Failure) {
-        Handle_Standard_Failure e = Standard_Failure::Caught();
-        PyErr_SetString(PartExceptionOCCError, e->GetMessageString());
+    catch (Standard_Failure& e) {
+
+        PyErr_SetString(PartExceptionOCCError, e.GetMessageString());
         return 0;
     }
-
-    PyErr_SetString(PartExceptionOCCError, "Geometry is not a curve");
-    return 0;
 }
 
 PyObject* TopoShapeEdgePy::isSeam(PyObject *args)
@@ -643,9 +719,9 @@ PyObject* TopoShapeEdgePy::isSeam(PyObject *args)
         Standard_Boolean ok = sa.IsSeam(e, f);
         return PyBool_FromLong(ok ? 1 : 0);
     }
-    catch (Standard_Failure) {
-        Handle_Standard_Failure e = Standard_Failure::Caught();
-        PyErr_SetString(PartExceptionOCCError, e->GetMessageString());
+    catch (Standard_Failure& e) {
+
+        PyErr_SetString(PartExceptionOCCError, e.GetMessageString());
         return 0;
     }
 }
@@ -659,6 +735,26 @@ PyObject* TopoShapeEdgePy::setTolerance(PyObject *args)
     const TopoDS_Edge& e = TopoDS::Edge(getTopoShapePtr()->getShape());
     aBuilder.UpdateEdge(e, tol);
     Py_Return;
+}
+
+PyObject* TopoShapeEdgePy::firstVertex(PyObject *args)
+{
+    PyObject* orient = Py_False;
+    if (!PyArg_ParseTuple(args, "|O!", &PyBool_Type, &orient))
+        return 0;
+    const TopoDS_Edge& e = TopoDS::Edge(getTopoShapePtr()->getShape());
+    TopoDS_Vertex v = TopExp::FirstVertex(e, PyObject_IsTrue(orient) ? Standard_True : Standard_False);
+    return new TopoShapeVertexPy(new TopoShape(v));
+}
+
+PyObject* TopoShapeEdgePy::lastVertex(PyObject *args)
+{
+    PyObject* orient = Py_False;
+    if (!PyArg_ParseTuple(args, "|O!", &PyBool_Type, &orient))
+        return 0;
+    const TopoDS_Edge& e = TopoDS::Edge(getTopoShapePtr()->getShape());
+    TopoDS_Vertex v = TopExp::LastVertex(e, PyObject_IsTrue(orient) ? Standard_True : Standard_False);
+    return new TopoShapeVertexPy(new TopoShape(v));
 }
 
 // ====== Attributes ======================================================================
@@ -680,8 +776,11 @@ Py::Float TopoShapeEdgePy::getLength(void) const
 {
     const TopoDS_Edge& e = TopoDS::Edge(getTopoShapePtr()->getShape());
     BRepAdaptor_Curve adapt(e);
-    return Py::Float(GCPnts_AbscissaPoint::Length(adapt));
+    return Py::Float(GCPnts_AbscissaPoint::Length(adapt, Precision::Confusion()));
 }
+
+#include <App/Application.h>
+#include <Mod/Part/App/LineSegmentPy.h>
 
 Py::Object TopoShapeEdgePy::getCurve() const
 {
@@ -691,19 +790,46 @@ Py::Object TopoShapeEdgePy::getCurve() const
     {
     case GeomAbs_Line:
         {
-            GeomLineSegment* line = new GeomLineSegment();
-            Handle_Geom_TrimmedCurve this_curv = Handle_Geom_TrimmedCurve::DownCast
-                (line->handle());
-            Handle_Geom_Line this_line = Handle_Geom_Line::DownCast
-                (this_curv->BasisCurve());
-            this_line->SetLin(adapt.Line());
-            this_curv->SetTrim(adapt.FirstParameter(), adapt.LastParameter());
-            return Py::Object(new LinePy(line),true);
+            static bool LineOld = true;
+            static bool init = false;
+            if (!init) {
+                init = true;
+                Base::Reference<ParameterGrp> hPartGrp = App::GetApplication().GetUserParameter()
+                    .GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("Mod/Part");
+                Base::Reference<ParameterGrp> hGenPGrp = hPartGrp->GetGroup("General");
+                LineOld = hGenPGrp->GetBool("LineOld", false);
+            }
+
+            if (LineOld) {
+                GeomLineSegment* line = new GeomLineSegment();
+                Handle(Geom_TrimmedCurve) this_curv = Handle(Geom_TrimmedCurve)::DownCast
+                    (line->handle());
+                Handle(Geom_Line) this_line = Handle(Geom_Line)::DownCast
+                    (this_curv->BasisCurve());
+                this_line->SetLin(adapt.Line());
+                this_curv->SetTrim(adapt.FirstParameter(), adapt.LastParameter());
+                PyErr_SetString(PyExc_DeprecationWarning,
+                    "For future usage 'Curve' will return 'Line' which is infinite "
+                    "instead of the limited 'LineSegment'.\n"
+                    "If you need a line segment then use this:\n"
+                    "Part.LineSegment(edge.Curve,edge.FirstParameter,edge.LastParameter)\n"
+                    "To suppress the warning set BaseApp/Preferences/Mod/Part/General/LineOld to false");
+                PyErr_Print();
+
+                return Py::Object(new LineSegmentPy(line),true); // LinePyOld
+            }
+            else {
+                GeomLine* line = new GeomLine();
+                Handle(Geom_Line) this_curv = Handle(Geom_Line)::DownCast
+                    (line->handle());
+                this_curv->SetLin(adapt.Line());
+                return Py::Object(new LinePy(line),true);
+            }
         }
     case GeomAbs_Circle:
         {
             GeomCircle* circle = new GeomCircle();
-            Handle_Geom_Circle this_curv = Handle_Geom_Circle::DownCast
+            Handle(Geom_Circle) this_curv = Handle(Geom_Circle)::DownCast
                 (circle->handle());
             this_curv->SetCirc(adapt.Circle());
             //Standard_Real dd = adapt.FirstParameter();
@@ -713,7 +839,7 @@ Py::Object TopoShapeEdgePy::getCurve() const
     case GeomAbs_Ellipse:
         {
             GeomEllipse* elips = new GeomEllipse();
-            Handle_Geom_Ellipse this_curv = Handle_Geom_Ellipse::DownCast
+            Handle(Geom_Ellipse) this_curv = Handle(Geom_Ellipse)::DownCast
                 (elips->handle());
             this_curv->SetElips(adapt.Ellipse());
             return Py::Object(new EllipsePy(elips),true);
@@ -721,7 +847,7 @@ Py::Object TopoShapeEdgePy::getCurve() const
     case GeomAbs_Hyperbola:
         {
             GeomHyperbola* hypr = new GeomHyperbola();
-            Handle_Geom_Hyperbola this_curv = Handle_Geom_Hyperbola::DownCast
+            Handle(Geom_Hyperbola) this_curv = Handle(Geom_Hyperbola)::DownCast
                 (hypr->handle());
             this_curv->SetHypr(adapt.Hyperbola());
             return Py::Object(new HyperbolaPy(hypr),true);
@@ -729,7 +855,7 @@ Py::Object TopoShapeEdgePy::getCurve() const
     case GeomAbs_Parabola:
         {
             GeomParabola* parab = new GeomParabola();
-            Handle_Geom_Parabola this_curv = Handle_Geom_Parabola::DownCast
+            Handle(Geom_Parabola) this_curv = Handle(Geom_Parabola)::DownCast
                 (parab->handle());
             this_curv->SetParab(adapt.Parabola());
             return Py::Object(new ParabolaPy(parab),true);
@@ -744,6 +870,21 @@ Py::Object TopoShapeEdgePy::getCurve() const
             GeomBSplineCurve* curve = new GeomBSplineCurve(adapt.BSpline());
             return Py::Object(new BSplineCurvePy(curve),true);
         }
+#if OCC_VERSION_HEX >= 0x070000
+    case GeomAbs_OffsetCurve:
+        {
+            Standard_Real first, last;
+            Handle(Geom_Curve) c = BRep_Tool::Curve(e, first, last);
+            Handle(Geom_OffsetCurve) off = Handle(Geom_OffsetCurve)::DownCast(c);
+            if (!off.IsNull()) {
+                GeomOffsetCurve* curve = new GeomOffsetCurve(off);
+                return Py::Object(new OffsetCurvePy(curve),true);
+            }
+            else {
+                throw Py::RuntimeError("Failed to convert to offset curve");
+            }
+        }
+#endif
     case GeomAbs_OtherCurve:
         break;
     }
@@ -859,7 +1000,7 @@ Py::Dict TopoShapeEdgePy::getPrincipalProperties(void) const
 Py::Boolean TopoShapeEdgePy::getClosed(void) const
 {
     if (getTopoShapePtr()->getShape().IsNull())
-        throw Py::Exception("Cannot determine the 'Closed'' flag of an empty shape");
+        throw Py::RuntimeError("Cannot determine the 'Closed'' flag of an empty shape");
     Standard_Boolean ok = BRep_Tool::IsClosed(getTopoShapePtr()->getShape());
     return Py::Boolean(ok ? true : false);
 }
@@ -877,5 +1018,5 @@ PyObject *TopoShapeEdgePy::getCustomAttributes(const char* /*attr*/) const
 
 int TopoShapeEdgePy::setCustomAttributes(const char* /*attr*/, PyObject* /*obj*/)
 {
-    return 0; 
+    return 0;
 }

@@ -36,20 +36,19 @@ public:
 
     enum {Type = QGraphicsItem::UserType + 103};
 
-    int type() const { return Type;}
-    QRectF boundingRect() const;
-    QPainterPath shape() const;
-    virtual void paint(QPainter * painter, const QStyleOptionGraphicsItem * option, QWidget * widget = 0 );
+    int type() const override { return Type;}
+    virtual QRectF boundingRect() const override;
+    virtual QPainterPath shape() const override;
+    virtual void paint(QPainter * painter, const QStyleOptionGraphicsItem * option, QWidget * widget = 0 ) override;
 
     int getProjIndex() const { return projIndex; }
 
     void setCosmetic(bool state);
-    void setStrokeWidth(float width);
     void setHiddenEdge(bool b);
     bool getHiddenEdge() { return(isHiddenEdge); }
     void setSmoothEdge(bool b) { isSmoothEdge = b; }
     bool getSmoothEdge() { return(isSmoothEdge); }
-    virtual void setPrettyNormal();
+    virtual void setPrettyNormal() override;
 
 protected:
     int projIndex;                                                     //index of edge in Projection. must exist.
@@ -61,7 +60,6 @@ protected:
     Qt::PenStyle getHiddenStyle();
 
 private:
-    float strokeWidth;
 };
 
 }

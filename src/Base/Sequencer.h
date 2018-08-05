@@ -46,7 +46,7 @@ class SequencerLauncher;
  *  #include <Base/Sequencer.h>
  *
  *  //first example
- *  Base::SequencerLauncher seq("my text", 10))
+ *  Base::SequencerLauncher seq("my text", 10)
  *  for (int i=0; i<10; i++)
  *  {
  *    // do something
@@ -54,7 +54,7 @@ class SequencerLauncher;
  *  }
  *
  *  //second example
- *  Base::SequencerLauncher seq("my text", 10))
+ *  Base::SequencerLauncher seq("my text", 10)
  *  do
  *  {
  *    // do something
@@ -65,7 +65,7 @@ class SequencerLauncher;
  *
  * The implementation of this class also supports several nested instances
  * at a time. But note, that only the first instance has an effect. Any further
- * sequencer instance doesn't influence the total numer of iteration steps. This
+ * sequencer instance doesn't influence the total number of iteration steps. This
  * is simply because it's impossible to get the exact number of iteration steps
  * for nested instances and thus we have either too few steps estimated then the 
  * sequencer may indicate 100% but the algorithm still running or we have too many
@@ -397,7 +397,7 @@ private:
     static PyObject *PyMake(struct _typeobject *, PyObject *, PyObject *);
 
 private:
-    std::auto_ptr<SequencerLauncher> _seq;
+    std::unique_ptr<SequencerLauncher> _seq;
 };
 
 } // namespace Base

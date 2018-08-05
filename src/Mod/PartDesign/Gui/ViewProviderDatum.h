@@ -63,7 +63,7 @@ public:
     /** 
      * Enable/Disable the selectability of the datum
      * This differs from the normal ViewProvider selectability in that, that with this enabled one 
-     * can  pick through the datum and select stuff behind it.
+     * can pick through the datum and select stuff behind it.
      */
     bool isPickable();
     void setPickable(bool val);
@@ -73,7 +73,7 @@ public:
      * @note should be reimplemented in the offspings
      * @note use FreeCAD-specific bbox here to simplify the math in derived classes
      */
-    virtual void setExtents (Base::BoundBox3d bbox)
+    virtual void setExtents (Base::BoundBox3d /*bbox*/)
         { }
 
     /// Update the visual sizes. This overloaded version of the previous function to allow pass coin type
@@ -83,11 +83,12 @@ public:
     void updateExtents ();
 
     /// The datum type (Plane, Line or Point)
-    // TODO remove this atribute (2015-09-08, Fat-Zer)
+    // TODO remove this attribute (2015-09-08, Fat-Zer)
     QString datumType;
+    QString datumText;
 
     /**
-     * Computes apropriate bounding box for the given list of objects to be passed to setExtents ()
+     * Computes appropriate bounding box for the given list of objects to be passed to setExtents ()
      * @param bboxAction  a coin action for traverse the given objects views.
      * @param objs        the list of objects to traverse, due to we traverse the scene graph, the geo children
      *                    will likely be traveresed too.
@@ -99,10 +100,10 @@ public:
     /// Default size used to produce the default bbox
     static const double defaultSize;
 
-    // Returnd default bounding box if relevant is can't be used for some reason
+    // Returned default bounding box if relevant is can't be used for some reason
     static SbBox3f defaultBoundBox ();
 
-    // Returns a default marging factor (part of size )
+    // Returns a default margin factor (part of size )
     static double marginFactor () { return 0.1; };
 
 protected:
@@ -110,8 +111,8 @@ protected:
     virtual void unsetEdit(int ModNum);
 
     /**
-     * Gueses the context this datum belongs to and returns apropriate bounding box of all
-     *  visiable content of the feature
+     * Guesses the context this datum belongs to and returns appropriate bounding box of all
+     *  visible content of the feature
      *
      * Currently known contexts are:
      *  - PartDesign::Body

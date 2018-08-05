@@ -118,7 +118,7 @@ CmdAssemblyConstraint::CmdAssemblyConstraint()
     sGroup          = QT_TR_NOOP("Assembly");
     sMenuText       = QT_TR_NOOP("Constraint");
     sToolTipText    = QT_TR_NOOP("Add arbitrary constraints to the assembly");
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Assembly_Constraint";
     sStatusTip      = sToolTipText;
     sPixmap         = "constraints/Assembly_ConstraintGeneral";
 }
@@ -129,7 +129,7 @@ void CmdAssemblyConstraint::activated(int iMsg)
     //Assembly::ProductRef* Asm = 0;
     //Assembly::ConstraintGroup* ConstGrp = 0;
 
-    //// retrive the standard objects needed
+    //// retrieve the standard objects needed
     //if(getConstraintPrerequisits(&Asm, &ConstGrp))
     //    return;
 
@@ -201,8 +201,8 @@ CmdAssemblyConstraintDistance::CmdAssemblyConstraintDistance()
     sAppModule      = "Assembly";
     sGroup          = QT_TR_NOOP("Assembly");
     sMenuText       = QT_TR_NOOP("Constraint Distance...");
-    sToolTipText    = QT_TR_NOOP("Set the distance between two selected entitys");
-    sWhatsThis      = sToolTipText;
+    sToolTipText    = QT_TR_NOOP("Set the distance between two selected entities");
+    sWhatsThis      = "Assembly_ConstraintDistance";
     sStatusTip      = sToolTipText;
     sPixmap         = "constraints/Assembly_ConstraintDistance";
 }
@@ -213,7 +213,7 @@ void CmdAssemblyConstraintDistance::activated(int iMsg)
     //Assembly::ProductRef* Asm = 0;
     //Assembly::ConstraintGroup* ConstGrp = 0;
 
-    //// retrive the standard objects needed
+    //// retrieve the standard objects needed
     //if(getConstraintPrerequisits(&Asm, &ConstGrp))
     //    return;
 
@@ -269,7 +269,7 @@ CmdAssemblyConstraintFix::CmdAssemblyConstraintFix()
     sGroup          = QT_TR_NOOP("Assembly");
     sMenuText       = QT_TR_NOOP("Constraint Fix...");
     sToolTipText    = QT_TR_NOOP("Fix a part in it's rotation and translation");
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Assembly_ConstraintFix";
     sStatusTip      = sToolTipText;
     sPixmap         = "constraints/Assembly_ConstraintLock";
 }
@@ -280,7 +280,7 @@ void CmdAssemblyConstraintFix::activated(int iMsg)
     //Assembly::ProductRef* Asm = 0;
     //Assembly::ConstraintGroup* ConstGrp = 0;
 
-    //// retrive the standard objects needed
+    //// retrieve the standard objects needed
     //if(getConstraintPrerequisits(&Asm, &ConstGrp))
     //    return;
 
@@ -333,8 +333,8 @@ CmdAssemblyConstraintAngle::CmdAssemblyConstraintAngle()
     sAppModule      = "Assembly";
     sGroup          = QT_TR_NOOP("Assembly");
     sMenuText       = QT_TR_NOOP("Constraint Angle...");
-    sToolTipText    = QT_TR_NOOP("Set the angle between two selected entitys");
-    sWhatsThis      = sToolTipText;
+    sToolTipText    = QT_TR_NOOP("Set the angle between two selected entities");
+    sWhatsThis      = "Assembly_ConstraintAngle";
     sStatusTip      = sToolTipText;
     sPixmap         = "constraints/Assembly_ConstraintAngle";
 }
@@ -345,7 +345,7 @@ void CmdAssemblyConstraintAngle::activated(int iMsg)
     //Assembly::ProductRef* Asm = 0;
     //Assembly::ConstraintGroup* ConstGrp = 0;
 
-    //// retrive the standard objects needed
+    //// retrieve the standard objects needed
     //if(getConstraintPrerequisits(&Asm, &ConstGrp))
     //    return;
 
@@ -402,8 +402,8 @@ CmdAssemblyConstraintOrientation::CmdAssemblyConstraintOrientation()
     sAppModule      = "Assembly";
     sGroup          = QT_TR_NOOP("Assembly");
     sMenuText       = QT_TR_NOOP("Constraint Orientation...");
-    sToolTipText    = QT_TR_NOOP("Set the orientation of two selected entitys in regard to each other");
-    sWhatsThis      = sToolTipText;
+    sToolTipText    = QT_TR_NOOP("Set the orientation of two selected entities in regard to each other");
+    sWhatsThis      = "Assembly_ConstraintOrientation";
     sStatusTip      = sToolTipText;
     sPixmap         = "constraints/Assembly_ConstraintOrientation";
 }
@@ -414,7 +414,7 @@ void CmdAssemblyConstraintOrientation::activated(int iMsg)
     //Assembly::ProductRef* Asm = 0;
     //Assembly::ConstraintGroup* ConstGrp = 0;
 
-    //// retrive the standard objects needed
+    //// retrieve the standard objects needed
     //if(getConstraintPrerequisits(&Asm, &ConstGrp))
     //    return;
 
@@ -470,8 +470,8 @@ CmdAssemblyConstraintCoincidence::CmdAssemblyConstraintCoincidence()
     sAppModule      = "Assembly";
     sGroup          = QT_TR_NOOP("Assembly");
     sMenuText       = QT_TR_NOOP("Constraint coincidence...");
-    sToolTipText    = QT_TR_NOOP("Make the selected entitys coincident");
-    sWhatsThis      = sToolTipText;
+    sToolTipText    = QT_TR_NOOP("Make the selected entities coincident");
+    sWhatsThis      = "Assembly_ConstraintCoincidence";
     sStatusTip      = sToolTipText;
     sPixmap         = "constraints/Assembly_ConstraintCoincidence";
 }
@@ -482,7 +482,7 @@ void CmdAssemblyConstraintCoincidence::activated(int iMsg)
     //Assembly::ProductRef* Asm = 0;
     //Assembly::ConstraintGroup* ConstGrp = 0;
 
-    //// retrive the standard objects needed
+    //// retrieve the standard objects needed
     //if(getConstraintPrerequisits(&Asm, &ConstGrp))
     //    return;
 
@@ -537,9 +537,9 @@ CmdAssemblyConstraintAlignment::CmdAssemblyConstraintAlignment()
 {
     sAppModule      = "Assembly";
     sGroup          = QT_TR_NOOP("Assembly");
-    sMenuText       = QT_TR_NOOP("Constraint allignment...");
-    sToolTipText    = QT_TR_NOOP("Align the selected entitys");
-    sWhatsThis      = sToolTipText;
+    sMenuText       = QT_TR_NOOP("Constraint alignment...");
+    sToolTipText    = QT_TR_NOOP("Align the selected entities");
+    sWhatsThis      = "Assembly_ConstraintAlignment";
     sStatusTip      = sToolTipText;
     sPixmap         = "constraints/Assembly_ConstraintAlignment";
 }
@@ -550,7 +550,7 @@ void CmdAssemblyConstraintAlignment::activated(int iMsg)
     //Assembly::ProductRef* Asm = 0;
     //Assembly::ConstraintGroup* ConstGrp = 0;
 
-    //// retrive the standard objects needed
+    //// retrieve the standard objects needed
     //if(getConstraintPrerequisits(&Asm, &ConstGrp))
     //    return;
 

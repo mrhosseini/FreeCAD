@@ -39,8 +39,8 @@
 
 using namespace MeshCore;
 using Base::BoundBox3f;
-using Base::BoundBox2D;
-using Base::Polygon2D;
+using Base::BoundBox2d;
+using Base::Polygon2d;
 
 
 bool MeshAlgorithm::IsVertexVisible (const Base::Vector3f &rcVertex, const Base::Vector3f &rcView, const MeshFacetGrid &rclGrid) const
@@ -173,7 +173,7 @@ bool MeshAlgorithm::NearestFacetOnRay (const Base::Vector3f &rclPt, const Base::
 }
 
 bool MeshAlgorithm::RayNearestField (const Base::Vector3f &rclPt, const Base::Vector3f &rclDir, const std::vector<unsigned long> &raulFacets,
-                                     Base::Vector3f &rclRes, unsigned long &rulFacet, float fMaxAngle) const
+                                     Base::Vector3f &rclRes, unsigned long &rulFacet, float /*fMaxAngle*/) const
 {
     Base::Vector3f  clProj, clRes;
     bool bSol = false;
@@ -932,12 +932,12 @@ void MeshAlgorithm::GetFacetsFromToolMesh(const MeshKernel& rToolMesh, const Bas
     MeshAlgorithm cToolAlg(rToolMesh);
 
     // To speed up the algorithm we use the grid built up from the associated mesh. For each grid
-    // element we check whether it lies completely inside or outside the toolmesh or even intersect
+    // element we check whether it lies completely inside or outside the toolmesh or even intersects
     // with the toolmesh. So we can reduce the number of facets with further tests dramatically.
     // If the grid box is outside the toolmesh all the facets inside can be skipped. If the grid
     // box is inside the toolmesh all facets are stored with no further tests because they must
-    // also lie inside the toolmesh. Finally, if the grid box intersect with the toolmesh we must
-    // also check for each whether it intersect we the toolmesh as well.
+    // also lie inside the toolmesh. Finally, if the grid box intersects with the toolmesh we must
+    // also check for each whether it intersects with the toolmesh as well.
     std::vector<unsigned long> aulInds;
     for (clGridIter.Init(); clGridIter.More(); clGridIter.Next()) {
         int ret = cToolAlg.Surround(clGridIter.GetBoundBox(), rcDir);
@@ -947,15 +947,15 @@ void MeshAlgorithm::GetFacetsFromToolMesh(const MeshKernel& rToolMesh, const Bas
             // these facets can be removed without more checks
             clGridIter.GetElements(raclCutted);
         } 
-        // the box intersect with toolmesh
+        // the box intersects with toolmesh
         else if (ret == 0) {
-            // these facets must be tested for intersectons with the toolmesh
+            // these facets must be tested for intersections with the toolmesh
             clGridIter.GetElements(aulInds);
         }
         // the box is outside the toolmesh but this could still mean that the triangles
         // inside the grid intersect with the toolmesh
         else if (ret == -1) {
-            // these facets must be tested for intersectons with the toolmesh
+            // these facets must be tested for intersections with the toolmesh
             clGridIter.GetElements(aulInds);
         }
     }
@@ -1075,7 +1075,7 @@ int MeshAlgorithm::Surround(const Base::BoundBox3f& rBox, const Base::Vector3f& 
     return -1;
 }
 
-void MeshAlgorithm::CheckFacets(const MeshFacetGrid& rclGrid, const Base::ViewProjMethod* pclProj, const Base::Polygon2D& rclPoly,
+void MeshAlgorithm::CheckFacets(const MeshFacetGrid& rclGrid, const Base::ViewProjMethod* pclProj, const Base::Polygon2d& rclPoly,
                                 bool bInner, std::vector<unsigned long> &raulFacets) const
 {
     std::vector<unsigned long>::iterator it;
@@ -1083,23 +1083,24 @@ void MeshAlgorithm::CheckFacets(const MeshFacetGrid& rclGrid, const Base::ViewPr
     Base::Vector3f clPt2d;
     Base::Vector3f clGravityOfFacet;
     bool bNoPointInside;
+    // Cache current view projection matrix since calls to COIN's projection are expensive
+    Base::ViewProjMatrix fixedProj(pclProj->getProjectionMatrix());
+    // Precompute the polygon's bounding box
+    Base::BoundBox2d clPolyBBox = rclPoly.CalcBoundBox();
 
     // Falls true, verwende Grid auf Mesh, um Suche zu beschleunigen
     if (bInner)
     {
         BoundBox3f clBBox3d;
-        BoundBox2D clViewBBox, clPolyBBox;
+        BoundBox2d clViewBBox;
         std::vector<unsigned long> aulAllElements;
-
-        //B-Box des Polygons
-        clPolyBBox = rclPoly.CalcBoundBox();
         // Iterator fuer die zu durchsuchenden B-Boxen des Grids
         MeshGridIterator clGridIter(rclGrid);
         // alle B-Boxen durchlaufen und die Facets speichern
         for (clGridIter.Init(); clGridIter.More(); clGridIter.Next())
         {
             clBBox3d = clGridIter.GetBoundBox();
-            clViewBBox = clBBox3d.ProjectBox(pclProj);
+            clViewBBox = clBBox3d.ProjectBox(&fixedProj);
             if (clViewBBox.Intersect(clPolyBBox))
             {
                 // alle Elemente in AllElements sammeln
@@ -1119,9 +1120,10 @@ void MeshAlgorithm::CheckFacets(const MeshFacetGrid& rclGrid, const Base::ViewPr
             MeshGeomFacet rclFacet = _rclMesh.GetFacet(*it);
             for (int j=0; j<3; j++)
             {
-                clPt2d = pclProj->operator()(rclFacet._aclPoints[j]);
+                clPt2d = fixedProj(rclFacet._aclPoints[j]);
                 clGravityOfFacet += clPt2d;
-                if (rclPoly.Contains(Base::Vector2D(clPt2d.x, clPt2d.y)) == bInner)
+                if ((clPolyBBox.Contains(Base::Vector2d(clPt2d.x, clPt2d.y)) &&
+                    rclPoly.Contains(Base::Vector2d(clPt2d.x, clPt2d.y))) ^ !bInner)
                 {
                     raulFacets.push_back(*it);
                     bNoPointInside = false;
@@ -1134,8 +1136,9 @@ void MeshAlgorithm::CheckFacets(const MeshFacetGrid& rclGrid, const Base::ViewPr
             {
               clGravityOfFacet *= 1.0f/3.0f;
 
-              if (rclPoly.Contains(Base::Vector2D(clGravityOfFacet.x, clGravityOfFacet.y)) == bInner)
-                 raulFacets.push_back(*it);
+              if ((clPolyBBox.Contains(Base::Vector2d(clGravityOfFacet.x, clGravityOfFacet.y)) &&
+                  rclPoly.Contains(Base::Vector2d(clGravityOfFacet.x, clGravityOfFacet.y))) ^ !bInner)
+                  raulFacets.push_back(*it);
             }
 
             seq.next();
@@ -1144,34 +1147,43 @@ void MeshAlgorithm::CheckFacets(const MeshFacetGrid& rclGrid, const Base::ViewPr
     // Dreiecke ausserhalb schneiden, dann alles durchsuchen
     else
     {
-      Base::SequencerLauncher seq("Check facets", _rclMesh.CountFacets());
-      for (clIter.Init(); clIter.More(); clIter.Next())
-      {
-          for (int j=0; j<3; j++)
-          {
-              clPt2d = pclProj->operator()(clIter->_aclPoints[j]);
-              if (rclPoly.Contains(Base::Vector2D(clPt2d.x, clPt2d.y)) == bInner)
-              {
-                  raulFacets.push_back(clIter.Position());
-                  break;
-              }
-          }
-          seq.next();
-      }
+        Base::SequencerLauncher seq("Check facets", _rclMesh.CountFacets());
+        for (clIter.Init(); clIter.More(); clIter.Next())
+        {
+            for (int j=0; j<3; j++)
+            {
+                clPt2d = fixedProj(clIter->_aclPoints[j]);
+                if ((clPolyBBox.Contains(Base::Vector2d(clPt2d.x, clPt2d.y)) &&
+                     rclPoly.Contains(Base::Vector2d(clPt2d.x, clPt2d.y))) ^ !bInner)
+                {
+                    raulFacets.push_back(clIter.Position());
+                    break;
+                }
+            }
+            seq.next();
+        }
     }
 }
 
-void MeshAlgorithm::CheckFacets(const Base::ViewProjMethod* pclProj, const Base::Polygon2D& rclPoly,
+void MeshAlgorithm::CheckFacets(const Base::ViewProjMethod* pclProj, const Base::Polygon2d& rclPoly,
                                 bool bInner, std::vector<unsigned long> &raulFacets) const
 {
     const MeshPointArray& p = _rclMesh.GetPoints();
     const MeshFacetArray& f = _rclMesh.GetFacets();
     Base::Vector3f pt2d;
+    // Use a bounding box to reduce number of call to Polygon::Contains
+    Base::BoundBox2d bb = rclPoly.CalcBoundBox();
+    // Precompute the screen projection matrix as COIN's projection function is expensive 
+    Base::Matrix4D pmat = pclProj->getProjectionMatrix();
+
     unsigned long index=0;
     for (MeshFacetArray::_TConstIterator it = f.begin(); it != f.end(); ++it,++index) {
         for (int i = 0; i < 3; i++) {
-            pt2d = (*pclProj)(p[it->_aulPoints[i]]);
-            if (rclPoly.Contains(Base::Vector2D(pt2d.x, pt2d.y)) == bInner) {
+            pt2d = pmat * p[it->_aulPoints[i]];
+
+            // First check whether the point is in the bounding box of the polygon
+            if ((bb.Contains(Base::Vector2d(pt2d.x, pt2d.y)) &&
+                rclPoly.Contains(Base::Vector2d(pt2d.x, pt2d.y))) ^ !bInner) {
                 raulFacets.push_back(index);
                 break;
             }
@@ -1181,13 +1193,13 @@ void MeshAlgorithm::CheckFacets(const Base::ViewProjMethod* pclProj, const Base:
 
 float MeshAlgorithm::Surface (void) const
 {
-  float              fTotal = 0.0f;
-  MeshFacetIterator clFIter(_rclMesh);
+    float              fTotal = 0.0f;
+    MeshFacetIterator clFIter(_rclMesh);
 
-  for (clFIter.Init(); clFIter.More(); clFIter.Next())
-    fTotal +=  clFIter->Area();
-  
-  return fTotal;
+    for (clFIter.Init(); clFIter.More(); clFIter.Next())
+        fTotal +=  clFIter->Area();
+
+    return fTotal;
 }
 
 void MeshAlgorithm::SubSampleByDist (float fDist, std::vector<Base::Vector3f> &rclPoints) const
@@ -1570,34 +1582,34 @@ bool MeshAlgorithm::ConnectPolygons(std::list<std::vector<Base::Vector3f> > &clP
                                     std::list<std::pair<Base::Vector3f, Base::Vector3f> > &rclLines) const
 {
 
-  for(std::list< std::vector<Base::Vector3f> >::iterator OutIter = clPolyList.begin(); OutIter != clPolyList.end(); ++OutIter)
-  {
-    std::pair<Base::Vector3f,Base::Vector3f> currentSort;
-    float fDist = Base::Distance(OutIter->front(),OutIter->back());
-    currentSort.first = OutIter->front();
-    currentSort.second = OutIter->back();
+    for (std::list< std::vector<Base::Vector3f> >::iterator OutIter = clPolyList.begin(); OutIter != clPolyList.end(); ++OutIter) {
+        if (OutIter->empty())
+            continue;
+        std::pair<Base::Vector3f,Base::Vector3f> currentSort;
+        float fDist = Base::Distance(OutIter->front(),OutIter->back());
+        currentSort.first = OutIter->front();
+        currentSort.second = OutIter->back();
 
-    for(std::list< std::vector<Base::Vector3f> >::iterator InnerIter = clPolyList.begin(); InnerIter != clPolyList.end(); ++InnerIter)
-    {
-      if(OutIter == InnerIter) continue;
+        for (std::list< std::vector<Base::Vector3f> >::iterator InnerIter = clPolyList.begin(); InnerIter != clPolyList.end(); ++InnerIter) {
+            if (OutIter == InnerIter)
+                continue;
 
-      if(Base::Distance(OutIter->front(),InnerIter->front()) < fDist)
-      {
-        currentSort.second = InnerIter->front();
-        fDist = Base::Distance(OutIter->front(),InnerIter->front());
-      }
-      if(Base::Distance(OutIter->front(),InnerIter->back()) < fDist)
-      {
-        currentSort.second = InnerIter->back();
-        fDist = Base::Distance(OutIter->front(),InnerIter->back());
-      }
+            if (Base::Distance(OutIter->front(), InnerIter->front()) < fDist) {
+                currentSort.second = InnerIter->front();
+                fDist = Base::Distance(OutIter->front(),InnerIter->front());
+            }
+
+            if (Base::Distance(OutIter->front(), InnerIter->back()) < fDist) {
+                currentSort.second = InnerIter->back();
+                fDist = Base::Distance(OutIter->front(),InnerIter->back());
+            }
+        }
+
+        rclLines.push_front(currentSort);
+
     }
 
-    rclLines.push_front(currentSort);
-
-  }
-
-  return true;
+    return true;
 }
 
 void MeshAlgorithm::GetFacetsFromPlane (const MeshFacetGrid &rclGrid, const Base::Vector3f& clNormal, float d, const Base::Vector3f &rclLeft,

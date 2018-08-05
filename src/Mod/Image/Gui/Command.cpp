@@ -53,13 +53,15 @@ CmdImageOpen::CmdImageOpen()
     sGroup          = QT_TR_NOOP("Image");
     sMenuText       = QT_TR_NOOP("Open...");
     sToolTipText    = QT_TR_NOOP("Open image view");
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Image_Open";
     sStatusTip      = sToolTipText;
     sPixmap         = "image-import";
 }
 
 void CmdImageOpen::activated(int iMsg)
 {
+    Q_UNUSED(iMsg);
+
     // add all supported QImage formats
     QString formats;
     QTextStream str(&formats);
@@ -76,7 +78,11 @@ void CmdImageOpen::activated(int iMsg)
         try{
             // load the file with the module
             Command::doCommand(Command::Gui, "import Image, ImageGui");
+#if PY_MAJOR_VERSION < 3
             Command::doCommand(Command::Gui, "ImageGui.open(unicode(\"%s\",\"utf-8\"))", (const char*)s.toUtf8());
+#else
+            Command::doCommand(Command::Gui, "ImageGui.open(\"%s\",\"utf-8\")", (const char*)s.toUtf8());
+#endif
         }
         catch (const Base::PyException& e){
             // Usually thrown if the file is invalid somehow
@@ -95,13 +101,15 @@ CmdCreateImagePlane::CmdCreateImagePlane()
     sGroup          = QT_TR_NOOP("Image");
     sMenuText       = QT_TR_NOOP("Create image plane...");
     sToolTipText    = QT_TR_NOOP("Create a planar image in the 3D space");
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Image_CreateImagePlane";
     sStatusTip      = sToolTipText;
-    sPixmap         = "image-import";
+    sPixmap         = "image-import-to-plane";
 }
 
 void CmdCreateImagePlane::activated(int iMsg)
 {
+    Q_UNUSED(iMsg);
+
     QString formats;
     QTextStream str(&formats);
     str << QObject::tr("Images") << " (";
@@ -117,8 +125,8 @@ void CmdCreateImagePlane::activated(int iMsg)
 
         QImage impQ(s);
         if (impQ.isNull()) {
-            QMessageBox::warning(Gui::getMainWindow(), QObject::tr("Error open image"),
-                QObject::tr("Could not load the choosen image"));
+            QMessageBox::warning(Gui::getMainWindow(), QObject::tr("Error opening image"),
+                QObject::tr("Could not load the chosen image"));
             return;
         }
 
@@ -131,14 +139,23 @@ void CmdCreateImagePlane::activated(int iMsg)
         Base::Rotation r = Dlg.Pos.getRotation();
 
         std::string FeatName = getUniqueObjectName("ImagePlane");
+        double xPixelsPerM = impQ.dotsPerMeterX();
+        double width = impQ.width();
+        width = width * 1000 / xPixelsPerM;
+        int nWidth = static_cast<int>(width+0.5);
+        double yPixelsPerM = impQ.dotsPerMeterY();
+        double height = impQ.height();
+        height = height * 1000 / yPixelsPerM;
+        int nHeight = static_cast<int>(height+0.5);
 
         openCommand("Create ImagePlane");
         doCommand(Doc,"App.activeDocument().addObject('Image::ImagePlane','%s\')",FeatName.c_str());
         doCommand(Doc,"App.activeDocument().%s.ImageFile = '%s'",FeatName.c_str(),(const char*)s.toUtf8());
-        doCommand(Doc,"App.activeDocument().%s.XSize = %d",FeatName.c_str(),impQ.width () );
-        doCommand(Doc,"App.activeDocument().%s.YSize = %d",FeatName.c_str(),impQ.height() );
+        doCommand(Doc,"App.activeDocument().%s.XSize = %d",FeatName.c_str(),nWidth);
+        doCommand(Doc,"App.activeDocument().%s.YSize = %d",FeatName.c_str(),nHeight);
         doCommand(Doc,"App.activeDocument().%s.Placement = App.Placement(App.Vector(%f,%f,%f),App.Rotation(%f,%f,%f,%f))"
                      ,FeatName.c_str(),p.x,p.y,p.z,r[0],r[1],r[2],r[3]);
+        doCommand(Doc,"Gui.SendMsgToActiveView('ViewFit')");
         commitCommand();
     }
 }
@@ -146,6 +163,28 @@ void CmdCreateImagePlane::activated(int iMsg)
 bool CmdCreateImagePlane::isActive()
 {
     return App::GetApplication().getActiveDocument();
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+DEF_STD_CMD(CmdImageScaling);
+
+CmdImageScaling::CmdImageScaling()
+  : Command("Image_Scaling")
+{
+    sAppModule      = "Image";
+    sGroup          = QT_TR_NOOP("Image");
+    sMenuText       = QT_TR_NOOP("Scale...");
+    sToolTipText    = QT_TR_NOOP("Image Scaling");
+    sWhatsThis      = "Image_Scaling";
+    sStatusTip      = sToolTipText;
+    sPixmap         = "image-scale";
+}
+
+void CmdImageScaling::activated(int iMsg)
+{
+    Q_UNUSED(iMsg);
+    // To Be Defined
+
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -159,7 +198,7 @@ CmdImageCapturerTest::CmdImageCapturerTest()
     sGroup          = ("Image");
     sMenuText       = ("CapturerTest");
     sToolTipText    = ("test camara capturing");
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Image_CapturerTest";
     sStatusTip      = sToolTipText;
     sPixmap         = "camera-photo";
 }

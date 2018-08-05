@@ -24,10 +24,9 @@
 #ifndef GUI_VIEWPROVIDER_DOCUMENTOBJECT_H
 #define GUI_VIEWPROVIDER_DOCUMENTOBJECT_H
 
-#include <Inventor/SoType.h>
-
 #include "ViewProvider.h"
 #include <App/DocumentObject.h>
+#include <Inventor/SoType.h>
 
 class SoMaterial;
 class SoDrawStyle;
@@ -44,6 +43,7 @@ namespace App
 namespace Gui {
 
 class MDIView;
+class Document;
 
 class GuiExport ViewProviderDocumentObject : public ViewProvider
 {
@@ -61,10 +61,7 @@ public:
     App::PropertyBool Visibility;
 
     virtual void attach(App::DocumentObject *pcObject);
-    /// Get the default display mode
-    virtual const char* getDefaultDisplayMode() const;
-    /// Return a list of all possible modes
-    virtual std::vector<std::string> getDisplayModes(void) const;
+    virtual void updateData(const App::Property*);
     /// Set the active mode, i.e. the first item of the 'Display' property.
     void setActiveMode();
     /// Hide the object in the view
@@ -77,10 +74,12 @@ public:
 
     /// Run a redraw
     void updateView();
-    /// Gets called if some of the property hade bin changed
-    virtual void updateData(const App::Property*){}
     /// Get the object of this ViewProvider object
     App::DocumentObject *getObject(void) const {return pcObject;}
+    /// Asks the view provider if the given object can be deleted.
+    virtual bool canDelete(App::DocumentObject* obj) const;
+    /// Get the GUI document to this ViewProvider object
+    Gui::Document* getDocument() const;
     /// Get the python wrapper for that ViewProvider
     PyObject* getPyObject();
 
@@ -88,14 +87,6 @@ public:
     //@{
     virtual void startRestoring();
     virtual void finishRestoring();
-    //@}
-
-    /** @name drag & drop handling */
-    //@{
-    /// get called if the user hover over a object in the tree 
-    virtual bool allowDrop(const std::vector<const App::DocumentObject*> &objList,Qt::KeyboardModifiers keys,Qt::MouseButtons mouseBts,const QPoint &pos);
-    /// get called if the user drops some objects
-    virtual void drop(const std::vector<const App::DocumentObject*> &objList,Qt::KeyboardModifiers keys,Qt::MouseButtons mouseBts,const QPoint &pos);
     //@}
 
 protected:
@@ -136,6 +127,8 @@ protected:
     /** @name Transaction handling
      */
     //@{
+    /// \internal get called when removing a property of name \a prop
+    void onAboutToRemoveProperty(const char* prop);
     virtual bool isAttachedToDocument() const;
     virtual const char* detachFromDocument();
     //@}

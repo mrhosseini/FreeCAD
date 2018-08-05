@@ -28,6 +28,16 @@
         <UserDocu>delete a geometric object from the sketch</UserDocu>
       </Documentation>
     </Methode>
+    <Methode Name="deleteAllGeometry">
+        <Documentation>
+            <UserDocu>delete all the geometry objects and constraints from the sketch except external geometry</UserDocu>
+        </Documentation>
+    </Methode>
+    <Methode Name="deleteAllConstraints">
+        <Documentation>
+            <UserDocu>delete all the constraints from the sketch</UserDocu>
+        </Documentation>
+    </Methode>
     <Methode Name="toggleConstruction">
       <Documentation>
         <UserDocu>switch a geometry to a construction line</UserDocu>
@@ -52,6 +62,11 @@
       <Documentation>
         <UserDocu>Rename a constraint of the sketch</UserDocu>
       </Documentation>
+    </Methode>
+    <Methode Name="carbonCopy">
+        <Documentation>
+            <UserDocu>copy another sketch's geometry and constraints</UserDocu>
+        </Documentation>
     </Methode>
     <Methode Name="addExternal">
       <Documentation>
@@ -92,7 +107,22 @@
       <Documentation>
         <UserDocu>toggle the Driving status of a datum constraint</UserDocu>
       </Documentation>
-    </Methode>    
+    </Methode>
+    <Methode Name="setVirtualSpace">
+        <Documentation>
+            <UserDocu>set the VirtualSpace status of a constraint</UserDocu>
+        </Documentation>
+    </Methode>
+    <Methode Name="getVirtualSpace">
+        <Documentation>
+            <UserDocu>Get the VirtualSpace status of a constraint</UserDocu>
+        </Documentation>
+    </Methode>
+    <Methode Name="toggleVirtualSpace">
+        <Documentation>
+            <UserDocu>toggle the VirtualSpace status of a constraint</UserDocu>
+        </Documentation>
+    </Methode>
     <Methode Name="movePoint">
       <Documentation>
         <UserDocu>
@@ -132,6 +162,11 @@
         <UserDocu>trim a curve with a given id at a given reference point</UserDocu>
       </Documentation>
     </Methode>
+    <Methode Name="extend">
+      <Documentation>
+        <UserDocu>extend a curve to new start and end positions</UserDocu>
+      </Documentation>
+    </Methode>
     <Methode Name="addSymmetric">
       <Documentation>
         <UserDocu>add a symmetric geometric objects to the sketch with respect to a reference point or line</UserDocu>
@@ -142,6 +177,11 @@
         <UserDocu>add a copy of geometric objects to the sketch displaced by a vector3d</UserDocu>
       </Documentation>
     </Methode>
+    <Methode Name="addMove">
+        <Documentation>
+            <UserDocu>Moves the geometric objects in the sketch displaced by a vector3d</UserDocu>
+        </Documentation>
+    </Methode>
     <Methode Name="addRectangularArray">
       <Documentation>
         <UserDocu>add an array of size cols by rows where each element is a copy of the selected geometric objects displaced by a vector3d in the cols direction and by a vector perpendicular to it in the rows direction</UserDocu>
@@ -149,14 +189,39 @@
     </Methode>
     <Methode Name="ExposeInternalGeometry">
       <Documentation>
-        <UserDocu>Exposes all internal geometry of an object supporting internal geometry</UserDocu>
+        <UserDocu>Deprecated -- use exposeInternalGeometry</UserDocu>
       </Documentation>    
     </Methode>
     <Methode Name="DeleteUnusedInternalGeometry">
       <Documentation>
-        <UserDocu>Deletes all unused (not further constrained) internal geometry</UserDocu>
+        <UserDocu>Deprecated -- use deleteUnusedInternalGeometry</UserDocu>
       </Documentation>    
-    </Methode>    
+    </Methode>
+    <Methode Name="exposeInternalGeometry">
+      <Documentation>
+        <UserDocu>Exposes all internal geometry of an object supporting internal geometry</UserDocu>
+      </Documentation>
+    </Methode>
+    <Methode Name="deleteUnusedInternalGeometry">
+      <Documentation>
+        <UserDocu>Deletes all unused (not further constrained) internal geometry</UserDocu>
+      </Documentation>
+    </Methode>
+    <Methode Name="convertToNURBS">
+        <Documentation>
+            <UserDocu>Approximates the given geometry with a B-Spline</UserDocu>
+        </Documentation>    
+    </Methode>
+    <Methode Name="increaseBSplineDegree">
+        <Documentation>
+            <UserDocu>Increases the given BSpline Degree by a number of degrees</UserDocu>
+        </Documentation>
+    </Methode>
+    <Methode Name="modifyBSplineKnotMultiplicity">
+        <Documentation>
+            <UserDocu>Increases or reduces the given BSpline knot multiplicity</UserDocu>
+        </Documentation>
+    </Methode>
     <Methode Name="calculateAngleViaPoint">
       <Documentation>
         <UserDocu>
@@ -171,7 +236,7 @@
       <Documentation>
         <UserDocu>
           isPointOnObject(GeoIdCurve, float x, float y) - tests if the point (x,y)
-          geometrically lies on a curve (e.g. ellipse). It treats lines as infinte,
+          geometrically lies on a curve (e.g. ellipse). It treats lines as infinite,
           arcs as full circles/ellipses/etc. Returns boolean value.
         </UserDocu>
       </Documentation>
@@ -203,26 +268,134 @@
         </UserDocu>
       </Documentation>
     </Methode>
-
+    <Methode Name="getGeometryWithDependentParameters">
+        <Documentation>
+            <UserDocu>
+                getGeometryWithDependentParameters - returns a list of geoid posid pairs
+                with all the geometry element edges and vertices which the solver regards
+                as being dependent on other parameters.
+            </UserDocu>
+        </Documentation>
+    </Methode>
+    <Methode Name="autoconstraint">
+        <Documentation>
+            <UserDocu>
+                Automatic sketch constraining algorithm.
+            </UserDocu>
+        </Documentation>
+    </Methode>
+    <Methode Name="detectMissingPointOnPointConstraints">
+        <Documentation>
+            <UserDocu>
+                Detects Missing Point On Point Constraints. The Detect step just identifies possible missing constraints.
+                The result may be retrieved or applied using the corresponding Get / Make methods.
+            </UserDocu>
+        </Documentation>
+    </Methode>
+    <Methode Name="analyseMissingPointOnPointCoincident">
+        <Documentation>
+            <UserDocu>
+                Analyses the already detected Missing Point On Point Constraints to detect endpoint tagency/perpendicular. 
+                The result may be retrieved or applied using the corresponding Get / Make methods.
+            </UserDocu>
+        </Documentation>
+    </Methode>
+    <Methode Name="detectMissingVerticalHorizontalConstraints">
+        <Documentation>
+            <UserDocu>
+                Detects Missing Horizontal/Vertical Constraints. The Detect step just identifies possible missing constraints.
+                The result may be retrieved or applied using the corresponding Get / Make methods.
+            </UserDocu>
+        </Documentation>
+    </Methode>
+    <Methode Name="detectMissingEqualityConstraints">
+        <Documentation>
+            <UserDocu>
+                Detects Missing Equality Constraints. The Detect step just identifies possible missing constraints.
+                The result may be retrieved or applied using the corresponding Get / Make methods.
+            </UserDocu>
+        </Documentation>
+    </Methode>
+    <Methode Name="makeMissingPointOnPointCoincident">
+        <Documentation>
+            <UserDocu>
+                Applies the detected / set Point On Point coincident constraints. If the argument is True, then solving and redundant removal is done after each individual addition.
+            </UserDocu>
+        </Documentation>
+    </Methode>
+    <Methode Name="makeMissingVerticalHorizontal">
+        <Documentation>
+            <UserDocu>
+                Applies the detected / set Vertical/Horizontal constraints. If the argument is True, then solving and redundant removal is done after each individual addition.
+            </UserDocu>
+        </Documentation>
+    </Methode>
+    <Methode Name="makeMissingEquality">
+        <Documentation>
+            <UserDocu>
+                Applies the detected / set Equality constraints. If the argument is True, then solving and redundant removal is done after each individual addition.
+            </UserDocu>
+        </Documentation>
+    </Methode>
+    <Methode Name="autoRemoveRedundants">
+        <Documentation>
+            <UserDocu>
+                Removes constraints currently detected as redundant by the solver. If the argument is True, then the geometry is updated after solving.
+            </UserDocu>
+        </Documentation>
+    </Methode>
+    
+    <Attribute Name="MissingPointOnPointConstraints" ReadOnly="false">
+        <Documentation>
+            <UserDocu>
+                returns a list of (First FirstPos Second SecondPos Type) tuples with all the detected endpoint constraints.
+            </UserDocu>
+        </Documentation>
+        <Parameter Name="MissingPointOnPointConstraints" Type="List"/>
+    </Attribute>
+    <Attribute Name="MissingVerticalHorizontalConstraints" ReadOnly="false">
+        <Documentation>
+            <UserDocu>
+                returns a list of (First FirstPos Second SecondPos Type) tuples with all the detected vertical/horizontal constraints.
+            </UserDocu>
+        </Documentation>
+        <Parameter Name="MissingVerticalHorizontalConstraints" Type="List"/>
+    </Attribute>
+    <Attribute Name="MissingLineEqualityConstraints" ReadOnly="false">
+        <Documentation>
+            <UserDocu>
+                returns a list of (First FirstPos Second SecondPos) tuples with all the detected line segment equality constraints.
+            </UserDocu>
+        </Documentation>
+        <Parameter Name="MissingLineEqualityConstraints" Type="List"/>
+    </Attribute>    
+    <Attribute Name="MissingRadiusConstraints" ReadOnly="false">
+        <Documentation>
+            <UserDocu>
+                returns a list of (First FirstPos Second SecondPos) tuples with all the detected radius constraints.
+            </UserDocu>
+        </Documentation>
+        <Parameter Name="MissingRadiusConstraints" Type="List"/>
+    </Attribute>
     <Attribute Name="ConstraintCount" ReadOnly="true">
       <Documentation>
         <UserDocu>Number of Constraints in this sketch</UserDocu>
       </Documentation>
-      <Parameter Name="ConstraintCount" Type="Int"/>
+      <Parameter Name="ConstraintCount" Type="Long"/>
     </Attribute>
     <Attribute Name="GeometryCount" ReadOnly="true">
       <Documentation>
         <UserDocu>Number of geometric objects in this sketch</UserDocu>
       </Documentation>
-      <Parameter Name="GeometryCount" Type="Int"/>
+      <Parameter Name="GeometryCount" Type="Long"/>
     </Attribute>
     <Attribute Name="AxisCount" ReadOnly="true">
       <Documentation>
         <UserDocu>
-          return the the number of construction lines in the sketch which can be used as axes
+          Return the number of construction lines in the sketch which can be used as axes
         </UserDocu>
       </Documentation>
-      <Parameter Name="AxisCount" Type="Int"/>
+      <Parameter Name="AxisCount" Type="Long"/>
     </Attribute>
   </PythonExport>
 </GenerateModel>

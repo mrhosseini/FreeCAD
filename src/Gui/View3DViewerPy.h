@@ -35,7 +35,7 @@ class View3DInventorViewer;
 /**
  * @brief Python interface for View3DInventorViewer
  * 
- * The interface does not offer all methods the c++ View3DInventorViewer counterpart has, respectivly
+ * The interface does not offer all methods the c++ View3DInventorViewer counterpart has, respectively
  * also not everything the QuarterWidget and the SoQtQuarterAdaptor offers. It only exposes 
  * methods with additioanl functionality in comparison to the View3DInventorPy class. Everything that
  * can be done from there has no interface here. 
@@ -65,6 +65,10 @@ public:
     Py::Object getPickRadius(const Py::Tuple& args);
     Py::Object setPickRadius(const Py::Tuple& args);
 
+    // NaviCube handling
+    Py::Object setEnabledNaviCube(const Py::Tuple& args);
+    Py::Object isEnabledNaviCube(const Py::Tuple& args);
+    Py::Object setNaviCubeCorner(const Py::Tuple& args);
 
 
 private:

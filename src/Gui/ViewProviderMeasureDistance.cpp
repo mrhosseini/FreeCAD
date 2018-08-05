@@ -50,6 +50,7 @@
 #include <App/MeasureDistance.h>
 #include <Base/Console.h>
 #include <Base/Quantity.h>
+#include <Inventor/MarkerBitmaps.h>
 
 using namespace Gui;
 
@@ -168,7 +169,7 @@ void ViewProviderMeasureDistance::attach(App::DocumentObject* pcObject)
     lineSep->addChild(pCoords);
     lineSep->addChild(pLines);
     SoMarkerSet* points = new SoMarkerSet();
-    points->markerIndex = SoMarkerSet::CROSS_9_9;
+    points->markerIndex = Gui::Inventor::MarkerBitmaps::getMarkerIndex("CROSS", App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/View")->GetInt("MarkerSize", 9));
     points->numPoints=2;
     lineSep->addChild(points);
 
@@ -258,7 +259,7 @@ int PointMarker::countPoints() const
     return vp->pCoords->point.getNum();
 }
 
-void PointMarker::customEvent(QEvent* e)
+void PointMarker::customEvent(QEvent*)
 {
     Gui::Document* doc = Gui::Application::Instance->activeDocument();
     doc->openCommand("Measure distance");
@@ -287,7 +288,7 @@ ViewProviderPointMarker::ViewProviderPointMarker()
     pCoords->ref();
     pCoords->point.setNum(0);
     pMarker = new SoMarkerSet();
-    pMarker->markerIndex = SoMarkerSet::CROSS_9_9;
+    pMarker->markerIndex = Gui::Inventor::MarkerBitmaps::getMarkerIndex("CROSS", App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/View")->GetInt("MarkerSize", 9));
     pMarker->numPoints=0;
     pMarker->ref();
 

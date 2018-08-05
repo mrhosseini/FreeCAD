@@ -25,6 +25,10 @@
 #include "PreCompiled.h"
 
 #ifndef _PreComp_
+#include <boost/signals2.hpp>
+#include <boost/signals2/connection.hpp>
+#include <boost/bind.hpp>
+
 #endif
 
 /// Here the FreeCAD includes sorted by Base,App,Gui......
@@ -37,15 +41,13 @@
 #include <App/DocumentObject.h>
 
 #include <Gui/Application.h>
+#include <Gui/Control.h>
 #include <Gui/Document.h>
-#include <Gui/Selection.h>
-#include <Gui/MainWindow.h>
 #include <Gui/ViewProvider.h>
-#include <Gui/WaitCursor.h>
 
-#include <Mod/TechDraw/App/DrawView.h>
 #include <Mod/TechDraw/App/DrawViewClip.h>
 #include <Mod/TechDraw/App/DrawPage.h>
+#include <Mod/TechDraw/App/DrawView.h>
 
 #include "ViewProviderPage.h"
 #include "QGIView.h"
@@ -60,6 +62,9 @@ PROPERTY_SOURCE(TechDrawGui::ViewProviderDrawingView, Gui::ViewProviderDocumentO
 ViewProviderDrawingView::ViewProviderDrawingView()
 {
     sPixmap = "TechDraw_Tree_View";
+    static const char *group = "Base";
+
+    ADD_PROPERTY_TYPE(KeepLabel ,(false),group,App::Prop_None,"Keep Label on Page even if toggled off");
 
     // Do not show in property editor   why? wf
     DisplayMode.setStatus(App::Property::ReadOnly,true);
@@ -73,6 +78,14 @@ ViewProviderDrawingView::~ViewProviderDrawingView()
 void ViewProviderDrawingView::attach(App::DocumentObject *pcFeat)
 {
     ViewProviderDocumentObject::attach(pcFeat);
+
+    auto bnd = boost::bind(&ViewProviderDrawingView::onGuiRepaint, this, _1);
+    auto feature = getViewObject();
+    if (feature != nullptr) {
+        connectGuiRepaint = feature->signalGuiPaint.connect(bnd);
+    } else {
+        Base::Console().Log("VPDV::attach has no Feature!\n");
+    }
 }
 
 void ViewProviderDrawingView::setDisplayMode(const char* ModeName)
@@ -95,12 +108,18 @@ void ViewProviderDrawingView::onChanged(const App::Property *prop)
     }
 
     if (prop == &Visibility) {
-        if(Visibility.getValue()) {
+       if(Visibility.getValue()) {
             show();
         } else {
             hide();
         }
+    } else if (prop == &KeepLabel) {
+        QGIView* qgiv = getQView();
+        if (qgiv) {
+            qgiv->updateView(true);
+        }
     }
+
     Gui::ViewProviderDocumentObject::onChanged(prop);
 }
 
@@ -142,13 +161,16 @@ QGIView* ViewProviderDrawingView::getQView(void)
 {
     QGIView *qView = nullptr;
     if (m_docReady){
-        Gui::Document* guiDoc = Gui::Application::Instance->getDocument(getViewObject()->getDocument());
-        Gui::ViewProvider* vp = guiDoc->getViewProvider(getViewObject()->findParentPage());
-        ViewProviderPage* dvp = dynamic_cast<ViewProviderPage*>(vp);
-        if (dvp) {
-            if (dvp->getMDIViewPage()) {
-                if (dvp->getMDIViewPage()->getQGVPage()) {
-                    qView = dynamic_cast<QGIView *>(dvp->getMDIViewPage()->getQGVPage()->findView(getViewObject()));
+        TechDraw::DrawView* dv = getViewObject();
+        if (dv) {
+            Gui::Document* guiDoc = Gui::Application::Instance->getDocument(getViewObject()->getDocument());
+            Gui::ViewProvider* vp = guiDoc->getViewProvider(getViewObject()->findParentPage());
+            ViewProviderPage* dvp = dynamic_cast<ViewProviderPage*>(vp);
+            if (dvp) {
+                if (dvp->getMDIViewPage()) {
+                    if (dvp->getMDIViewPage()->getQGVPage()) {
+                        qView = dynamic_cast<QGIView *>(dvp->getMDIViewPage()->getQGVPage()->findQViewForDocObj(getViewObject()));
+                    }
                 }
             }
         }
@@ -178,9 +200,56 @@ void ViewProviderDrawingView::finishRestoring()
     Gui::ViewProviderDocumentObject::finishRestoring();
 }
 
-//void ViewProviderDrawingView::updateData(const App::Property*)
-//{
-//}
+void ViewProviderDrawingView::updateData(const App::Property* prop)
+{
+    if (prop == &(getViewObject()->Rotation) ||
+        prop == &(getViewObject()->X)  ||
+        prop == &(getViewObject()->Y) ) {
+        QGIView* qgiv = getQView();
+        if (qgiv) {
+            qgiv->updateView(true);
+        }
+    }
+
+    Gui::ViewProviderDocumentObject::updateData(prop);
+}
+
+void ViewProviderDrawingView::unsetEdit(int ModNum)
+{
+    if (ModNum == ViewProvider::Default) {
+        Gui::Control().closeDialog();
+    }
+    else {
+        Gui::ViewProviderDocumentObject::unsetEdit(ModNum);
+    }
+}
+
+MDIViewPage* ViewProviderDrawingView::getMDIViewPage() const
+{
+    MDIViewPage* result = nullptr;
+    Gui::Document* guiDoc = Gui::Application::Instance->getDocument(getViewObject()->getDocument());
+    Gui::ViewProvider* vp = guiDoc->getViewProvider(getViewObject()->findParentPage());
+    ViewProviderPage* dvp = dynamic_cast<ViewProviderPage*>(vp);
+    if (dvp) {
+        result = dvp->getMDIViewPage();
+    }
+    return result;
+}
+
+void ViewProviderDrawingView::onGuiRepaint(const TechDraw::DrawView* dv) 
+{
+    if (dv == getViewObject()) {
+        QGIView* qgiv = getQView();
+        if (qgiv) {
+            qgiv->updateView(true);
+        } else {                                //we are not part of the Gui page yet. ask page to add us.
+            auto page = dv->findParentPage();
+            if (page != nullptr) {
+                page->requestPaint();
+            }
+        }
+    }
+}
 
 TechDraw::DrawView* ViewProviderDrawingView::getViewObject() const
 {

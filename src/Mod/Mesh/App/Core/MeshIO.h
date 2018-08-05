@@ -46,6 +46,8 @@ namespace MeshIO {
         BSTL,
         OBJ,
         OFF,
+        IDTF,
+        MGL,
         IV,
         X3D,
         VRML,
@@ -53,7 +55,9 @@ namespace MeshIO {
         NAS,
         PLY,
         APLY,
-        PY
+        PY,
+        AMF,
+        SMF
     };
     enum Binding {
         OVERALL,
@@ -66,6 +70,7 @@ struct MeshExport Material
 {
     Material() : binding(MeshIO::OVERALL) {}
     MeshIO::Binding binding;
+    std::string library;
     std::vector<App::Color> diffuseColor;
 };
 
@@ -105,6 +110,8 @@ public:
     bool LoadBinarySTL (std::istream &rstrIn);
     /** Loads an OBJ Mesh file. */
     bool LoadOBJ (std::istream &rstrIn);
+    /** Loads an SMF Mesh file. */
+    bool LoadSMF (std::istream &rstrIn);
     /** Loads an OFF Mesh file. */
     bool LoadOFF (std::istream &rstrIn);
     /** Loads a PLY Mesh file. */
@@ -127,7 +134,7 @@ protected:
 };
 
 /**
- * The MeshOutput class is able to write a mesh object to an ouput stream
+ * The MeshOutput class is able to write a mesh object to an output stream
  * on various formats.
  */
 class MeshExport MeshOutput
@@ -151,6 +158,8 @@ public:
      * automatically filled up with spaces.
      */
     static void SetSTLHeaderData(const std::string&);
+    /// Determine the mesh format by file extension
+    static MeshIO::Format GetFormat(const char* FileName);
     /// Saves the file, decided by extension if not explicitly given
     bool SaveAny(const char* FileName, MeshIO::Format f=MeshIO::Undefined) const;
     /// Saves to a stream and the given format
@@ -162,6 +171,10 @@ public:
     bool SaveBinarySTL (std::ostream &rstrOut) const;
     /** Saves the mesh object into an OBJ file. */
     bool SaveOBJ (std::ostream &rstrOut) const;
+    /** Saves the materials of an OBJ file. */
+    bool SaveMTL(std::ostream &rstrOut) const;
+    /** Saves the mesh object into an SMF file. */
+    bool SaveSMF (std::ostream &rstrOut) const;
     /** Saves the mesh object into an OFF file. */
     bool SaveOFF (std::ostream &rstrOut) const;
     /** Saves the mesh object into a binary PLY file. */
@@ -172,6 +185,10 @@ public:
     void SaveXML (Base::Writer &writer) const;
     /** Saves a node to an OpenInventor file. */
     bool SaveMeshNode (std::ostream &rstrIn);
+    /** Writes an IDTF file. */
+    bool SaveIDTF (std::ostream &rstrOut) const;
+    /** Writes an MGL file. */
+    bool SaveMGL (std::ostream &rstrOut) const;
     /** Writes an OpenInventor file. */
     bool SaveInventor (std::ostream &rstrOut) const;
     /** Writes an X3D file. */

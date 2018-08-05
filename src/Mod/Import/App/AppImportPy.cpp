@@ -29,6 +29,7 @@
 # include <Python.h>
 # include <climits>
 # include <Standard_Version.hxx>
+# include <NCollection_Vector.hxx>
 # include <TDocStd_Document.hxx>
 # include <XCAFApp_Application.hxx>
 # include <TDocStd_Document.hxx>
@@ -41,9 +42,11 @@
 # include <IGESControl_Controller.hxx>
 # include <IGESData_GlobalSection.hxx>
 # include <IGESData_IGESModel.hxx>
+# include <IGESToBRep_Actor.hxx>
 # include <Interface_Static.hxx>
 # include <Transfer_TransientProcess.hxx>
 # include <XSControl_WorkSession.hxx>
+# include <XSControl_TransferReader.hxx>
 # include <APIHeaderSection_MakeHeader.hxx>
 # include <OSD_Exception.hxx>
 #endif
@@ -63,6 +66,12 @@
 #include <Mod/Part/App/ImportIges.h>
 #include <Mod/Part/App/ImportStep.h>
 #include <Mod/Part/App/encodeFilename.h>
+#include <Mod/Part/App/TopoShape.h>
+#include <Mod/Part/App/TopoShapePy.h>
+#include <Mod/Part/App/PartFeature.h>
+#include <Mod/Part/App/PartFeaturePy.h>
+
+#include "ImpExpDxf.h"
 
 namespace Import {
 class Module : public Py::ExtensionModule<Module>
@@ -82,7 +91,16 @@ public:
         add_varargs_method("export",&Module::exporter,
             "export(list,string) -- Export a list of objects into a single file."
         );
-        initialize("This module is the Import module."); // register with Python       
+         add_varargs_method("readDXF",&Module::readDXF,
+            "readDXF(filename,[document,ignore_errors]): Imports a DXF file into the given document. ignore_errors is True by default."
+        );
+        add_varargs_method("writeDXFShape",&Module::writeDXFShape,
+            "writeDXFShape([shape],filename): Exports Shape(s) to a DXF file."
+        );
+        add_varargs_method("writeDXFObject",&Module::writeDXFObject,
+            "writeDXFObject([objects],filename): Exports DocumentObject(s) to a DXF file."
+        );
+       initialize("This module is the Import module."); // register with Python       
     }
 
     virtual ~Module() {}
@@ -125,16 +143,15 @@ private:
                         throw Py::Exception(PyExc_IOError, "cannot read STEP file");
                     }
 
-                    Handle_Message_ProgressIndicator pi = new Part::ProgressIndicator(100);
+                    Handle(Message_ProgressIndicator) pi = new Part::ProgressIndicator(100);
                     aReader.Reader().WS()->MapReader()->SetProgress(pi);
                     pi->NewScope(100, "Reading STEP file...");
                     pi->Show();
                     aReader.Transfer(hDoc);
                     pi->EndScope();
                 }
-                catch (OSD_Exception) {
-                    Handle_Standard_Failure e = Standard_Failure::Caught();
-                    Base::Console().Error("%s\n", e->GetMessageString());
+                catch (OSD_Exception& e) {
+                    Base::Console().Error("%s\n", e.GetMessageString());
                     Base::Console().Message("Try to load STEP file without colors...\n");
 
                     Part::ImportStepParts(pcDoc,Utf8Name.c_str());
@@ -158,16 +175,18 @@ private:
                         throw Py::Exception(PyExc_IOError, "cannot read IGES file");
                     }
 
-                    Handle_Message_ProgressIndicator pi = new Part::ProgressIndicator(100);
+                    Handle(Message_ProgressIndicator) pi = new Part::ProgressIndicator(100);
                     aReader.WS()->MapReader()->SetProgress(pi);
                     pi->NewScope(100, "Reading IGES file...");
                     pi->Show();
                     aReader.Transfer(hDoc);
                     pi->EndScope();
+                    // http://opencascade.blogspot.de/2009/03/unnoticeable-memory-leaks-part-2.html
+                    Handle(IGESToBRep_Actor)::DownCast(aReader.WS()->TransferReader()->Actor())
+                            ->SetModel(new IGESData_IGESModel);
                 }
-                catch (OSD_Exception) {
-                    Handle_Standard_Failure e = Standard_Failure::Caught();
-                    Base::Console().Error("%s\n", e->GetMessageString());
+                catch (OSD_Exception& e) {
+                    Base::Console().Error("%s\n", e.GetMessageString());
                     Base::Console().Message("Try to load IGES file without colors...\n");
 
                     Part::ImportIgesParts(pcDoc,Utf8Name.c_str());
@@ -186,10 +205,10 @@ private:
             xcaf.loadShapes();
 #endif
             pcDoc->recompute();
+            hApp->Close(hDoc);
         }
-        catch (Standard_Failure) {
-            Handle_Standard_Failure e = Standard_Failure::Caught();
-            throw Py::Exception(Base::BaseExceptionFreeCADError, e->GetMessageString());
+        catch (Standard_Failure& e) {
+            throw Py::Exception(Base::BaseExceptionFreeCADError, e.GetMessageString());
         }
         catch (const Base::Exception& e) {
             throw Py::RuntimeError(e.what());
@@ -209,12 +228,15 @@ private:
         std::string name8bit = Part::encodeFilename(Utf8Name);
 
         try {
+            Py::Sequence list(object);
             Handle(XCAFApp_Application) hApp = XCAFApp_Application::GetApplication();
             Handle(TDocStd_Document) hDoc;
             hApp->NewDocument(TCollection_ExtendedString("MDTV-CAF"), hDoc);
-            Import::ExportOCAF ocaf(hDoc);
 
-            Py::Sequence list(object);
+            bool keepExplicitPlacement = list.size() > 1;
+            keepExplicitPlacement = Standard_True;
+            Import::ExportOCAF ocaf(hDoc, keepExplicitPlacement);
+
             for (Py::Sequence::iterator it = list.begin(); it != list.end(); ++it) {
                 PyObject* item = (*it).ptr();
                 if (PyObject_TypeCheck(item, &(App::DocumentObjectPy::Type))) {
@@ -222,7 +244,10 @@ private:
                     if (obj->getTypeId().isDerivedFrom(Part::Feature::getClassTypeId())) {
                         Part::Feature* part = static_cast<Part::Feature*>(obj);
                         std::vector<App::Color> colors;
-                        ocaf.saveShape(part, colors);
+                        std::vector <TDF_Label> hierarchical_label;
+                        std::vector <TopLoc_Location> hierarchical_loc;
+                        std::vector <App::DocumentObject*> hierarchical_part;
+                        ocaf.saveShape(part, colors, hierarchical_label, hierarchical_loc, hierarchical_part);
                     }
                     else {
                         Base::Console().Message("'%s' is not a shape, export will be ignored.\n", obj->Label.getValue());
@@ -238,7 +263,10 @@ private:
                             Part::Feature* part = static_cast<Part::Feature*>(obj);
                             App::PropertyColorList colors;
                             colors.setPyObject(item1.ptr());
-                            ocaf.saveShape(part, colors.getValues());
+                            std::vector <TDF_Label> hierarchical_label;
+                            std::vector <TopLoc_Location> hierarchical_loc;
+                            std::vector <App::DocumentObject*> hierarchical_part;
+                            ocaf.saveShape(part, colors.getValues(), hierarchical_label, hierarchical_loc, hierarchical_part);
                         }
                         else {
                             Base::Console().Message("'%s' is not a shape, export will be ignored.\n", obj->Label.getValue());
@@ -288,10 +316,11 @@ private:
                     throw Py::Exception();
                 }
             }
+
+            hApp->Close(hDoc);
         }
-        catch (Standard_Failure) {
-            Handle_Standard_Failure e = Standard_Failure::Caught();
-            throw Py::Exception(Base::BaseExceptionFreeCADError, e->GetMessageString());
+        catch (Standard_Failure& e) {
+            throw Py::Exception(Base::BaseExceptionFreeCADError, e.GetMessageString());
         }
         catch (const Base::Exception& e) {
             throw Py::RuntimeError(e.what());
@@ -299,6 +328,211 @@ private:
 
         return Py::None();
     }
+
+    Py::Object readDXF(const Py::Tuple& args)
+    {
+        char* Name;
+        const char* DocName=0;
+        const char* optionSource = nullptr;
+        char* defaultOptions = "User parameter:BaseApp/Preferences/Mod/Draft";
+        char* useOptionSource = nullptr;
+        bool IgnoreErrors=true;
+        if (!PyArg_ParseTuple(args.ptr(), "et|sbs","utf-8",&Name,&DocName,&IgnoreErrors,&optionSource))
+            throw Py::Exception();
+
+        std::string EncodedName = std::string(Name);
+        PyMem_Free(Name);
+
+        Base::FileInfo file(EncodedName.c_str());
+        if (!file.exists())
+            throw Py::RuntimeError("File doesn't exist");
+
+
+        App::Document *pcDoc;
+        if (DocName)
+            pcDoc = App::GetApplication().getDocument(DocName);
+        else
+            pcDoc = App::GetApplication().getActiveDocument();
+        if (!pcDoc) 
+            pcDoc = App::GetApplication().newDocument(DocName);
+
+        if (optionSource) {
+            strcpy(useOptionSource,optionSource);
+        } else {
+            useOptionSource = defaultOptions;
+        }
+
+        try {
+            // read the DXF file
+            ImpExpDxfRead dxf_file(EncodedName,pcDoc);
+            dxf_file.setOptionSource(useOptionSource);
+            dxf_file.setOptions();
+            dxf_file.DoRead(IgnoreErrors);
+            pcDoc->recompute();
+        }
+        catch (const Base::Exception& e) {
+            throw Py::RuntimeError(e.what());
+        }
+        return Py::None();
+    }
+
+    Py::Object writeDXFShape(const Py::Tuple& args)
+    {
+        PyObject *shapeObj;
+        char* fname;
+        std::string filePath;
+        std::string layerName;
+        const char* optionSource = nullptr;
+        char* defaultOptions = "User parameter:BaseApp/Preferences/Mod/Import";
+        char* useOptionSource = nullptr;
+
+        if (PyArg_ParseTuple(args.ptr(), "O!et|s",  &(PyList_Type) ,&shapeObj, "utf-8",&fname, &optionSource)) {
+            filePath = std::string(fname);
+            layerName = "none";
+            PyMem_Free(fname);
+
+            if (optionSource) {
+                strcpy(useOptionSource,optionSource);
+            } else {
+                useOptionSource = defaultOptions;
+            }
+            try {
+                ImpExpDxfWrite writer(filePath);
+                writer.setOptionSource(useOptionSource);
+                writer.setOptions();
+                writer.setLayerName(layerName);
+                writer.init();
+                Py::Sequence list(shapeObj);
+                for (Py::Sequence::iterator it = list.begin(); it != list.end(); ++it) {
+                    if (PyObject_TypeCheck((*it).ptr(), &(Part::TopoShapePy::Type))) {
+                        Part::TopoShape* ts = static_cast<Part::TopoShapePy*>((*it).ptr())->getTopoShapePtr();
+                        TopoDS_Shape shape = ts->getShape();
+                        writer.exportShape(shape);
+                    }
+                }
+                writer.endRun();
+            }
+            catch (const Base::Exception& e) {
+                throw Py::RuntimeError(e.what());
+            }
+        } else if (PyArg_ParseTuple(args.ptr(), "O!et|s",
+                                                &(Part::TopoShapePy::Type) ,
+                                                &shapeObj, 
+                                                "utf-8",
+                                                &fname, 
+                                                &optionSource)) {
+            filePath = std::string(fname);
+            layerName = "none";
+            PyMem_Free(fname);
+
+            if (optionSource) {
+                strcpy(useOptionSource,optionSource);
+            } else {
+                useOptionSource = defaultOptions;
+            }
+            try {
+                ImpExpDxfWrite writer(filePath);
+                writer.setOptionSource(useOptionSource);
+                writer.setOptions();
+                writer.setLayerName(layerName);
+                writer.init();
+                Part::TopoShape* obj = static_cast<Part::TopoShapePy*>(shapeObj)->getTopoShapePtr();
+                TopoDS_Shape shape = obj->getShape();
+                writer.exportShape(shape);
+                writer.endRun();
+            }
+            catch (const Base::Exception& e) {
+                throw Py::RuntimeError(e.what());
+            }
+        } else {
+            throw Py::TypeError("expected ([Shape],path");
+        } 
+        return Py::None();
+    }
+
+    Py::Object writeDXFObject(const Py::Tuple& args)
+    {
+        PyObject *docObj;
+        char* fname;
+        std::string filePath;
+        std::string layerName;
+        const char* optionSource = nullptr;
+        char* defaultOptions = "User parameter:BaseApp/Preferences/Mod/Import";
+        char* useOptionSource = nullptr;
+
+
+        if (PyArg_ParseTuple(args.ptr(), "O!et|s",  &(PyList_Type) ,&docObj, "utf-8",&fname, &optionSource)) {
+            filePath = std::string(fname);
+            layerName = "none";
+            PyMem_Free(fname);
+
+            if (optionSource) {
+                strcpy(useOptionSource,optionSource);
+            } else {
+                useOptionSource = defaultOptions;
+            }
+            try {
+                ImpExpDxfWrite writer(filePath);
+                writer.setOptionSource(useOptionSource);
+                writer.setOptions();
+                writer.setLayerName(layerName);
+                writer.init();
+                Py::Sequence list(docObj);
+                for (Py::Sequence::iterator it = list.begin(); it != list.end(); ++it) {
+                    if (PyObject_TypeCheck((*it).ptr(), &(Part::PartFeaturePy::Type))) {
+                        PyObject* item = (*it).ptr();
+                        App::DocumentObject* obj = static_cast<App::DocumentObjectPy*>(item)->getDocumentObjectPtr();
+                        Part::Feature* part = static_cast<Part::Feature*>(obj);
+                        layerName = part->getNameInDocument();
+                        writer.setLayerName(layerName);
+                        const TopoDS_Shape& shape = part->Shape.getValue();
+                        writer.exportShape(shape);
+                    }
+                }
+                writer.endRun();
+            }
+            catch (const Base::Exception& e) {
+                throw Py::RuntimeError(e.what());
+            }
+        } else if (PyArg_ParseTuple(args.ptr(), "O!et|s",
+                                                &(Part::PartFeaturePy::Type) ,
+                                                &docObj, 
+                                                "utf-8",
+                                                &fname, 
+                                                &optionSource)) {
+            filePath = std::string(fname);
+            layerName = "none";
+            PyMem_Free(fname);
+
+            if (optionSource) {
+                strcpy(useOptionSource,optionSource);
+            } else {
+                useOptionSource = defaultOptions;
+            }
+            try {
+                ImpExpDxfWrite writer(filePath);
+                writer.setOptionSource(useOptionSource);
+                writer.setOptions();
+                writer.setLayerName(layerName);
+                writer.init();
+                App::DocumentObject* obj = static_cast<App::DocumentObjectPy*>(docObj)->getDocumentObjectPtr();
+                Part::Feature* part = static_cast<Part::Feature*>(obj);
+                layerName = part->getNameInDocument();
+                writer.setLayerName(layerName);
+                const TopoDS_Shape& shape = part->Shape.getValue();
+                writer.exportShape(shape);
+                writer.endRun();
+            }
+            catch (const Base::Exception& e) {
+                throw Py::RuntimeError(e.what());
+            }
+        } else {
+            throw Py::TypeError("expected ([DocObject],path");
+        } 
+        return Py::None();
+    }
+
+
 };
 /*
 static PyObject * importAssembly(PyObject *self, PyObject *args)
@@ -340,20 +574,19 @@ static PyObject * importAssembly(PyObject *self, PyObject *args)
                 aReader.SetNameMode(true);
                 aReader.SetLayerMode(true);
                 if (aReader.ReadFile((Standard_CString)(name8bit.c_str())) != IFSelect_RetDone) {
-                    PyErr_SetString(PyExc_Exception, "cannot read STEP file");
+                    PyErr_SetString(PyExc_IOError, "cannot read STEP file");
                     return 0;
                 }
 
-                Handle_Message_ProgressIndicator pi = new Part::ProgressIndicator(100);
+                Handle(Message_ProgressIndicator) pi = new Part::ProgressIndicator(100);
                 aReader.Reader().WS()->MapReader()->SetProgress(pi);
                 pi->NewScope(100, "Reading STEP file...");
                 pi->Show();
                 aReader.Transfer(hDoc);
                 pi->EndScope();
             }
-            catch (OSD_Exception) {
-                Handle_Standard_Failure e = Standard_Failure::Caught();
-                Base::Console().Error("%s\n", e->GetMessageString());
+            catch (OSD_Exception& e) {
+                Base::Console().Error("%s\n", e.GetMessageString());
                 Base::Console().Message("Try to load STEP file without colors...\n");
 
                 Part::ImportStepParts(pcDoc,Name);
@@ -369,20 +602,19 @@ static PyObject * importAssembly(PyObject *self, PyObject *args)
                 aReader.SetNameMode(true);
                 aReader.SetLayerMode(true);
                 if (aReader.ReadFile((Standard_CString)(name8bit.c_str())) != IFSelect_RetDone) {
-                    PyErr_SetString(PyExc_Exception, "cannot read IGES file");
+                    PyErr_SetString(PyExc_IOError, "cannot read IGES file");
                     return 0;
                 }
 
-                Handle_Message_ProgressIndicator pi = new Part::ProgressIndicator(100);
+                Handle(Message_ProgressIndicator) pi = new Part::ProgressIndicator(100);
                 aReader.WS()->MapReader()->SetProgress(pi);
                 pi->NewScope(100, "Reading IGES file...");
                 pi->Show();
                 aReader.Transfer(hDoc);
                 pi->EndScope();
             }
-            catch (OSD_Exception) {
-                Handle_Standard_Failure e = Standard_Failure::Caught();
-                Base::Console().Error("%s\n", e->GetMessageString());
+            catch (OSD_Exception& e) {
+                Base::Console().Error("%s\n", e.GetMessageString());
                 Base::Console().Message("Try to load IGES file without colors...\n");
 
                 Part::ImportIgesParts(pcDoc,Name);
@@ -390,7 +622,7 @@ static PyObject * importAssembly(PyObject *self, PyObject *args)
             }
         }
         else {
-            PyErr_SetString(PyExc_Exception, "no supported file format");
+            PyErr_SetString(PyExc_RuntimeError, "no supported file format");
             return 0;
         }
 
@@ -399,9 +631,8 @@ static PyObject * importAssembly(PyObject *self, PyObject *args)
         pcDoc->recompute();
 
     }
-    catch (Standard_Failure) {
-        Handle_Standard_Failure e = Standard_Failure::Caught();
-        PyErr_SetString(PyExc_Exception, e->GetMessageString());
+    catch (Standard_Failure& e) {
+        PyErr_SetString(PyExc_RuntimeError, e.GetMessageString());
         return 0;
     }
     PY_CATCH

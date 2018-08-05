@@ -468,6 +468,7 @@ void TaskView::keyPressEvent(QKeyEvent* ke)
 
 void TaskView::slotActiveDocument(const App::Document& doc)
 {
+    Q_UNUSED(doc); 
     if (!ActiveDialog)
         updateWatcher();
 }
@@ -494,6 +495,7 @@ void TaskView::slotRedoDocument(const App::Document&)
 void TaskView::OnChange(Gui::SelectionSingleton::SubjectType &rCaller,
                         Gui::SelectionSingleton::MessageType Reason)
 {
+    Q_UNUSED(rCaller); 
     std::string temp;
 
     if (Reason.Type == SelectionChanges::AddSelection ||
@@ -516,14 +518,14 @@ void TaskView::showDialog(TaskDialog *dlg)
     assert(!ActiveDialog);
     assert(!ActiveCtrl);
 
-    // remove the TaskWatcher as long the Dialog is up
+    // remove the TaskWatcher as long as the Dialog is up
     removeTaskWatcher();
 
-    // first creat the control element set it up and wire it:
+    // first create the control element, set it up and wire it:
     ActiveCtrl = new TaskEditControl(this);
     ActiveCtrl->buttonBox->setStandardButtons(dlg->getStandardButtons());
 
-    // make conection to the needed signals
+    // make connection to the needed signals
     connect(ActiveCtrl->buttonBox,SIGNAL(accepted()),
             this,SLOT(accept()));
     connect(ActiveCtrl->buttonBox,SIGNAL(rejected()),
@@ -602,7 +604,7 @@ void TaskView::removeDialog(void)
 void TaskView::updateWatcher(void)
 {
     // In case a child of the TaskView has the focus and get hidden we have
-    // to make sure that set the focus on a widget that won't be hidden or
+    // to make sure to set the focus on a widget that won't be hidden or
     // deleted because otherwise Qt may forward the focus via focusNextPrevChild()
     // to the mdi area which may switch to another mdi view which is not an
     // acceptable behaviour.
@@ -661,7 +663,6 @@ void TaskView::addTaskWatcher(void)
         std::vector<QWidget*> &cont = (*it)->getWatcherContent();
         for (std::vector<QWidget*>::iterator it2=cont.begin();it2!=cont.end();++it2){
            taskPanel->addWidget(*it2);
-           (*it2)->show();
         }
     }
 

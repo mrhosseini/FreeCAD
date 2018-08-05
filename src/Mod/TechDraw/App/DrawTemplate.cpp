@@ -120,13 +120,13 @@ App::DocumentObjectExecReturn *DrawTemplate::execute(void)
     }
 
     if(page) {
-        page->Template.touch();
+        page->Template.touch();     //if you are on a page, execute yourself???
     }
 
     return App::DocumentObject::execute();
 }
 
-void DrawTemplate::getBlockDimensions(double &x, double &y, double &width, double &height) const
+void DrawTemplate::getBlockDimensions(double & /*x*/, double & /*y*/, double & /*width*/, double & /*height*/) const
 {
     throw Base::Exception("implement in virtual function");
 }

@@ -33,10 +33,24 @@
 #include <Mod/Part/App/PropertyGeometryList.h>
 #include <Mod/Sketcher/App/PropertyConstraintList.h>
 
+#include <Mod/Sketcher/App/SketchAnalysis.h>
+
+#include "Analyse.h"
+
 #include "Sketch.h"
 
 namespace Sketcher
 {
+
+struct SketcherExport GeoEnum
+{
+    static const int RtPnt;
+    static const int HAxis;
+    static const int VAxis;
+    static const int RefExt;
+};
+
+class SketchAnalysis;
 
 class SketcherExport SketchObject : public Part::Part2DObject
 {
@@ -50,7 +64,7 @@ public:
     Part    ::PropertyGeometryList   Geometry;
     Sketcher::PropertyConstraintList Constraints;
     App     ::PropertyLinkSubList    ExternalGeometry;
-    /** @name methods overide Feature */
+    /** @name methods override Feature */
     //@{
     /// recalculate the Feature (if no recompute is needed see also solve() and solverNeedsUpdate boolean)
     App::DocumentObjectExecReturn *execute(void);
@@ -82,20 +96,34 @@ public:
     int addGeometry(const Part::Geometry *geo, bool construction=false);
     /// add unspecified geometry
     int addGeometry(const std::vector<Part::Geometry *> &geoList, bool construction=false);
-    /// delete geometry
-    int delGeometry(int GeoId);
+    /*!
+     \brief Deletes indicated geometry (by geoid).
+     \param GeoId - the geometry to delete
+     \param deleteinternalgeo - if true deletes the associated and unconstraint internal geometry, otherwise deletes only the GeoId
+     \retval int - 0 if successful
+     */
+    int delGeometry(int GeoId, bool deleteinternalgeo = true);
+    /// deletes all the elements/constraints of the sketch except for external geometry
+    int deleteAllGeometry();
+    /// deletes all the constraints of the sketch
+    int deleteAllConstraints();
     /// add all constraints in the list
     int addConstraints(const std::vector<Constraint *> &ConstraintList);
+    /// Copy the constraints instead of cloning them and copying the expressions if any
+    int addCopyOfConstraints(const SketchObject &orig);
     /// add constraint
     int addConstraint(const Constraint *constraint);
     /// delete constraint
     int delConstraint(int ConstrId);
+    int delConstraints(std::vector<int> ConstrIds, bool updategeometry=true);
     int delConstraintOnPoint(int GeoId, PointPos PosId, bool onlyCoincident=true);
     int delConstraintOnPoint(int VertexId, bool onlyCoincident=true);
     /// Deletes all constraints referencing an external geometry
     int delConstraintsToExternal();
-    /// transfers all contraints of a point to a new point
+    /// transfers all constraints of a point to a new point
     int transferConstraints(int fromGeoId, PointPos fromPosId, int toGeoId, PointPos toPosId);
+    /// Carbon copy another sketch geometry and constraints
+    int carbonCopy(App::DocumentObject * pObj, bool construction = true);
     /// add an external geometry reference
     int addExternal(App::DocumentObject *Obj, const char* SubName);
     /** delete external
@@ -137,7 +165,9 @@ public:
     /** solves the sketch and updates the geometry, but not all the dependent features (does not recompute)
         When a recompute is necessary, recompute triggers execute() which solves the sketch and updates all dependent features
         When a solve only is necessary (e.g. DoF changed), solve() solves the sketch and 
-        updates the geometry (if updateGeoAfterSolving==true), but does not trigger any updates
+        updates the geometry (if updateGeoAfterSolving==true), but does not trigger any recompute.
+        @return 0 if no error, if error, the following codes in this order of priority: -4 if overconstrained,
+                -3 if conflicting, -1 if solver error, -2 if redundant constraints
     */
     int solve(bool updateGeoAfterSolving=true);   
     /// set the datum of a Distance or Angle constraint and solve
@@ -148,6 +178,12 @@ public:
     int getDriving(int ConstrId, bool &isdriving);
     /// toggle the driving status of this constraint
     int toggleDriving(int ConstrId);
+    /// set the driving status of this constraint and solve
+    int setVirtualSpace(int ConstrId, bool isinvirtualspace);
+    /// get the driving status of this constraint
+    int getVirtualSpace(int ConstrId, bool &isinvirtualspace) const;
+    /// toggle the driving status of this constraint
+    int toggleVirtualSpace(int ConstrId);
     /// move this point to a new location and solve
     int movePoint(int GeoId, PointPos PosId, const Base::Vector3d& toPoint, bool relative=false, bool updateGeoBeforeMoving=false);
     /// retrieves the coordinates of a point
@@ -165,22 +201,51 @@ public:
 
     /// trim a curve
     int trim(int geoId, const Base::Vector3d& point);
+    /// extend a curve
+    int extend(int geoId, double increment, int endPoint);
+
     /// adds symmetric geometric elements with respect to the refGeoId (line or point)
     int addSymmetric(const std::vector<int> &geoIdList, int refGeoId, Sketcher::PointPos refPosId=Sketcher::none);
     /// with default parameters adds a copy of the geometric elements displaced by the displacement vector.
     /// It creates an array of csize elements in the direction of the displacement vector by rsize elements in the
     /// direction perpendicular to the displacement vector, wherein the modulus of this perpendicular vector is scaled by perpscale.
-    int addCopy(const std::vector<int> &geoIdList, const Base::Vector3d& displacement, bool clone=false, int csize=2, int rsize=1, bool constraindisplacement = false, double perpscale = 1.0);
+    int addCopy(const std::vector<int> &geoIdList, const Base::Vector3d& displacement, bool moveonly = false, bool clone=false, int csize=2, int rsize=1, bool constraindisplacement = false, double perpscale = 1.0);
     /// Exposes all internal geometry of an object supporting internal geometry
     /*!
      * \return -1 on error
      */
-    int ExposeInternalGeometry(int GeoId);
-    /// Deletes all unused (not further constrained) internal geometry
+    int exposeInternalGeometry(int GeoId);
     /*!
-     * \return -1 on error
+     \brief Deletes all unused (not further constrained) internal geometry
+     \param GeoId - the geometry having the internal geometry to delete
+     \param delgeoid - if true in addition to the unused internal geometry also deletes the GeoId geometry
+     \retval int - returns -1 on error, otherwise the number of deleted elements
      */
-    int DeleteUnusedInternalGeometry(int GeoId);
+    int deleteUnusedInternalGeometry(int GeoId, bool delgeoid=false);
+    /*!
+     \brief Approximates the given geometry with a B-spline
+     \param GeoId - the geometry to approximate
+     \param delgeoid - if true in addition to the unused internal geometry also deletes the GeoId geometry
+     \retval bool - returns true if the approximation succeeded, or false if it did not succeed.
+     */
+    bool convertToNURBS(int GeoId);
+    
+    /*!
+     \brief Increases the degree of a BSpline by degreeincrement, which defaults to 1
+     \param GeoId - the geometry of type bspline to increase the degree
+     \param degreeincrement - the increment in number of degrees to effect
+     \retval bool - returns true if the increase in degree succeeded, or false if it did not succeed.
+     */
+    bool increaseBSplineDegree(int GeoId, int degreeincrement = 1);
+    
+    /*!
+     \brief Increases or Decreases the multiplicity of a BSpline knot by the multiplicityincr param, which defaults to 1, if the result is multiplicity zero, the knot is removed
+     \param GeoId - the geometry of type bspline to increase the degree
+     \param knotIndex - the index of the knot to modify (note that index is OCC consistent, so 1<=knotindex<=knots)
+     \param multiplicityincr - the increment (positive value) or decrement (negative value) of multiplicity of the knot
+     \retval bool - returns true if the operation succeeded, or false if it did not succeed.
+     */
+    bool modifyBSplineKnotMultiplicity(int GeoId, int knotIndex, int multiplicityincr = 1);
 
     /// retrieves for a Vertex number the corresponding GeoId and PosId
     void getGeoVertexIndex(int VertexId, int &GeoId, PointPos &PosId) const;
@@ -215,6 +280,8 @@ public:
     bool isPointOnCurve(int geoIdCurve, double px, double py);
     double calculateConstraintError(int ConstrId);
     int changeConstraintsLocking(bool bLock);
+    /// returns whether a given constraint has an associated expression or not
+    bool constraintHasExpression(int constrid) const;
 
     ///porting functions
     int port_reversedExternalArcs(bool justAnalyze);
@@ -258,9 +325,26 @@ public:
     inline const std::vector<int> &getLastRedundant(void) const { return lastRedundant; }
     /// gets the solved sketch as a reference
     inline Sketch &getSolvedSketch(void) {return solvedSketch;}
+    
+    /// returns the geometric elements/vertex which the solver detects as having dependent parameters.
+    /// these parameters relate to not fully constraint edges/vertices.
+    void getGeometryWithDependentParameters(std::vector<std::pair<int,PointPos>>& geometrymap);
 
     /// Flag to allow external geometry from other bodies than the one this sketch belongs to
-    bool allowOtherBody;
+    bool isAllowedOtherBody() const {
+        return allowOtherBody;
+    }
+    void setAllowOtherBody(bool on) {
+        allowOtherBody = on;
+    }
+
+    /// Flag to allow carbon copy from misaligned geometry
+    bool isAllowedUnaligned() const {
+        return allowUnaligned;
+    }
+    void setAllowUnaligned(bool on) {
+        allowUnaligned = on;
+    }
 
     enum eReasonList{
         rlAllowed,
@@ -268,11 +352,43 @@ public:
         rlCircularReference,
         rlOtherPart,
         rlOtherBody,
+        rlOtherBodyWithLinks,   // for carbon copy
+        rlNotASketch,           // for carbon copy
+        rlNonParallel,          // for carbon copy
+        rlAxesMisaligned,       // for carbon copy
+        rlOriginsMisaligned     // for carbon copy
     };
     /// Return true if this object is allowed as external geometry for the
-    /// sketch. rsn argument recieves the reason for disallowing.
+    /// sketch. rsn argument receives the reason for disallowing.
     bool isExternalAllowed(App::Document *pDoc, App::DocumentObject *pObj, eReasonList* rsn = 0) const;
-
+    
+    bool isCarbonCopyAllowed(App::Document *pDoc, App::DocumentObject *pObj, bool & xinv, bool & yinv, eReasonList* rsn = 0) const;
+public:
+    // Analyser functions
+    int autoConstraint(double precision = Precision::Confusion() * 1000, double angleprecision = M_PI/20, bool includeconstruction = true);
+    
+    int detectMissingPointOnPointConstraints(double precision = Precision::Confusion() * 1000, bool includeconstruction = true);
+    void analyseMissingPointOnPointCoincident(double angleprecision = M_PI/8);
+    int detectMissingVerticalHorizontalConstraints(double angleprecision = M_PI/8);
+    int detectMissingEqualityConstraints(double precision);
+    
+    std::vector<ConstraintIds> &getMissingPointOnPointConstraints(void);
+    std::vector<ConstraintIds> &getMissingVerticalHorizontalConstraints(void);
+    std::vector<ConstraintIds> &getMissingLineEqualityConstraints(void);
+    std::vector<ConstraintIds> &getMissingRadiusConstraints(void);
+    
+    void setMissingRadiusConstraints(std::vector<ConstraintIds> &cl);
+    void setMissingLineEqualityConstraints(std::vector<ConstraintIds>& cl);
+    void setMissingVerticalHorizontalConstraints(std::vector<ConstraintIds>& cl);
+    void setMissingPointOnPointConstraints(std::vector<ConstraintIds>& cl);
+    
+    void makeMissingPointOnPointCoincident(bool onebyone = false);
+    void makeMissingVerticalHorizontal(bool onebyone = false);
+    void makeMissingEquality(bool onebyone = true);
+    
+    // helper
+    void autoRemoveRedundants(bool updategeo);
+    
 protected:
     /// get called by the container when a property has changed
     virtual void onChanged(const App::Property* /*prop*/);
@@ -292,6 +408,12 @@ protected:
     std::vector<Part::Geometry *> supportedGeometry(const std::vector<Part::Geometry *> &geoList) const;
 
 private:
+    /// Flag to allow external geometry from other bodies than the one this sketch belongs to
+    bool allowOtherBody;
+
+    /// Flag to allow carbon copy from misaligned geometry
+    bool allowUnaligned;
+
     std::vector<Part::Geometry *> ExternalGeo;
 
     std::vector<int> VertexId2GeoId;
@@ -317,6 +439,8 @@ private:
     boost::signals::scoped_connection constraintsRemovedConn;
 
     bool AutoLockTangencyAndPerpty(Constraint* cstr, bool bForce = false, bool bLock = true);
+
+    SketchAnalysis * analyser;
 };
 
 typedef App::FeaturePythonT<SketchObject> SketchObjectPython;

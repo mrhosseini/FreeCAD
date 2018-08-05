@@ -32,6 +32,7 @@
 # include <Geom_Plane.hxx>
 # include <Precision.hxx>
 # include <QMessageBox>
+# include <QAction>
 # include <QRegExp>
 # include <QTextStream>
 # include <TopoDS.hxx>
@@ -428,7 +429,8 @@ double TaskFemConstraintContact::get_Friction() const{return ui->spFriction->val
 
 
 
-void TaskFemConstraintContact::changeEvent(QEvent *e){
+void TaskFemConstraintContact::changeEvent(QEvent *)
+{
 }
 
 //**************************************************************************
@@ -453,7 +455,7 @@ void TaskDlgFemConstraintContact::open()
         QString msg = QObject::tr("Constraint Contact");
         Gui::Command::openCommand((const char*)msg.toUtf8());
         ConstraintView->setVisible(true);
-        Gui::Command::doCommand(Gui::Command::Doc,ViewProviderFemConstraint::gethideMeshShowPartStr((static_cast<Fem::Constraint*>(ConstraintView->getObject()))->getNameInDocument()).c_str()); //OvG: Hide meshes and show parts
+        Gui::Command::runCommand(Gui::Command::Doc,ViewProviderFemConstraint::gethideMeshShowPartStr((static_cast<Fem::Constraint*>(ConstraintView->getObject()))->getNameInDocument()).c_str()); //OvG: Hide meshes and show parts
     }
 }
 

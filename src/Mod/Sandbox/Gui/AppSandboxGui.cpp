@@ -45,7 +45,9 @@
 #include <Gui/View3DInventor.h>
 #include <Gui/View3DInventorViewer.h>
 #include <Gui/Application.h>
+#ifdef HAVE_PART
 #include <Mod/Part/App/PropertyGeometryList.h>
+#endif
 
 #include "Workbench.h"
 
@@ -64,6 +66,7 @@ public:
 private:
     void slotChangedObject(const App::DocumentObject& Obj, const App::Property& Prop)
     {
+#ifdef HAVE_PART
         if (object == &Obj && Prop.getTypeId() == Part::PropertyGeometryList::getClassTypeId()) {
             const Part::PropertyGeometryList& geom = static_cast<const Part::PropertyGeometryList&>(Prop);
             const std::vector<Part::Geometry*>& items = geom.getValues();
@@ -153,7 +156,7 @@ private:
                 args.setItem(3,Py::Vector(Base::Vector3d(0,0,1)));
                 args.setItem(4,Py::Float(radius));
               //args.setItem(5,Py::Int((int)0));
-                args.setItem(5,Py::Int((int)1));
+                args.setItem(5,Py::Long((long)1));
                 Py::Tuple ret(method.apply(args));
                 Py::Vector S1(ret.getItem(0));
                 Py::Vector S2(ret.getItem(1));
@@ -180,6 +183,10 @@ private:
                 Base::Console().Error("%s\n", e.what());
             }
         }
+#else
+        (void)Obj;
+        (void)Prop;
+#endif
     }
 
     App::DocumentObject* object;
@@ -204,7 +211,7 @@ public:
     virtual ~Module() {}
 
 private:
-    Py::Object interactiveFilletArc(const Py::Tuple& args)
+    Py::Object interactiveFilletArc(const Py::Tuple& /*args*/)
     {
         Gui::Document* doc = Gui::Application::Instance->activeDocument();
         if (doc) {
@@ -239,14 +246,19 @@ private:
     }
 };
 
+PyObject* initModule()
+{
+    return (new Module)->module().ptr();
+}
+
 } // namespace SandboxGui
 
 /* Python entry */
-PyMODINIT_FUNC initSandboxGui()
+PyMOD_INIT_FUNC(SandboxGui)
 {
     if (!Gui::Application::Instance) {
         PyErr_SetString(PyExc_ImportError, "Cannot load Gui module in console application.");
-        return;
+        PyMOD_Return(0);
     }
 
     // Load Python modules this module depends on
@@ -255,16 +267,17 @@ PyMODINIT_FUNC initSandboxGui()
     }
     catch(const Base::Exception& e) {
         PyErr_SetString(PyExc_ImportError, e.what());
-        return;
+        PyMOD_Return(0);
     }
 
-    // instanciating the commands
+    // instantiating the commands
     CreateSandboxCommands();
     SandboxGui::Workbench::init();
     SandboxGui::SoWidgetShape::initClass();
 
     // the following constructor call registers our extension module
     // with the Python runtime system
-    (void)new SandboxGui::Module;
+    PyObject* mod = SandboxGui::initModule();
     Base::Console().Log("Loading GUI of Sandbox module... done\n");
+    PyMOD_Return(mod);
 }

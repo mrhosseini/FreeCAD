@@ -24,6 +24,8 @@
 #include "PreCompiled.h"
 
 #ifndef _PreComp_
+# include <QAction>
+# include <QMenu>
 # include <QMessageBox>
 #endif
 
@@ -56,7 +58,7 @@ PROPERTY_SOURCE(PartDesignGui::ViewProviderPrimitive,PartDesignGui::ViewProvider
 
 ViewProviderPrimitive::ViewProviderPrimitive()
 {
-    
+    previewFaceSet = 0;
 }
 
 ViewProviderPrimitive::~ViewProviderPrimitive()
@@ -65,10 +67,15 @@ ViewProviderPrimitive::~ViewProviderPrimitive()
 }
 
 void ViewProviderPrimitive::attach(App::DocumentObject* obj) {
-     
     ViewProviderAddSub::attach(obj);
 }
 
+void ViewProviderPrimitive::setupContextMenu(QMenu* menu, QObject* receiver, const char* member)
+{
+    QAction* act;
+    act = menu->addAction(QObject::tr("Edit primitive"), receiver, member);
+    act->setData(QVariant((int)ViewProvider::Default));
+}
 
 bool ViewProviderPrimitive::setEdit(int ModNum)
 {
@@ -80,8 +87,6 @@ bool ViewProviderPrimitive::setEdit(int ModNum)
         // the task panel
         Gui::TaskView::TaskDialog *dlg = Gui::Control().activeDialog();
         TaskPrimitiveParameters *primitiveDlg = qobject_cast<TaskPrimitiveParameters *>(dlg);
-        if (primitiveDlg)
-            primitiveDlg = 0; // another pad left open its task panel
         if (dlg && !primitiveDlg) {
             QMessageBox msgBox;
             msgBox.setText(QObject::tr("A dialog is already open in the task panel"));
@@ -102,6 +107,7 @@ bool ViewProviderPrimitive::setEdit(int ModNum)
         oldWb = Gui::Command::assureWorkbench("PartDesignWorkbench");
 
         // start the edit dialog
+        // another pad left open its task panel
         if (primitiveDlg)
             Gui::Control().showDialog(primitiveDlg);
         else
@@ -114,62 +120,52 @@ bool ViewProviderPrimitive::setEdit(int ModNum)
     }
 }
 
-void ViewProviderPrimitive::unsetEdit(int ModNum) {
+void ViewProviderPrimitive::unsetEdit(int ModNum)
+{
+    Q_UNUSED(ModNum);
     setPreviewDisplayMode(false);
 }
 
 void ViewProviderPrimitive::updateData(const App::Property* p) {
-
     PartDesignGui::ViewProviderAddSub::updateData(p);
 }
 
-
-
-std::vector< App::DocumentObject* > ViewProviderPrimitive::claimChildren(void) const {
-    
-    std::vector< App::DocumentObject* > vec;
-    vec.push_back(static_cast<PartDesign::FeaturePrimitive*>(getObject())->CoordinateSystem.getValue());
-    
-    return vec;
-}
-
 QIcon ViewProviderPrimitive::getIcon(void) const {
-    
+
     QString str = QString::fromLatin1("PartDesign_");
     auto* prim = static_cast<PartDesign::FeaturePrimitive*>(getObject());
     if(prim->getAddSubType() == PartDesign::FeatureAddSub::Additive)
         str += QString::fromLatin1("Additive_");
     else
         str += QString::fromLatin1("Subtractive_");
-    
+
     switch(prim->getPrimitiveType()) {
-        
-        case PartDesign::FeaturePrimitive::Box: 
-            str += QString::fromLatin1("Box");
-            break;
-        case PartDesign::FeaturePrimitive::Cylinder: 
-            str += QString::fromLatin1("Cylinder");
-            break;
-        case PartDesign::FeaturePrimitive::Sphere: 
-            str += QString::fromLatin1("Sphere");
-            break;
-       case PartDesign::FeaturePrimitive::Cone: 
-            str += QString::fromLatin1("Cone");
-            break;
-       case PartDesign::FeaturePrimitive::Ellipsoid: 
-            str += QString::fromLatin1("Ellipsoid");
-            break;
-      case PartDesign::FeaturePrimitive::Torus: 
-            str += QString::fromLatin1("Torus");
-            break;
-      case PartDesign::FeaturePrimitive::Prism: 
-            str += QString::fromLatin1("Prism");
-            break;
-      case PartDesign::FeaturePrimitive::Wedge: 
-            str += QString::fromLatin1("Wedge");
-            break;
+    case PartDesign::FeaturePrimitive::Box:
+        str += QString::fromLatin1("Box");
+        break;
+    case PartDesign::FeaturePrimitive::Cylinder:
+        str += QString::fromLatin1("Cylinder");
+        break;
+    case PartDesign::FeaturePrimitive::Sphere:
+        str += QString::fromLatin1("Sphere");
+        break;
+    case PartDesign::FeaturePrimitive::Cone:
+        str += QString::fromLatin1("Cone");
+        break;
+    case PartDesign::FeaturePrimitive::Ellipsoid:
+        str += QString::fromLatin1("Ellipsoid");
+        break;
+    case PartDesign::FeaturePrimitive::Torus:
+        str += QString::fromLatin1("Torus");
+        break;
+    case PartDesign::FeaturePrimitive::Prism:
+        str += QString::fromLatin1("Prism");
+        break;
+    case PartDesign::FeaturePrimitive::Wedge:
+        str += QString::fromLatin1("Wedge");
+        break;
     }
-   
+
     str += QString::fromLatin1(".svg");
-    return Gui::BitmapFactory().pixmap(str.toStdString().c_str());
+    return mergeTip(Gui::BitmapFactory().pixmap(str.toStdString().c_str()));
 }

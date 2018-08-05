@@ -5,22 +5,28 @@ endif(WIN32)
 include_directories(
     ${CMAKE_CURRENT_BINARY_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_SOURCE_DIR}/src/3rdParty
+    ${CMAKE_SOURCE_DIR}/src/3rdParty/libkdtree
     ${Boost_INCLUDE_DIRS}
     ${PYTHON_INCLUDE_DIRS}
     ${XercesC_INCLUDE_DIRS}
-    ${QT_QTCORE_INCLUDE_DIR}
     ${ZLIB_INCLUDE_DIR}
     ${EIGEN3_INCLUDE_DIR}
 )
 
-
 set(Mesh_LIBS
     ${Boost_LIBRARIES}
-    ${QT_QTCORE_LIBRARY}
     FreeCADBase
     FreeCADApp
 )
+
+if (BUILD_QT5)
+    include_directories(
+        ${Qt5Concurrent_INCLUDE_DIRS}
+    )
+    list(APPEND Mesh_LIBS
+        ${Qt5Concurrent_LIBRARIES}
+    )
+endif()
 
 generate_from_xml(FacetPy)
 generate_from_xml(MeshFeaturePy)
@@ -44,6 +50,8 @@ SET(Core_SRCS
     Core/Builder.h
     Core/Curvature.cpp
     Core/Curvature.h
+    Core/Decimation.cpp
+    Core/Decimation.h
     Core/Definitions.cpp
     Core/Definitions.h
     Core/Degeneration.cpp
@@ -58,6 +66,8 @@ SET(Core_SRCS
     Core/Info.cpp
     Core/Info.h
     Core/Iterator.h
+    Core/KDTree.cpp
+    Core/KDTree.h
     Core/MeshIO.cpp
     Core/MeshIO.h
     Core/MeshKernel.cpp
@@ -310,6 +320,8 @@ SET(Mesh_SRCS
     ${Mesh_XML_SRCS}
     AppMesh.cpp
     AppMeshPy.cpp
+    Exporter.cpp
+    Exporter.h
     Facet.cpp
     Facet.h
     FacetPyImp.cpp
@@ -349,11 +361,11 @@ SET(Mesh_SRCS
     Segment.h
 )
 
-if(MSVC)
+if(BUILD_USE_PCH)
     add_definitions(-D_PreComp_)
     GET_MSVC_PRECOMPILED_SOURCE("PreCompiled.cpp" PCH_SRCS ${Core_SRCS} ${Mesh_SRCS})
     ADD_MSVC_PRECOMPILED_HEADER(Mesh PreCompiled.h PreCompiled.cpp PCH_SRCS)
-endif(MSVC)
+endif(BUILD_USE_PCH)
 
 add_library(Mesh SHARED ${Core_SRCS} ${WildMagic4_SRCS} ${Mesh_SRCS})
 target_link_libraries(Mesh ${Mesh_LIBS})

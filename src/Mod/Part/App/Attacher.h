@@ -99,6 +99,15 @@ enum eMapMode {
 
     mmInertialCS,
 
+    mm1FaceNormal,
+
+    mmOZX,
+    mmOZY,
+    mmOXY,
+    mmOXZ,
+    mmOYZ,
+    mmOYX,
+
     mmDummy_NumberOfModes//a value useful to check the validity of mode value
 };//see also eMapModeStrings[] definition in .cpp
 
@@ -153,13 +162,13 @@ struct SuggestResult{
         srOK, //references are valid for at least one mode
         srLinkBroken, //failed to resolve out some of current references. Exception info is stored in SuggestResult::error.
         srUnexpectedError,
-        srNoModesFit,//none of the avaliable mapping modes accepts the set of topological type
+        srNoModesFit,//none of the available mapping modes accepts the set of topological type
         srIncompatibleGeometry,//there is a mode that could fit, but geometry is wrong (e.g. a line is required, but a curve was passed).
     };
     eSuggestResult message;
 
     /**
-      * @brief allApplicableModes. Vector array that will recieve the list of
+      * @brief allApplicableModes. Vector array that will receive the list of
       * all modes that are applicable to current set of references. It doesn't
       * guarantee that all modes will work, it only checks that subelemnts are
       * of right type.
@@ -180,7 +189,7 @@ struct SuggestResult{
     std::set<eRefType> nextRefTypeHint;
 
     /**
-     * @brief reachableModes. List of modes that can be reached by selecing
+     * @brief reachableModes. List of modes that can be reached by selecting
      * more references. Is a map, where key is the mode that can be reached,
      * and value is a list of reference sequences that can be added to reach
      * the mode (stuff already linked is omitted from these lists; only extra
@@ -213,7 +222,7 @@ public: //methods
                       bool mapReverse = false,
                       double attachParameter = 0.0,
                       double surfU = 0.0, double surfV = 0.0,
-                      const Base::Placement &superPlacement = Base::Placement());
+                      const Base::Placement &attachmentOffset = Base::Placement());
     virtual void setUp(const AttachEngine &another);
     virtual AttachEngine* copy() const = 0;
     virtual Base::Placement calculateAttachedPlacement(Base::Placement origPlacement) const = 0;
@@ -361,7 +370,7 @@ public: //members
     bool mapReverse;
     double attachParameter;
     double surfU, surfV;
-    Base::Placement superPlacement;
+    Base::Placement attachmentOffset;
 
     /**
      * @brief modeEnabled is an indicator, whether some mode is ever suggested
@@ -456,7 +465,7 @@ class ExceptionCancel : public Base::Exception
 public:
     ExceptionCancel(){}
     ExceptionCancel(char* msg){this->setMessage(msg);}
-    ~ExceptionCancel(){}
+    virtual ~ExceptionCancel() throw() {}
 };
 
 } // namespace Attacher

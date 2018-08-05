@@ -74,7 +74,6 @@ protected:
   MeshKernel         &_resultMesh;           /** Result mesh */
   OperationType       _operationType;        /** Set Operation Type */
   float               _minDistanceToPoint;   /** Minimal distance to facet corner points */
-  float               _saveMinMeshDistance;
 
 private:
   // Helper class cutting edge to his two attached facets
@@ -123,6 +122,8 @@ private:
       {
         fcounter[0] = 0;
         fcounter[1] = 0;
+        facet[0] = 0;
+        facet[1] = 0;
       }
   };
 

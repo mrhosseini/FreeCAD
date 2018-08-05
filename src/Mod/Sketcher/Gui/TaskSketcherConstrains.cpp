@@ -53,6 +53,7 @@
 #include <boost/bind.hpp>
 #include <Gui/Command.h>
 #include <Gui/MainWindow.h>
+#include <Gui/PrefWidgets.h>
 
 using namespace SketcherGui;
 using namespace Gui::TaskView;
@@ -77,12 +78,15 @@ void ConstraintView::FUNC(){                               \
 class ConstraintItem : public QListWidgetItem
 {
 public:
-    ConstraintItem(const Sketcher::SketchObject * s, int ConstNbr)
+    ConstraintItem(const Sketcher::SketchObject * s, ViewProviderSketch *sketchview, int ConstNbr)
         : QListWidgetItem(QString()),
           sketch(s),
+          sketchView(sketchview),
           ConstraintNbr(ConstNbr)
     {
-        this->setFlags(this->flags() | Qt::ItemIsEditable);
+        this->setFlags(this->flags() | Qt::ItemIsEditable | Qt::ItemIsUserCheckable);
+
+        updateVirtualSpaceStatus();
     }
     ~ConstraintItem()
     {
@@ -101,6 +105,12 @@ public:
             return QVariant();
 
         const Sketcher::Constraint * constraint = sketch->Constraints[ConstraintNbr];
+
+        // it can happen that the geometry of the sketch is tmp. invalid and thus
+        // the index operator returns null.
+        if (!constraint) {
+            return QVariant();
+        }
 
         if (role == Qt::EditRole) {
             if (value.isValid())
@@ -121,11 +131,13 @@ public:
             case Sketcher::Tangent:
             case Sketcher::Equal:
             case Sketcher::Symmetric:
+            case Sketcher::Block:
                 break;
             case Sketcher::Distance:
             case Sketcher::DistanceX:
             case Sketcher::DistanceY:
             case Sketcher::Radius:
+            case Sketcher::Diameter:
             case Sketcher::Angle:
                 name = QString::fromLatin1("%1 (%2)").arg(name).arg(constraint->getPresentationValue().getUserString());
                 break;
@@ -146,6 +158,22 @@ public:
             default:
                 break;
             }
+
+            ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Sketcher");
+            bool extended = hGrp->GetBool("ExtendedConstraintInformation",false);
+
+            if(extended) {
+                if(constraint->Second == Sketcher::Constraint::GeoUndef) {
+                    name = QString::fromLatin1("%1 [(%2,%3)]").arg(name).arg(constraint->First).arg(constraint->FirstPos);
+                }
+                else if(constraint->Third == Sketcher::Constraint::GeoUndef) {
+                    name = QString::fromLatin1("%1 [(%2,%3),(%4,%5)]").arg(name).arg(constraint->First).arg(constraint->FirstPos).arg(constraint->Second).arg(constraint->SecondPos);
+                }
+                else {
+                    name = QString::fromLatin1("%1 [(%2,%3),(%4,%5),(%6,%7)]").arg(name).arg(constraint->First).arg(constraint->FirstPos).arg(constraint->Second).arg(constraint->SecondPos).arg(constraint->Third).arg(constraint->ThirdPos);
+                }
+            }
+
             return name;
         }
         else if (role == Qt::DecorationRole) {
@@ -153,17 +181,19 @@ public:
             static QIcon vdist( Gui::BitmapFactory().pixmap("Constraint_VerticalDistance") );
             static QIcon horiz( Gui::BitmapFactory().pixmap("Constraint_Horizontal") );
             static QIcon vert ( Gui::BitmapFactory().pixmap("Constraint_Vertical") );
-            static QIcon lock ( Gui::BitmapFactory().pixmap("Sketcher_ConstrainLock") );
+          //static QIcon lock ( Gui::BitmapFactory().pixmap("Sketcher_ConstrainLock") );
+            static QIcon block ( Gui::BitmapFactory().pixmap("Sketcher_ConstrainBlock") );
             static QIcon coinc( Gui::BitmapFactory().pixmap("Constraint_PointOnPoint") );
             static QIcon para ( Gui::BitmapFactory().pixmap("Constraint_Parallel") );
             static QIcon perp ( Gui::BitmapFactory().pixmap("Constraint_Perpendicular") );
             static QIcon tang ( Gui::BitmapFactory().pixmap("Constraint_Tangent") );
             static QIcon dist ( Gui::BitmapFactory().pixmap("Constraint_Length") );
             static QIcon radi ( Gui::BitmapFactory().pixmap("Constraint_Radius") );
-            static QIcon majradi ( Gui::BitmapFactory().pixmap("Constraint_Ellipse_Major_Radius") );
-            static QIcon minradi ( Gui::BitmapFactory().pixmap("Constraint_Ellipse_Minor_Radius") );
+            static QIcon dia ( Gui::BitmapFactory().pixmap("Constraint_Diameter") );
+          //static QIcon majradi ( Gui::BitmapFactory().pixmap("Constraint_Ellipse_Major_Radius") );
+          //static QIcon minradi ( Gui::BitmapFactory().pixmap("Constraint_Ellipse_Minor_Radius") );
             static QIcon angl ( Gui::BitmapFactory().pixmap("Constraint_InternalAngle") );
-            static QIcon ellipseXUAngl ( Gui::BitmapFactory().pixmap("Constraint_Ellipse_Axis_Angle") );
+          //static QIcon ellipseXUAngl ( Gui::BitmapFactory().pixmap("Constraint_Ellipse_Axis_Angle") );
             static QIcon equal( Gui::BitmapFactory().pixmap("Constraint_EqualLength") );
             static QIcon pntoo( Gui::BitmapFactory().pixmap("Constraint_PointOnObject") );
             static QIcon symm ( Gui::BitmapFactory().pixmap("Constraint_Symmetric") );
@@ -178,6 +208,7 @@ public:
             static QIcon vdist_driven( Gui::BitmapFactory().pixmap("Constraint_VerticalDistance_Driven") );
             static QIcon dist_driven ( Gui::BitmapFactory().pixmap("Constraint_Length_Driven") );
             static QIcon radi_driven ( Gui::BitmapFactory().pixmap("Constraint_Radius_Driven") );
+            static QIcon dia_driven ( Gui::BitmapFactory().pixmap("Constraint_Diameter_Driven") );
             static QIcon angl_driven ( Gui::BitmapFactory().pixmap("Constraint_InternalAngle_Driven") );
             static QIcon snell_driven ( Gui::BitmapFactory().pixmap("Constraint_SnellsLaw_Driven") );
 
@@ -188,6 +219,8 @@ public:
                 return vert;
             case Sketcher::Coincident:
                 return coinc;
+            case Sketcher::Block:
+                return block;
             case Sketcher::PointOnObject:
                 return pntoo;
             case Sketcher::Parallel:
@@ -208,6 +241,8 @@ public:
                 return constraint->isDriving ? vdist : vdist_driven;
             case Sketcher::Radius:
                 return constraint->isDriving ? radi : radi_driven;
+            case Sketcher::Diameter:
+                return constraint->isDriving ? dia : dia_driven;                
             case Sketcher::Angle:
                 return constraint->isDriving ? angl : angl_driven;
             case Sketcher::SnellsLaw:
@@ -261,6 +296,7 @@ public:
         case Sketcher::Horizontal:
         case Sketcher::Vertical:
         case Sketcher::Coincident:
+        case Sketcher::Block:
         case Sketcher::PointOnObject:
         case Sketcher::Parallel:
         case Sketcher::Perpendicular:
@@ -272,6 +308,7 @@ public:
         case Sketcher::DistanceX:
         case Sketcher::DistanceY:
         case Sketcher::Radius:
+        case Sketcher::Diameter:
         case Sketcher::Angle:
         case Sketcher::SnellsLaw:
             return ( constraint->First >= 0 || constraint->Second >= 0 || constraint->Third >= 0 );
@@ -287,7 +324,18 @@ public:
         return sketch->Constraints[ConstraintNbr]->isDriving;
     }
 
+    bool isInVirtualSpace() const {
+        assert(ConstraintNbr >= 0 && ConstraintNbr < sketch->Constraints.getSize());
+
+        return sketch->Constraints[ConstraintNbr]->isInVirtualSpace;
+    }
+    
+    void updateVirtualSpaceStatus() {
+        this->setCheckState((this->isInVirtualSpace() != sketchView->getIsShownVirtualSpace())?Qt::Unchecked:Qt::Checked);
+    }
+
     const Sketcher::SketchObject * sketch;
+    const ViewProviderSketch *sketchView;
     int ConstraintNbr;
     QVariant value;
 };
@@ -314,12 +362,19 @@ protected:
     }
 
     void paint ( QPainter * painter, const QStyleOptionViewItem & option, const QModelIndex & index ) const {
+#if QT_VERSION >= 0x050000
+        QStyleOptionViewItem options = option;
+#else
         QStyleOptionViewItemV4 options = option;
+#endif
         initStyleOption(&options, index);
 
         options.widget->style()->drawControl(QStyle::CE_ItemViewItem, &options, painter);
 
         ConstraintItem * item = dynamic_cast<ConstraintItem*>(view->item(index.row()));
+        if (!item || item->sketch->Constraints.getSize() <= item->ConstraintNbr)
+            return;
+
         App::ObjectIdentifier path = item->sketch->Constraints.createPath(item->ConstraintNbr);
         App::PropertyExpressionEngine::ExpressionInfo expr_info = item->sketch->getExpression(path);
 
@@ -362,14 +417,14 @@ void ConstraintView::contextMenuEvent (QContextMenuEvent* event)
     bool isToggleDriving = false;
 
     // Non-driving-constraints/measurements
-    if (item) {
-        ConstraintItem *it = dynamic_cast<ConstraintItem*>(item);
-
+    ConstraintItem *it = dynamic_cast<ConstraintItem*>(item);
+    if (it) {
         // if its the right constraint
         if ((it->constraintType() == Sketcher::Distance ||
              it->constraintType() == Sketcher::DistanceX ||
              it->constraintType() == Sketcher::DistanceY ||
              it->constraintType() == Sketcher::Radius ||
+             it->constraintType() == Sketcher::Diameter ||
              it->constraintType() == Sketcher::Angle ||
              it->constraintType() == Sketcher::SnellsLaw)) {
 
@@ -388,10 +443,16 @@ void ConstraintView::contextMenuEvent (QContextMenuEvent* event)
     driven->setEnabled(isToggleDriving);
 
     menu.addSeparator();
+    QAction* show = menu.addAction(tr("Show constraints"), this, SLOT(showConstraints()));
+    show->setEnabled(!items.isEmpty());
+    QAction* hide = menu.addAction(tr("Hide constraints"), this, SLOT(hideConstraints()));
+    hide->setEnabled(!items.isEmpty());
+
+    menu.addSeparator();
     CONTEXT_ITEM("Sketcher_SelectElementsAssociatedWithConstraints","Select Elements","Sketcher_SelectElementsAssociatedWithConstraints",doSelectConstraints,true)
 
     QAction* rename = menu.addAction(tr("Rename"), this, SLOT(renameCurrentItem())
-#ifndef Q_WS_MAC // on Mac F2 doesn't seem to trigger an edit signal
+#ifndef Q_OS_MAC // on Mac F2 doesn't seem to trigger an edit signal
         ,QKeySequence(Qt::Key_F2)
 #endif
         );
@@ -416,11 +477,28 @@ void ConstraintView::updateDrivingStatus()
 {
     QListWidgetItem* item = currentItem();
     
-    if (item){
-        ConstraintItem *it = dynamic_cast<ConstraintItem*>(item);
-        
+    ConstraintItem *it = dynamic_cast<ConstraintItem*>(item);
+    if (it) {
         onUpdateDrivingStatus(item, !it->isDriving());
-    }    
+    }
+}
+
+void ConstraintView::showConstraints()
+{
+    QList<QListWidgetItem *> items = selectedItems();
+    for (auto it : items) {
+        if (it->checkState() != Qt::Checked)
+            it->setCheckState(Qt::Checked);
+    }
+}
+
+void ConstraintView::hideConstraints()
+{
+    QList<QListWidgetItem *> items = selectedItems();
+    for (auto it : items) {
+        if (it->checkState() != Qt::Unchecked)
+            it->setCheckState(Qt::Unchecked);
+    }
 }
 
 void ConstraintView::modifyCurrentItem()
@@ -536,17 +614,30 @@ TaskSketcherConstrains::TaskSketcherConstrains(ViewProviderSketch *sketchView)
         ui->listWidgetConstraints, SIGNAL(onUpdateDrivingStatus(QListWidgetItem *, bool)),
         this                     , SLOT  (on_listWidgetConstraints_updateDrivingStatus(QListWidgetItem *, bool))
        );
+    QObject::connect(
+        ui->filterInternalAlignment, SIGNAL(stateChanged(int)),
+        this                     , SLOT  (on_filterInternalAlignment_stateChanged(int))
+        );
+    QObject::connect(
+        ui->extendedInformation, SIGNAL(stateChanged(int)),
+                     this                     , SLOT  (on_extendedInformation_stateChanged(int))
+        );
 
     connectionConstraintsChanged = sketchView->signalConstraintsChanged.connect(
         boost::bind(&SketcherGui::TaskSketcherConstrains::slotConstraintsChanged, this));
 
     this->groupLayout()->addWidget(proxy);
 
+    this->ui->filterInternalAlignment->onRestore();
+    this->ui->extendedInformation->onRestore();
+
     slotConstraintsChanged();
 }
 
 TaskSketcherConstrains::~TaskSketcherConstrains()
 {
+    this->ui->filterInternalAlignment->onSave();
+    this->ui->extendedInformation->onSave();
     connectionConstraintsChanged.disconnect();
     delete ui;
 }
@@ -599,6 +690,19 @@ void TaskSketcherConstrains::on_comboBoxFilter_currentIndexChanged(int)
     slotConstraintsChanged();
 }
 
+void TaskSketcherConstrains::on_filterInternalAlignment_stateChanged(int state)
+{
+    Q_UNUSED(state);
+    slotConstraintsChanged();
+}
+
+void TaskSketcherConstrains::on_extendedInformation_stateChanged(int state)
+{
+    Q_UNUSED(state);
+    this->ui->extendedInformation->onSave();
+    slotConstraintsChanged();
+}
+
 void TaskSketcherConstrains::on_listWidgetConstraints_emitCenterSelectedItems()
 {
     sketchView->centerSelection();
@@ -623,13 +727,14 @@ void TaskSketcherConstrains::on_listWidgetConstraints_itemSelectionChanged(void)
 void TaskSketcherConstrains::on_listWidgetConstraints_itemActivated(QListWidgetItem *item)
 {
     ConstraintItem *it = dynamic_cast<ConstraintItem*>(item);
-    if (!item) return;
+    if (!it) return;
 
     // if its the right constraint
     if (it->constraintType() == Sketcher::Distance ||
         it->constraintType() == Sketcher::DistanceX ||
         it->constraintType() == Sketcher::DistanceY ||
         it->constraintType() == Sketcher::Radius ||
+        it->constraintType() == Sketcher::Diameter ||
         it->constraintType() == Sketcher::Angle ||
         it->constraintType() == Sketcher::SnellsLaw) {
 
@@ -641,6 +746,7 @@ void TaskSketcherConstrains::on_listWidgetConstraints_itemActivated(QListWidgetI
 
 void TaskSketcherConstrains::on_listWidgetConstraints_updateDrivingStatus(QListWidgetItem *item, bool status)
 {
+    Q_UNUSED(status);
     ConstraintItem *citem = dynamic_cast<ConstraintItem*>(item);
     if (!citem) return;
 
@@ -650,20 +756,29 @@ void TaskSketcherConstrains::on_listWidgetConstraints_updateDrivingStatus(QListW
 
 void TaskSketcherConstrains::on_listWidgetConstraints_itemChanged(QListWidgetItem *item)
 {
-    if (!item || inEditMode)
+    const ConstraintItem *it = dynamic_cast<const ConstraintItem*>(item);
+    if (!it || inEditMode)
         return;
 
     inEditMode = true;
+    
+    assert(sketchView);
 
-    const ConstraintItem *it = dynamic_cast<const ConstraintItem*>(item);
     const Sketcher::SketchObject * sketch = sketchView->getSketchObject();
     const std::vector< Sketcher::Constraint * > &vals = sketch->Constraints.getValues();
     const Sketcher::Constraint* v = vals[it->ConstraintNbr];
     const std::string currConstraintName = v->Name;
 
-    std::string newName(Sketcher::PropertyConstraintList::getConstraintName(Base::Tools::toStdString(it->data(Qt::EditRole).toString()), it->ConstraintNbr));
+    const std::string basename = Base::Tools::toStdString(it->data(Qt::EditRole).toString());
+    
+    std::string newName(Sketcher::PropertyConstraintList::getConstraintName(basename, it->ConstraintNbr));
 
-    if (newName != currConstraintName) {
+    // we only start a rename if we are really sure the name has changed, which is:
+    // a) that the name generated by the constraints is different from the text in the widget item
+    // b) that the text in the widget item, basename, is not ""
+    // otherwise a checkbox change will trigger a rename on the first execution, bloating the constraint icons with the
+    // default constraint name "constraint1, constraint2"
+    if (newName != currConstraintName && !basename.empty()) {
         std::string escapedstr = Base::Tools::escapedUnicodeFromUtf8(newName.c_str());
 
         Gui::Command::openCommand("Rename sketch constraint");
@@ -681,6 +796,22 @@ void TaskSketcherConstrains::on_listWidgetConstraints_itemChanged(QListWidgetIte
         }
     }
 
+    // update constraint virtual space status
+    Gui::Command::openCommand("Update constraint's virtual space");
+    try {
+        Gui::Command::doCommand(Gui::Command::Doc,"App.ActiveDocument.%s.setVirtualSpace(%d, %s)",
+                                sketch->getNameInDocument(),
+                                it->ConstraintNbr, 
+                                ((item->checkState() == Qt::Checked) != sketchView->getIsShownVirtualSpace())?"False":"True");
+        Gui::Command::commitCommand();
+    }
+    catch (const Base::Exception & e) {
+        Gui::Command::abortCommand();
+        
+        QMessageBox::critical(Gui::MainWindow::getInstance(), tr("Error"),
+                              QString::fromLatin1(e.what()), QMessageBox::Ok, QMessageBox::Ok);
+    }
+
     inEditMode = false;
 }
 
@@ -691,7 +822,7 @@ void TaskSketcherConstrains::slotConstraintsChanged(void)
     const Sketcher::SketchObject * sketch = sketchView->getSketchObject();
     const std::vector< Sketcher::Constraint * > &vals = sketch->Constraints.getValues();
 
-    /* Update constraint number */
+    /* Update constraint number and virtual space check status */
     for (int i = 0; i <  ui->listWidgetConstraints->count(); ++i) {
         ConstraintItem * it = dynamic_cast<ConstraintItem*>(ui->listWidgetConstraints->item(i));
 
@@ -707,7 +838,15 @@ void TaskSketcherConstrains::slotConstraintsChanged(void)
 
     /* Add new entries, if any */
     for (std::size_t i = ui->listWidgetConstraints->count(); i < vals.size(); ++i)
-        ui->listWidgetConstraints->addItem(new ConstraintItem(sketch, i));
+        ui->listWidgetConstraints->addItem(new ConstraintItem(sketch, sketchView, i));
+
+    /* Update the states */
+    ui->listWidgetConstraints->blockSignals(true);
+    for (int i = 0; i <  ui->listWidgetConstraints->count(); ++i) {
+        ConstraintItem * it = static_cast<ConstraintItem*>(ui->listWidgetConstraints->item(i));
+        it->updateVirtualSpaceStatus();
+    }
+    ui->listWidgetConstraints->blockSignals(false);
 
     /* Update filtering */
     int Filter = ui->comboBoxFilter->currentIndex();
@@ -728,6 +867,7 @@ void TaskSketcherConstrains::slotConstraintsChanged(void)
         bool showDatums = (Filter < 3);
         bool showNamed = (Filter == 3 && !(constraint->Name.empty()));
         bool showNonDriving = (Filter == 4 && !constraint->isDriving);
+        bool hideInternalAlignment = this->ui->filterInternalAlignment->isChecked();
 
         switch(constraint->Type) {
         case Sketcher::Horizontal:
@@ -739,24 +879,33 @@ void TaskSketcherConstrains::slotConstraintsChanged(void)
         case Sketcher::Tangent:
         case Sketcher::Equal:
         case Sketcher::Symmetric:
+        case Sketcher::Block:
             visible = showNormal || showNamed;
             break;
         case Sketcher::Distance:
         case Sketcher::DistanceX:
         case Sketcher::DistanceY:
         case Sketcher::Radius:
+        case Sketcher::Diameter:
         case Sketcher::Angle:
         case Sketcher::SnellsLaw:
             visible = (showDatums || showNamed || showNonDriving);
             break;
         case Sketcher::InternalAlignment:
-            visible = (showNormal || showNamed);
+            visible = ((showNormal || showNamed) && !hideInternalAlignment);
         default:
             break;
         }
 
+        // block signals as there is no need to invoke the
+        // on_listWidgetConstraints_itemChanged() slot in
+        // case a name has changed because this function gets
+        // called after changing the constraint list property
+        QAbstractItemModel* model = ui->listWidgetConstraints->model();
+        bool block = model->blockSignals(true);
         it->setHidden(!visible);
         it->setData(Qt::EditRole, Base::Tools::fromStdString(constraint->Name));
+        model->blockSignals(block);
     }
 }
 

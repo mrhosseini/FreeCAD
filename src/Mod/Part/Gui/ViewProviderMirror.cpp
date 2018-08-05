@@ -27,6 +27,7 @@
 # include <QAction>
 # include <QMenu>
 # include <QTimer>
+# include <Python.h>
 # include <Standard_math.hxx>
 # include <TopExp.hxx>
 # include <TopTools_IndexedMapOfShape.hxx>
@@ -45,6 +46,7 @@
 #include <Mod/Part/App/FeatureFillet.h>
 #include <Mod/Part/App/FeatureChamfer.h>
 #include <Mod/Part/App/FeatureRevolution.h>
+#include <Mod/Part/App/FeatureOffset.h>
 #include <Mod/Part/App/PartFeatures.h>
 #include <Gui/Application.h>
 #include <Gui/Control.h>
@@ -191,13 +193,13 @@ bool ViewProviderMirror::onDelete(const std::vector<std::string> &)
     return true;
 }
 
-void ViewProviderMirror::dragStartCallback(void *data, SoDragger *)
+void ViewProviderMirror::dragStartCallback(void *, SoDragger *)
 {
     // This is called when a manipulator is about to manipulating
     Gui::Application::Instance->activeDocument()->openCommand("Edit Mirror");
 }
 
-void ViewProviderMirror::dragFinishCallback(void *data, SoDragger *)
+void ViewProviderMirror::dragFinishCallback(void *, SoDragger *)
 {
     // This is called when a manipulator has done manipulating
     Gui::Application::Instance->activeDocument()->commitCommand();
@@ -238,6 +240,8 @@ void ViewProviderFillet::updateData(const App::Property* prop)
         if (hist.size() != 1)
             return;
         Part::Fillet* objFill = dynamic_cast<Part::Fillet*>(getObject());
+        if (!objFill)
+            return;
         Part::Feature* objBase = dynamic_cast<Part::Feature*>(objFill->Base.getValue());
         if (objBase) {
             const TopoDS_Shape& baseShape = objBase->Shape.getValue();
@@ -251,19 +255,17 @@ void ViewProviderFillet::updateData(const App::Property* prop)
             std::vector<App::Color> colBase = static_cast<PartGui::ViewProviderPart*>(vpBase)->DiffuseColor.getValues();
             std::vector<App::Color> colFill;
             colFill.resize(fillMap.Extent(), static_cast<PartGui::ViewProviderPart*>(vpBase)->ShapeColor.getValue());
+            applyTransparency(static_cast<PartGui::ViewProviderPart*>(vpBase)->Transparency.getValue(),colBase);
 
-            bool setColor=false;
             if (static_cast<int>(colBase.size()) == baseMap.Extent()) {
                 applyColor(hist[0], colBase, colFill);
-                setColor = true;
             }
             else if (!colBase.empty() && colBase[0] != this->ShapeColor.getValue()) {
                 colBase.resize(baseMap.Extent(), colBase[0]);
                 applyColor(hist[0], colBase, colFill);
-                setColor = true;
             }
-            if (setColor)
-                this->DiffuseColor.setValues(colFill);
+
+            this->DiffuseColor.setValues(colFill);
         }
     }
 }
@@ -341,6 +343,8 @@ void ViewProviderChamfer::updateData(const App::Property* prop)
         if (hist.size() != 1)
             return;
         Part::Chamfer* objCham = dynamic_cast<Part::Chamfer*>(getObject());
+        if (!objCham)
+            return;
         Part::Feature* objBase = dynamic_cast<Part::Feature*>(objCham->Base.getValue());
         if (objBase) {
             const TopoDS_Shape& baseShape = objBase->Shape.getValue();
@@ -354,19 +358,17 @@ void ViewProviderChamfer::updateData(const App::Property* prop)
             std::vector<App::Color> colBase = static_cast<PartGui::ViewProviderPart*>(vpBase)->DiffuseColor.getValues();
             std::vector<App::Color> colCham;
             colCham.resize(chamMap.Extent(), static_cast<PartGui::ViewProviderPart*>(vpBase)->ShapeColor.getValue());
+            applyTransparency(static_cast<PartGui::ViewProviderPart*>(vpBase)->Transparency.getValue(),colBase);
 
-            bool setColor=false;
             if (static_cast<int>(colBase.size()) == baseMap.Extent()) {
                 applyColor(hist[0], colBase, colCham);
-                setColor = true;
             }
             else if (!colBase.empty() && colBase[0] != this->ShapeColor.getValue()) {
                 colBase.resize(baseMap.Extent(), colBase[0]);
                 applyColor(hist[0], colBase, colCham);
-                setColor = true;
             }
-            if (setColor)
-                this->DiffuseColor.setValues(colCham);
+
+            this->DiffuseColor.setValues(colCham);
         }
     }
 }
@@ -579,6 +581,11 @@ bool ViewProviderOffset::onDelete(const std::vector<std::string> &)
 
     return true;
 }
+
+// ---------------------------------------
+
+PROPERTY_SOURCE(PartGui::ViewProviderOffset2D, PartGui::ViewProviderOffset)
+
 
 // ---------------------------------------
 

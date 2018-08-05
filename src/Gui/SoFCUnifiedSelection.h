@@ -23,16 +23,6 @@
 #ifndef GUI_SOFCUNIFIEDSELECTION_H
 #define GUI_SOFCUNIFIEDSELECTION_H
 
-# ifdef FC_OS_MACOSX
-# include <OpenGL/gl.h>
-# else
-# ifdef FC_OS_WIN32
-#  define NOMINMAX
-#  include <windows.h>
-# endif
-# include <GL/gl.h>
-# endif
-
 #include <Inventor/nodes/SoSubNode.h>
 #include <Inventor/nodes/SoSeparator.h>
 #include <Inventor/fields/SoSFBool.h>
@@ -91,6 +81,8 @@ public:
     //virtual void GLRenderInPath(SoGLRenderAction * action);
     //static  void turnOffCurrentHighlight(SoGLRenderAction * action);
 
+    bool checkSelectionStyle(int type, ViewProvider *vp);
+
     friend class View3DInventorViewer;
 protected:
     virtual ~SoFCUnifiedSelection();
@@ -109,6 +101,7 @@ private:
     static SoFullPath * currenthighlight;
 
     SbBool highlighted;
+    SbBool setPreSelection;
     // -1 = not handled, 0 = not selected, 1 = selected
     int32_t preSelection;
     SoColorPacker colorpacker;

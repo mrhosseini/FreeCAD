@@ -52,10 +52,10 @@ PROPERTY_SOURCE(Gui::ViewProviderOriginFeature, Gui::ViewProviderGeometryObject)
 
 ViewProviderOriginFeature::ViewProviderOriginFeature () {
     ADD_PROPERTY_TYPE ( Size, (ViewProviderOrigin::defaultSize()), 0, App::Prop_ReadOnly,
-            "Visual size of the feature" );
+    QT_TRANSLATE_NOOP("App::Property", "Visual size of the feature"));
 
     ShapeColor.setValue ( 50.f/255, 150.f/255, 250.f/255 ); // Set default color for origin (light-blue)
-    BoundingBox.setStatus(App::Property::Hidden, true); // Hide Boundingbox from the user due to it doesn't make sence
+    BoundingBox.setStatus(App::Property::Hidden, true); // Hide Boundingbox from the user due to it doesn't make sense
 
     // Create node for scaling the origin
     pScale = new SoScale ();
@@ -69,8 +69,6 @@ ViewProviderOriginFeature::ViewProviderOriginFeature () {
     pLabel = new SoAsciiText();
     pLabel->ref();
     pLabel->width.setValue(-1);
-
-    sPixmap = "view-measurement";
 }
 
 
@@ -118,7 +116,7 @@ void ViewProviderOriginFeature::attach(App::DocumentObject* pcObject)
     highlight->documentName  = getObject()->getDocument()->getName();
     highlight->style = SoFCSelection::EMISSIVE_DIFFUSE;
 
-    // Style for normal (visiable) lines
+    // Style for normal (visible) lines
     SoDrawStyle* style = new SoDrawStyle ();
     style->lineWidth = 2.0f;
     highlight->addChild ( style );
@@ -180,7 +178,7 @@ void ViewProviderOriginFeature::setDisplayMode (const char* ModeName)
 
 bool ViewProviderOriginFeature::onDelete(const std::vector<std::string> &) {
     App::OriginFeature *feat = static_cast <App::OriginFeature *> ( getObject() );
-    // Forbid deletion if there is an origin thes feature belongs to
+    // Forbid deletion if there is an origin this feature belongs to
 
     if ( feat->getOrigin () ) {
         return false;

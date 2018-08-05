@@ -42,29 +42,25 @@ using namespace Fem;
 
 PROPERTY_SOURCE(Fem::ConstraintFluidBoundary, Fem::Constraint);
 
-// also defined in TaskFemConstraintFluidBoundary.cpp and foamcasebuilder/basicbuilder.py, 
-// please update simultaneously
-// the second (index 1) is the default enum, as index 0 causes compiling error
+// also defined in TaskFemConstraintFluidBoundary.cpp and FoamCaseBuilder/BasicBuilder.py, update simultaneously
+// the second (index 1) item is the default enum, as index 0 causes compiling error
 static const char* BoundaryTypes[] = {"inlet","wall","outlet","interface","freestream", NULL};
-static const char* WallSubtypes[] = {"unspecific", "fixed", "slip", "moving", NULL};
+static const char* WallSubtypes[] = {"unspecific", "fixed", "slip", "partialSlip", "moving", NULL};
 static const char* InletSubtypes[] = {"unspecific","totalPressure","uniformVelocity","volumetricFlowRate","massFlowRate", NULL};
 static const char* OutletSubtypes[] = {"unspecific","totalPressure","staticPressure","uniformVelocity", "outFlow", NULL};
 static const char* InterfaceSubtypes[] = {"unspecific","symmetry","wedge","cyclic","empty", NULL};
 static const char* FreestreamSubtypes[] = {"unspecific", "freestream",NULL};
 
-// see Ansys fluet manual: Turbulence Specification method
-static const char* TurbulenceSpecifications[] = {"Intensity&LengthScale","Intensity&HydraulicDiameter",NULL};
-// activate the heat transfer and radiation model in Solver object explorer
-/* only used in TaskPanel
-static const char* TurbulenceSpecificationHelpTexts[] = {"see Ansys fluet manual: Turbulence Specification method", 
-            "or fully devloped internal flow, Turbulence intensity (0-1.0) 0.05 typical", NULL};
-*/
+// see Ansys fluet manual: Turbulence Specification method, if not specified, solver will guess a value based e.g. 0.05 for inlet length geometry",
+static const char* TurbulenceSpecifications[] = {"intensity&DissipationRate", "intensity&LengthScale","intensity&ViscosityRatio","intensity&HydraulicDiameter",NULL};
+/* only used in TaskFemConstraintFluidBoundary.cpp */
 
-// HTC value type, not sure it is supported in OpenFOAM
-static const char* ThermalBoundaryTypes[] = {"fixedValue","zeroGradient", "fixedGradient", "mixed",  "HTC","coupled", NULL};
-/* only used in TaskPanel
-static const char* ThermalBoundaryHelpTexts[] = {"fixed Temperature [K]", "no heat transfer ()", "fixed value heat flux [W/m2]", 
-            "mixed fixedGradient and fixedValue", "Heat transfer coeff [W/(M2)/K]", "conjugate heat transfer with solid", NULL};
+// activate the heat transfer and radiation model in Solver object explorer
+// also defined in FoamCaseBuilder/HeatTransferBuilder.py, update simultaneously, heatFlux is not a standard OpenFOAM patch type
+static const char* ThermalBoundaryTypes[] = {"fixedValue","zeroGradient", "fixedGradient", "mixed", "heatFlux", "HTC","coupled", NULL};
+/* only used in TaskFemConstraintFluidBoundary.cpp
+static const char* ThermalBoundaryHelpTexts[] = {"fixed Temperature [K]", "no heat transfer ()", "fixed value heat flux [K/m]",
+            "mixed fixedGradient and fixedValue", "fixed heat flux [W/m2]", "Heat transfer coeff [W/(M2)/K]", "conjugate heat transfer with solid", NULL};
 */
 
 ConstraintFluidBoundary::ConstraintFluidBoundary()
@@ -107,7 +103,7 @@ ConstraintFluidBoundary::ConstraintFluidBoundary()
     Points.setValues(std::vector<Base::Vector3d>());
     ADD_PROPERTY_TYPE(DirectionVector,(Base::Vector3d(0,0,1)),"FluidBoundary",App::PropertyType(App::Prop_ReadOnly|App::Prop_Output),
                       "Direction of arrows");
-    naturalDirectionVector = Base::Vector3d(0,0,0); // by default use the null vector to indication an invalid value
+    naturalDirectionVector = Base::Vector3d(0,0,0); // by default use the null vector to indicate an invalid value
     // property from: FemConstraintFixed object
     ADD_PROPERTY_TYPE(Normals,(Base::Vector3d()),"FluidBoundary",App::PropertyType(App::Prop_ReadOnly|App::Prop_Output),
                       "Normals where symbols are drawn");
@@ -124,7 +120,7 @@ void ConstraintFluidBoundary::onChanged(const App::Property* prop)
     // Note: If we call this at the end, then the arrows are not oriented correctly initially
     // because the NormalDirection has not been calculated yet
     Constraint::onChanged(prop);
-    
+
     if (prop == &BoundaryType) {
         std::string boundaryType = BoundaryType.getValueAsString();
         if (boundaryType == "wall") {

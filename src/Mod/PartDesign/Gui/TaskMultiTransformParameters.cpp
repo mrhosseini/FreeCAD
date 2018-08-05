@@ -25,6 +25,7 @@
 
 #ifndef _PreComp_
 # include <QMessageBox>
+# include <QAction>
 #endif
 
 #include "ui_TaskMultiTransformParameters.h"
@@ -33,8 +34,10 @@
 #include "TaskLinearPatternParameters.h"
 #include "TaskPolarPatternParameters.h"
 #include "TaskScaledParameters.h"
+#include "Utils.h"
 #include <App/Application.h>
 #include <App/Document.h>
+#include <App/Origin.h>
 #include <Gui/Application.h>
 #include <Gui/Document.h>
 #include <Gui/BitmapFactory.h>
@@ -49,8 +52,8 @@
 #include <Mod/PartDesign/App/FeatureLinearPattern.h>
 #include <Mod/PartDesign/App/FeaturePolarPattern.h>
 #include <Mod/PartDesign/App/FeatureScaled.h>
+#include <Mod/PartDesign/App/Body.h>
 #include <Mod/Sketcher/App/SketchObject.h>
-
 
 using namespace PartDesignGui;
 using namespace Gui;
@@ -58,7 +61,7 @@ using namespace Gui;
 /* TRANSLATOR PartDesignGui::TaskMultiTransformParameters */
 
 TaskMultiTransformParameters::TaskMultiTransformParameters(ViewProviderTransformed *TransformedView,QWidget *parent)
-    : TaskTransformedParameters(TransformedView, parent), subTask(NULL)
+    : TaskTransformedParameters(TransformedView, parent), subTask(nullptr), subFeature(nullptr)
 {
     // we need a separate container widget to add all controls to
     proxy = new QWidget(this);
@@ -125,7 +128,7 @@ TaskMultiTransformParameters::TaskMultiTransformParameters(ViewProviderTransform
     for (std::vector<App::DocumentObject*>::const_iterator i = transformFeatures.begin(); i != transformFeatures.end(); i++)
     {
         if ((*i) != NULL)
-            ui->listTransformFeatures->addItem(QString::fromLatin1((*i)->Label.getValue()));
+            ui->listTransformFeatures->addItem(QString::fromUtf8((*i)->Label.getValue()));
     }
     if (transformFeatures.size() > 0) {
         ui->listTransformFeatures->setCurrentRow(0, QItemSelectionModel::ClearAndSelect);
@@ -139,10 +142,14 @@ TaskMultiTransformParameters::TaskMultiTransformParameters(ViewProviderTransform
     std::vector<App::DocumentObject*> originals = pcMultiTransform->Originals.getValues();
 
     // Fill data into dialog elements
-    for (std::vector<App::DocumentObject*>::const_iterator i = originals.begin(); i != originals.end(); i++)
-    {
-        if ((*i) != NULL)
-            ui->listWidgetFeatures->addItem(QString::fromLatin1((*i)->getNameInDocument()));
+    for (std::vector<App::DocumentObject*>::const_iterator i = originals.begin(); i != originals.end(); i++) {
+        const App::DocumentObject* obj = *i;
+        if (obj != NULL) {
+            QListWidgetItem* item = new QListWidgetItem();
+            item->setText(QString::fromUtf8(obj->Label.getValue()));
+            item->setData(Qt::UserRole, QString::fromLatin1(obj->getNameInDocument()));
+            ui->listWidgetFeatures->addItem(item);
+        }
     }
     // ---------------------
 }
@@ -150,10 +157,22 @@ TaskMultiTransformParameters::TaskMultiTransformParameters(ViewProviderTransform
 void TaskMultiTransformParameters::onSelectionChanged(const Gui::SelectionChanges& msg)
 {
     if (originalSelected(msg)) {
-        if (selectionMode == addFeature)
-            ui->listWidgetFeatures->addItem(QString::fromLatin1(msg.pObjectName));
-        else
-            removeItemFromListWidget(ui->listWidgetFeatures, msg.pObjectName);
+        Gui::SelectionObject selObj(msg);
+        App::DocumentObject* obj = selObj.getObject();
+        Q_ASSERT(obj);
+
+        QString label = QString::fromUtf8(obj->Label.getValue());
+        QString objectName = QString::fromLatin1(msg.pObjectName);
+
+        if (selectionMode == addFeature) {
+            QListWidgetItem* item = new QListWidgetItem();
+            item->setText(label);
+            item->setData(Qt::UserRole, objectName);
+            ui->listWidgetFeatures->addItem(item);
+        }
+        else {
+            removeItemFromListWidget(ui->listWidgetFeatures, label);
+        }
         exitSelectionMode();
     }
 }
@@ -174,6 +193,13 @@ void TaskMultiTransformParameters::onFeatureDeleted(void)
     recomputeFeature();
 }
 
+void TaskMultiTransformParameters::slotDeletedObject(const Gui::ViewProviderDocumentObject& Obj)
+{
+    if (Obj.getObject() == this->subFeature)
+        this->subFeature = nullptr;
+    TaskTransformedParameters::slotDeletedObject(Obj);
+}
+
 void TaskMultiTransformParameters::closeSubTask()
 {
     if (subTask) {
@@ -192,7 +218,9 @@ void TaskMultiTransformParameters::onTransformDelete()
     std::vector<App::DocumentObject*> transformFeatures = pcMultiTransform->Transformations.getValues();
 
     App::DocumentObject* feature = transformFeatures[row];
-    pcMultiTransform->getDocument()->remObject(feature->getNameInDocument());
+    if (feature == this->subFeature)
+        this->subFeature = nullptr;
+    pcMultiTransform->getDocument()->removeObject(feature->getNameInDocument());
     closeSubTask();
 
     transformFeatures.erase(transformFeatures.begin() + row);
@@ -230,7 +258,9 @@ void TaskMultiTransformParameters::onTransformEdit()
             subTask, SLOT(onUpdateView(bool)));
 }
 
-void TaskMultiTransformParameters::onTransformActivated(const QModelIndex& index) {
+void TaskMultiTransformParameters::onTransformActivated(const QModelIndex& index)
+{
+    Q_UNUSED(index);
     onTransformEdit();
 }
 
@@ -240,7 +270,8 @@ void TaskMultiTransformParameters::onTransformAddMirrored()
     std::string newFeatName = TransformedView->getObject()->getDocument()->getUniqueObjectName("Mirrored");
 
     Gui::Command::openCommand("Mirrored");
-    Gui::Command::doCommand(Gui::Command::Doc,"App.activeDocument().addObject(\"PartDesign::Mirrored\",\"%s\")",newFeatName.c_str());
+    Gui::Command::doCommand(Gui::Command::Doc,"App.activeDocument().%s.newObject(\"PartDesign::Mirrored\",\"%s\")",
+                            PartDesignGui::getBody(false)->getNameInDocument(), newFeatName.c_str());
     //Gui::Command::updateActive();
     App::DocumentObject* sketch = getSketchObject();
     if (sketch)
@@ -252,16 +283,30 @@ void TaskMultiTransformParameters::onTransformAddMirrored()
 
 void TaskMultiTransformParameters::onTransformAddLinearPattern()
 {
+    // See CmdPartDesignLinearPattern
+    //
     closeSubTask();
     std::string newFeatName = TransformedView->getObject()->getDocument()->getUniqueObjectName("LinearPattern");
 
-    Gui::Command::openCommand("LinearPattern");
-    Gui::Command::doCommand(Gui::Command::Doc,"App.activeDocument().addObject(\"PartDesign::LinearPattern\",\"%s\")",newFeatName.c_str());
+    Gui::Command::openCommand("Make LinearPattern");
+    Gui::Command::doCommand(Gui::Command::Doc,"App.activeDocument().%s.newObject(\"PartDesign::LinearPattern\",\"%s\")",
+                            PartDesignGui::getBody(false)->getNameInDocument(), newFeatName.c_str());
     //Gui::Command::updateActive();
     App::DocumentObject* sketch = getSketchObject();
-    if (sketch)
+    if (sketch) {
         Gui::Command::doCommand(Gui::Command::Doc,"App.activeDocument().%s.Direction = (App.activeDocument().%s, [\"H_Axis\"])",
                                 newFeatName.c_str(), sketch->getNameInDocument());
+    }
+    else {
+        // set Direction value before filling up the combo box to avoid creating an empty item
+        // inside updateUI()
+        PartDesign::Body* body = static_cast<PartDesign::Body*>(Part::BodyBase::findBodyOf(getObject()));
+        if (body) {
+            Gui::Command::doCommand(Gui::Command::Doc,"App.activeDocument().%s.Direction = (App.activeDocument().%s, [\"\"])",
+                                    newFeatName.c_str(), body->getOrigin()->getX()->getNameInDocument());
+        }
+    }
+
     Gui::Command::doCommand(Gui::Command::Doc,"App.activeDocument().%s.Length = 100", newFeatName.c_str());
     Gui::Command::doCommand(Gui::Command::Doc,"App.activeDocument().%s.Occurrences = 2", newFeatName.c_str());
 
@@ -274,7 +319,8 @@ void TaskMultiTransformParameters::onTransformAddPolarPattern()
     std::string newFeatName = TransformedView->getObject()->getDocument()->getUniqueObjectName("PolarPattern");
 
     Gui::Command::openCommand("PolarPattern");
-    Gui::Command::doCommand(Gui::Command::Doc,"App.activeDocument().addObject(\"PartDesign::PolarPattern\",\"%s\")",newFeatName.c_str());
+    Gui::Command::doCommand(Gui::Command::Doc,"App.activeDocument().%s.newObject(\"PartDesign::PolarPattern\",\"%s\")",
+                            PartDesignGui::getBody(false)->getNameInDocument(), newFeatName.c_str());
     //Gui::Command::updateActive();
     App::DocumentObject* sketch = getSketchObject();
     if (sketch)
@@ -292,7 +338,8 @@ void TaskMultiTransformParameters::onTransformAddScaled()
     std::string newFeatName = TransformedView->getObject()->getDocument()->getUniqueObjectName("Scaled");
 
     Gui::Command::openCommand("Scaled");
-    Gui::Command::doCommand(Gui::Command::Doc,"App.activeDocument().addObject(\"PartDesign::Scaled\",\"%s\")",newFeatName.c_str());
+    Gui::Command::doCommand(Gui::Command::Doc,"App.activeDocument().%s.newObject(\"PartDesign::Scaled\",\"%s\")",
+                            PartDesignGui::getBody(false)->getNameInDocument(), newFeatName.c_str());
     //Gui::Command::updateActive();
     Gui::Command::doCommand(Gui::Command::Doc,"App.activeDocument().%s.Factor = 2", newFeatName.c_str());
     Gui::Command::doCommand(Gui::Command::Doc,"App.activeDocument().%s.Occurrences = 2", newFeatName.c_str());

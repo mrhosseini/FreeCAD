@@ -36,9 +36,12 @@
 // TODO Cleanup headers (2015-09-04, Fat-Zer)
 #include <Base/Exception.h>
 #include "App/Document.h"
+#include <App/FeaturePythonPyImp.h>
 #include "App/OriginFeature.h"
 #include "Body.h"
+#include "ShapeBinder.h"
 #include "Feature.h"
+#include "FeaturePy.h"
 #include "Mod/Part/App/DatumFeature.h"
 
 #include <Base/Console.h>
@@ -53,6 +56,7 @@ Feature::Feature()
 {
     ADD_PROPERTY(BaseFeature,(0));
     Placement.setStatus(App::Property::Hidden, true);
+    BaseFeature.setStatus(App::Property::Hidden, true);
 }
 
 short Feature::mustExecute() const
@@ -68,12 +72,27 @@ TopoDS_Shape Feature::getSolid(const TopoDS_Shape& shape)
         Standard_Failure::Raise("Shape is null");
     TopExp_Explorer xp;
     xp.Init(shape,TopAbs_SOLID);
-    for (;xp.More(); xp.Next()) {
+    if (xp.More()) {
         return xp.Current();
     }
 
     return TopoDS_Shape();
 }
+
+int Feature::countSolids(const TopoDS_Shape& shape, TopAbs_ShapeEnum type)
+{
+    int result = 0;
+    if (shape.IsNull())
+        return result;
+    TopExp_Explorer xp;
+    xp.Init(shape,type);
+    for (; xp.More(); xp.Next()) {
+        result++;
+    }
+    return result;
+}
+
+
 
 const gp_Pnt Feature::getPointFromFace(const TopoDS_Face& f)
 {
@@ -106,7 +125,7 @@ Part::Feature* Feature::getBaseObject(bool silent) const {
         err = "Base property not set";
     }
 
-    // If the funtion not in silent mode throw the exception discribing the error
+    // If the function not in silent mode throw the exception describing the error
     if (!silent && err) {
         throw Base::Exception(err);
     }
@@ -116,6 +135,10 @@ Part::Feature* Feature::getBaseObject(bool silent) const {
 
 const TopoDS_Shape& Feature::getBaseShape() const {
     const Part::Feature* BaseObject = getBaseObject();
+
+    if (BaseObject->isDerivedFrom(PartDesign::ShapeBinder::getClassTypeId())) {
+        throw Base::ValueError("Base shape of shape binder cannot be used");
+    }
 
     const TopoDS_Shape& result = BaseObject->Shape.getValue();
     if (result.IsNull())
@@ -130,11 +153,24 @@ const TopoDS_Shape& Feature::getBaseShape() const {
 const Part::TopoShape Feature::getBaseTopoShape() const {
     const Part::Feature* BaseObject = getBaseObject();
 
+    if (BaseObject->isDerivedFrom(PartDesign::ShapeBinder::getClassTypeId())) {
+        throw Base::ValueError("Base shape of shape binder cannot be used");
+    }
+
     const Part::TopoShape& result = BaseObject->Shape.getShape();
     if (result.getShape().IsNull())
         throw Base::Exception("Base feature's TopoShape is invalid");
 
     return result;
+}
+
+PyObject* Feature::getPyObject()
+{
+    if (PythonObject.is(Py::_None())){
+        // ref counter is set to 1
+        PythonObject = Py::Object(new FeaturePy(this),true);
+    }
+    return Py::new_reference_to(PythonObject);
 }
 
 bool Feature::isDatum(const App::DocumentObject* feature)
@@ -165,4 +201,38 @@ TopoDS_Shape Feature::makeShapeFromPlane(const App::DocumentObject* obj)
     return builder.Shape();
 }
 
+Body* Feature::getFeatureBody() {
+
+    auto list = getInList();
+    for (auto in : list) {
+        if(in->isDerivedFrom(Body::getClassTypeId()) && //is Body?
+           static_cast<Body*>(in)->hasObject(this)) {    //is part of this Body?
+               
+               return static_cast<Body*>(in);
+        }
+    }
+    
+    return nullptr;
+};
+
+}//namespace PartDesign
+
+namespace App {
+/// @cond DOXERR
+PROPERTY_SOURCE_TEMPLATE(PartDesign::FeaturePython, PartDesign::Feature)
+template<> const char* PartDesign::FeaturePython::getViewProviderName(void) const {
+    return "PartDesignGui::ViewProviderPython";
 }
+template<> PyObject* PartDesign::FeaturePython::getPyObject(void) {
+    if (PythonObject.is(Py::_None())) {
+        // ref counter is set to 1
+        PythonObject = Py::Object(new FeaturePythonPyT<PartDesign::FeaturePy>(this),true);
+    }
+    return Py::new_reference_to(PythonObject);
+}
+/// @endcond
+
+// explicit template instantiation
+template class PartDesignExport FeaturePythonT<PartDesign::Feature>;
+}
+

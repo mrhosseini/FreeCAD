@@ -151,7 +151,7 @@ public:
     };
 
 private:
-    // unimplemented copy ctor and assignement operator
+    // unimplemented copy ctor and assignment operator
     DOMPrintFilter(const DOMPrintFilter&);
     DOMPrintFilter & operator = (const DOMPrintFilter&);
 
@@ -215,7 +215,7 @@ ParameterGrp::~ParameterGrp()
 
 void ParameterGrp::copyTo(Base::Reference<ParameterGrp> Grp)
 {
-    // delete previos content
+    // delete previous content
     Grp->Clear();
 
     // copy all
@@ -278,7 +278,7 @@ void ParameterGrp::importFrom(const char* FileName)
     ParameterManager Mngr;
 
     if (Mngr.LoadDocument(FileName) != 1)
-        throw Exception("ParameterGrp::import() cannot load document");
+        throw FileException("ParameterGrp::import() cannot load document", FileName);
 
     Mngr.GetGroup("BaseApp")->copyTo(Base::Reference<ParameterGrp>(this));
 }
@@ -288,7 +288,7 @@ void ParameterGrp::insert(const char* FileName)
     ParameterManager Mngr;
 
     if (Mngr.LoadDocument(FileName) != 1)
-        throw Exception("ParameterGrp::import() cannot load document");
+        throw FileException("ParameterGrp::import() cannot load document", FileName);
 
     Mngr.GetGroup("root")->insertTo(Base::Reference<ParameterGrp>(this));
 }
@@ -299,7 +299,7 @@ Base::Reference<ParameterGrp> ParameterGrp::GetGroup(const char* Name)
 
     std::string::size_type pos = cName.find('/');
 
-    // is there a path seperator ?
+    // is there a path separator ?
     if (pos == std::string::npos) {
         return _GetGroup(Name);
     }
@@ -319,7 +319,7 @@ Base::Reference<ParameterGrp> ParameterGrp::GetGroup(const char* Name)
     else {
         // path, split the first path
         std::string cTemp;
-        // geting the first part
+        // getting the first part
         cTemp.assign(cName,0,pos);
         // removing the first part from the original
         cName.erase(0,pos+1);
@@ -373,7 +373,7 @@ std::vector<Base::Reference<ParameterGrp> > ParameterGrp::GetGroups(void)
     return vrParamGrp;
 }
 
-/// test if this group is emty
+/// test if this group is empty
 bool ParameterGrp::IsEmpty(void) const
 {
     if ( _pGroupNode->getFirstChild() )
@@ -411,7 +411,7 @@ void  ParameterGrp::SetBool(const char* Name, bool bValue)
 {
     // find or create the Element
     DOMElement *pcElem = FindOrCreateElement(_pGroupNode,"FCBool",Name);
-    // and set the vaue
+    // and set the value
     pcElem->setAttribute(XStr("Value").unicodeForm(), XStr(bValue?"1":"0").unicodeForm());
     // trigger observer
     Notify(Name);
@@ -476,7 +476,7 @@ void  ParameterGrp::SetInt(const char* Name, long lValue)
     char cBuf[256];
     // find or create the Element
     DOMElement *pcElem = FindOrCreateElement(_pGroupNode,"FCInt",Name);
-    // and set the vaue
+    // and set the value
     sprintf(cBuf,"%li",lValue);
     pcElem->setAttribute(XStr("Value").unicodeForm(), XStr(cBuf).unicodeForm());
     // trigger observer
@@ -537,7 +537,7 @@ void  ParameterGrp::SetUnsigned(const char* Name, unsigned long lValue)
     char cBuf[256];
     // find or create the Element
     DOMElement *pcElem = FindOrCreateElement(_pGroupNode,"FCUInt",Name);
-    // and set the vaue
+    // and set the value
     sprintf(cBuf,"%lu",lValue);
     pcElem->setAttribute(XStr("Value").unicodeForm(), XStr(cBuf).unicodeForm());
     // trigger observer
@@ -710,7 +710,7 @@ std::vector<std::string> ParameterGrp::GetASCIIs(const char * sFilter) const
         Name = StrXUTF8( ((DOMElement*)pcTemp)->getAttributes()->getNamedItem(XStr("Name").unicodeForm())->getNodeValue()).c_str();
         // check on filter condition
         if (sFilter == NULL || Name.find(sFilter)!= std::string::npos) {
-            // retrive the text element
+            // retrieve the text element
             DOMNode *pcElem2 = pcTemp->getFirstChild();
             if (pcElem2)
                 vrValues.push_back( std::string(StrXUTF8(pcElem2->getNodeValue()).c_str()) );
@@ -732,7 +732,7 @@ std::vector<std::pair<std::string,std::string> > ParameterGrp::GetASCIIMap(const
         Name = StrXUTF8( ((DOMElement*)pcTemp)->getAttributes()->getNamedItem(XStr("Name").unicodeForm())->getNodeValue()).c_str();
         // check on filter condition
         if (sFilter == NULL || Name.find(sFilter)!= std::string::npos) {
-            // retrive the text element
+            // retrieve the text element
             DOMNode *pcElem2 = pcTemp->getFirstChild();
             if (pcElem2)
                 vrValues.push_back(std::make_pair(Name, std::string(StrXUTF8(pcElem2->getNodeValue()).c_str())));
@@ -1019,8 +1019,8 @@ ParameterManager::ParameterManager()
 //      Indicates whether full schema constraint checking should be done.
 //
 //  gDoCreate
-//      Indicates whether entity reference nodes needs to be created or not
-//      Defaults to false
+//      Indicates whether entity reference nodes needs to be created or not.
+//      Defaults to false.
 //
 //  gOutputEncoding
 //      The encoding we are to output in. If not set on the command line,
@@ -1085,7 +1085,7 @@ void ParameterManager::Init(void)
                 << "  Exception message:"
                 << pMsg;
             XMLString::release(&pMsg);
-            throw Exception(err.str().c_str());
+            throw XMLBaseException(err.str().c_str());
         }
         Init = true;
     }
@@ -1191,7 +1191,7 @@ int ParameterManager::LoadDocument(const XERCES_CPP_NAMESPACE_QUALIFIER InputSou
     parser->setErrorHandler(errReporter);
 
     //
-    //  Parse the XML file, catching any XML exceptions that might propogate
+    //  Parse the XML file, catching any XML exceptions that might propagate
     //  out of it.
     //
     bool errorsOccured = false;
@@ -1227,16 +1227,16 @@ int ParameterManager::LoadDocument(const XERCES_CPP_NAMESPACE_QUALIFIER InputSou
     delete errReporter;
 
     if (!_pDocument)
-        throw Exception("Malformed Parameter document: Invalid document");
+        throw XMLBaseException("Malformed Parameter document: Invalid document");
 
     DOMElement* rootElem = _pDocument->getDocumentElement();
     if (!rootElem)
-        throw Exception("Malformed Parameter document: Root group not found");
+        throw XMLBaseException("Malformed Parameter document: Root group not found");
 
     _pGroupNode = FindElement(rootElem,"FCParamGroup","Root");
 
     if (!_pGroupNode)
-        throw Exception("Malformed Parameter document: Root group not found");
+        throw XMLBaseException("Malformed Parameter document: Root group not found");
 
     return 1;
 }
@@ -1444,9 +1444,9 @@ short DOMPrintFilter::acceptNode(const DOMNode* node) const
     // The DOMWriter shall call getWhatToShow() before calling
     // acceptNode(), to show nodes which are supposed to be
     // shown to this filter.
-    //
+    // TODO:
     // REVISIT: In case the DOMWriter does not follow the protocol,
-    //          Shall the filter honour, or NOT, what it claimes
+    //          Shall the filter honor, or NOT, what it claims
     //         (when it is constructed/setWhatToShow())
     //          it is interested in ?
     //

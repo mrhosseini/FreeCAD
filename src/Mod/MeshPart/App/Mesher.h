@@ -25,8 +25,12 @@
 
 #include <sstream>
 #include <Base/Stream.h>
+#ifdef HAVE_SMESH
+#include <SMESH_Version.h>
+#endif
 
 class TopoDS_Shape;
+class SMESH_Gen;
 
 namespace Mesh { class MeshObject; }
 namespace MeshPart {
@@ -40,6 +44,7 @@ public:
 #if defined (HAVE_NETGEN)
         Netgen = 2,
 #endif
+        Standard = 3
     };
 
     Mesher(const TopoDS_Shape&);
@@ -68,6 +73,10 @@ public:
     { deflection = s; }
     double getDeflection() const
     { return deflection; }
+    void setAngularDeflection(double s)
+    { angularDeflection = s; }
+    double getAngularDeflection() const
+    { return angularDeflection; }
     void setMinMaxLengths(double f, double l)
     { minLen = f; maxLen = l; }
     void getMinMaxLengths(double& f, double& l) const
@@ -76,6 +85,16 @@ public:
     { regular = s; }
     bool isRegular() const
     { return regular; }
+    void setRelative(bool s)
+    { relative = s; }
+    bool isRelative() const
+    { return relative; }
+    void setSegments(bool s)
+    { segments = s; }
+    bool isSegments() const
+    { return segments; }
+    void setColors(const std::vector<uint32_t>& c)
+    { colors = c; }
     //@}
 
 #if defined (HAVE_NETGEN)
@@ -121,8 +140,11 @@ private:
     double maxArea;
     double localLength;
     double deflection;
+    double angularDeflection;
     double minLen, maxLen;
+    bool relative;
     bool regular;
+    bool segments;
 #if defined (HAVE_NETGEN)
     int fineness;
     double growthRate;
@@ -131,6 +153,12 @@ private:
     bool secondOrder;
     bool optimize;
     bool allowquad;
+#endif
+    std::vector<uint32_t> colors;
+    struct Vertex;
+
+#if SMESH_VERSION_MAJOR >= 7
+    static SMESH_Gen *_mesh_gen;
 #endif
 };
 

@@ -66,7 +66,7 @@ public:
     PropertyMeshKernel Mesh;
     //@}
 
-    /** @name methods overide Feature */
+    /** @name methods override Feature */
     //@{
     /// recalculate the Feature
     virtual App::DocumentObjectExecReturn *execute(void);
@@ -76,6 +76,9 @@ public:
     /// returns the type name of the ViewProvider
     virtual const char* getViewProviderName(void) const {
         return "MeshGui::ViewProviderMeshFaceSet";
+    }
+    virtual const App::PropertyComplexGeoData* getPropertyOfGeometry() const {
+        return &Mesh;
     }
 
     /// handles the MeshPy object

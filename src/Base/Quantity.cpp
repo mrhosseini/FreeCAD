@@ -23,9 +23,12 @@
 #include "PreCompiled.h"
 #ifndef _PreComp_
 # include <sstream>
+# ifdef FC_OS_WIN32
+# define _USE_MATH_DEFINES
+# endif // FC_OS_WIN32
+# include <cmath>
 #endif
 
-#include <cmath>
 #include "Quantity.h"
 #include "Exception.h"
 #include "UnitsApi.h"
@@ -79,7 +82,7 @@ bool Quantity::operator ==(const Quantity& that) const
 bool Quantity::operator <(const Quantity& that) const
 {
     if (this->_Unit != that._Unit)
-        throw Base::Exception("Quantity::operator <(): quantities need to have same unit to compare");
+        throw Base::UnitsMismatchError("Quantity::operator <(): quantities need to have same unit to compare");
 
     return (this->_Value < that._Value) ;
 }
@@ -87,9 +90,25 @@ bool Quantity::operator <(const Quantity& that) const
 bool Quantity::operator >(const Quantity& that) const
 {
     if (this->_Unit != that._Unit)
-        throw Base::Exception("Quantity::operator >(): quantities need to have same unit to compare");
+        throw Base::UnitsMismatchError("Quantity::operator >(): quantities need to have same unit to compare");
 
     return (this->_Value > that._Value) ;
+}
+
+bool Quantity::operator <=(const Quantity& that) const
+{
+    if (this->_Unit != that._Unit)
+        throw Base::UnitsMismatchError("Quantity::operator <=(): quantities need to have same unit to compare");
+
+    return (this->_Value <= that._Value) ;
+}
+
+bool Quantity::operator >=(const Quantity& that) const
+{
+    if (this->_Unit != that._Unit)
+        throw Base::UnitsMismatchError("Quantity::operator >=(): quantities need to have same unit to compare");
+
+    return (this->_Value >= that._Value) ;
 }
 
 Quantity Quantity::operator *(const Quantity &p) const
@@ -97,32 +116,49 @@ Quantity Quantity::operator *(const Quantity &p) const
     return Quantity(this->_Value * p._Value,this->_Unit * p._Unit);
 }
 
+Quantity Quantity::operator *(double p) const
+{
+    return Quantity(this->_Value * p,this->_Unit);
+}
+
 Quantity Quantity::operator /(const Quantity &p) const
 {
     return Quantity(this->_Value / p._Value,this->_Unit / p._Unit);
 }
 
+Quantity Quantity::operator /(double p) const
+{
+    return Quantity(this->_Value / p,this->_Unit);
+}
+
 Quantity Quantity::pow(const Quantity &p) const
 {
     if (!p._Unit.isEmpty())
-        throw Base::Exception("Quantity::pow(): exponent must not have a unit");
+        throw Base::UnitsMismatchError("Quantity::pow(): exponent must not have a unit");
     return Quantity(
         std::pow(this->_Value, p._Value),
         this->_Unit.pow((short)p._Value)
         );
 }
 
+Quantity Quantity::pow(double p) const
+{
+    return Quantity(
+        std::pow(this->_Value, p), this->_Unit
+        );
+}
+
 Quantity Quantity::operator +(const Quantity &p) const
 {
     if (this->_Unit != p._Unit)
-        throw Base::Exception("Quantity::operator +(): Unit mismatch in plus operation");
+        throw Base::UnitsMismatchError("Quantity::operator +(): Unit mismatch in plus operation");
     return Quantity(this->_Value + p._Value,this->_Unit);
 }
 
 Quantity& Quantity::operator +=(const Quantity &p)
 {
     if (this->_Unit != p._Unit)
-        throw Base::Exception("Quantity::operator +=(): Unit mismatch in plus operation");
+        throw Base::UnitsMismatchError("Quantity::operator +=(): Unit mismatch in plus operation");
 
     _Value += p._Value;
 
@@ -132,14 +168,14 @@ Quantity& Quantity::operator +=(const Quantity &p)
 Quantity Quantity::operator -(const Quantity &p) const
 {
     if (this->_Unit != p._Unit)
-        throw Base::Exception("Quantity::operator +(): Unit mismatch in minus operation");
+        throw Base::UnitsMismatchError("Quantity::operator +(): Unit mismatch in minus operation");
     return Quantity(this->_Value - p._Value,this->_Unit);
 }
 
 Quantity& Quantity::operator -=(const Quantity &p)
 {
     if (this->_Unit != p._Unit)
-        throw Base::Exception("Quantity::operator -=(): Unit mismatch in minus operation");
+        throw Base::UnitsMismatchError("Quantity::operator -=(): Unit mismatch in minus operation");
 
     _Value -= p._Value;
 
@@ -239,20 +275,22 @@ Quantity Quantity::KiloNewton       (1e+6          ,Unit(1,1,-2));
 Quantity Quantity::MegaNewton       (1e+9          ,Unit(1,1,-2));
 Quantity Quantity::MilliNewton      (1.0           ,Unit(1,1,-2));
 
-Quantity Quantity::Pascal           (0.001         ,Unit(-1,1,-2)); // Pascal (kg/m*s^2 or N/m^2)
+Quantity Quantity::Pascal           (0.001         ,Unit(-1,1,-2)); // Pascal (kg/m/s^2 or N/m^2)
 Quantity Quantity::KiloPascal       (1.00          ,Unit(-1,1,-2));
 Quantity Quantity::MegaPascal       (1000.0        ,Unit(-1,1,-2));
 Quantity Quantity::GigaPascal       (1e+6          ,Unit(-1,1,-2));
 
-Quantity Quantity::Torr             (101.325/760.0 ,Unit(-1,1,-2)); // Torr is a defined fraction of Pascal (kg/m*s^2 or N/m^2)
-Quantity Quantity::mTorr            (0.101325/760.0,Unit(-1,1,-2)); // Torr is a defined fraction of Pascal (kg/m*s^2 or N/m^2)
-Quantity Quantity::yTorr            (0.000101325/760.0 ,Unit(-1,1,-2)); // Torr is a defined fraction of Pascal (kg/m*s^2 or N/m^2)
+Quantity Quantity::Torr             (101.325/760.0 ,Unit(-1,1,-2)); // Torr is a defined fraction of Pascal (kg/m/s^2 or N/m^2)
+Quantity Quantity::mTorr            (0.101325/760.0,Unit(-1,1,-2)); // Torr is a defined fraction of Pascal (kg/m/s^2 or N/m^2)
+Quantity Quantity::yTorr            (0.000101325/760.0 ,Unit(-1,1,-2)); // Torr is a defined fraction of Pascal (kg/m/s^2 or N/m^2)
 
-Quantity Quantity::PSI              (0.145038      ,Unit(-1,1,-2)); // pounds/in^2
-Quantity Quantity::KSI              (145.038       ,Unit(-1,1,-2)); // 1000 x pounds/in^2
+Quantity Quantity::PSI              (6.894744825494,Unit(-1,1,-2)); // pounds/in^2
+Quantity Quantity::KSI              (6894.744825494,Unit(-1,1,-2)); // 1000 x pounds/in^2
 
 Quantity Quantity::Watt             (1e+6          ,Unit(2,1,-3));  // Watt (kg*m^2/s^3)
 Quantity Quantity::VoltAmpere       (1e+6          ,Unit(2,1,-3));  // VoltAmpere (kg*m^2/s^3)
+
+Quantity Quantity::Volt             (1e+6          ,Unit(2,1,-3,-1));  // Volt (kg*m^2/A/s^3)
 
 Quantity Quantity::Joule            (1e+6          ,Unit(2,1,-2));  // Joule (kg*m^2/s^2)
 Quantity Quantity::NewtonMeter      (1e+6          ,Unit(2,1,-2));  // Joule (kg*m^2/s^2)
@@ -282,14 +320,14 @@ double num_change(char* yytext,char dez_delim,char grp_delim)
     char temp[40];
     int i = 0;
     for(char* c=yytext;*c!='\0';c++){ 
-        // skipp group delimiter
+        // skip group delimiter
         if(*c==grp_delim) continue;
-        // check for a dez delimiter othere then dot
+        // check for a dez delimiter other then dot
         if(*c==dez_delim && dez_delim !='.')
              temp[i++] = '.';
         else
             temp[i++] = *c; 
-        // check buffor overflow
+        // check buffer overflow
         if (i>39) return 0.0;
     }
     temp[i] = '\0';
@@ -300,8 +338,8 @@ double num_change(char* yytext,char dez_delim,char grp_delim)
 
 // error func
 void Quantity_yyerror(char *errorinfo)
-{  
-    throw Base::Exception(errorinfo);  
+{
+    throw Base::ParserError(errorinfo);
 }
 
 
@@ -314,7 +352,7 @@ void Quantity_yyerror(char *errorinfo)
 namespace QuantityParser {
 
 #define YYINITDEPTH 20
-// show the parser the lexer method
+// show parser the lexer method
 #define yylex QuantityLexer
 int QuantityLexer(void);
 
@@ -323,13 +361,25 @@ int QuantityLexer(void);
 
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
 // Scanner, defined in QuantityParser.l
+#if defined(__clang__)
+# pragma clang diagnostic push
+# pragma clang diagnostic ignored "-Wsign-compare"
+# pragma clang diagnostic ignored "-Wunneeded-internal-declaration"
+#elif defined (__GNUC__)
+# pragma GCC diagnostic push
+# pragma GCC diagnostic ignored "-Wsign-compare"
+#endif
 #include "QuantityLexer.c"
+#if defined(__clang__)
+# pragma clang diagnostic pop
+#elif defined (__GNUC__)
+# pragma GCC diagnostic pop
+#endif
 #endif // DOXYGEN_SHOULD_SKIP_THIS
 }
 
 Quantity Quantity::parse(const QString &string)
 {
-    
     // parse from buffer
     QuantityParser::YY_BUFFER_STATE my_string_buffer = QuantityParser::yy_scan_string (string.toUtf8().data());
     // set the global return variables
@@ -340,6 +390,6 @@ Quantity Quantity::parse(const QString &string)
     QuantityParser::yy_delete_buffer (my_string_buffer);
 
     //if (QuantResult == Quantity(DOUBLE_MIN))
-    //    throw Base::Exception("Unknown error in Quantity expression");
+    //    throw Base::ParserError("Unknown error in Quantity expression");
     return QuantResult;
 }

@@ -231,7 +231,7 @@ void MeshFaceAddition::addFace()
     f._aulPoints[2] = faceView->index[2];
     std::vector<MeshCore::MeshFacet> faces;
     faces.push_back(f);
-    mesh->addFacets(faces);
+    mesh->addFacets(faces, true);
     mf->Mesh.finishEditing();
     doc->commitTransaction();
 
@@ -409,7 +409,12 @@ namespace MeshGui {
 /* TRANSLATOR MeshGui::MeshFillHole */
 
 MeshFillHole::MeshFillHole(MeshHoleFiller& hf, Gui::View3DInventor* parent)
-  : QObject(parent), myMesh(0), myNumPoints(0), myHoleFiller(hf)
+  : QObject(parent)
+  , myMesh(0)
+  , myNumPoints(0)
+  , myVertex1(0)
+  , myVertex2(0)
+  , myHoleFiller(hf)
 {
     myBoundariesRoot = new SoSeparator;
     myBoundariesRoot->ref();

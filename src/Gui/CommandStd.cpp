@@ -196,20 +196,21 @@ Action * StdCmdAbout::createAction(void)
     QString exe = qApp->applicationName();
     pcAction = new Action(this,getMainWindow());
     pcAction->setText(QCoreApplication::translate(
-        this->className(), sMenuText, 0,
-        QCoreApplication::CodecForTr).arg(exe));
+        this->className(), sMenuText).arg(exe));
     pcAction->setToolTip(QCoreApplication::translate(
-        this->className(), sToolTipText, 0,
-        QCoreApplication::CodecForTr).arg(exe));
+        this->className(), sToolTipText).arg(exe));
     pcAction->setStatusTip(QCoreApplication::translate(
-        this->className(), sStatusTip, 0,
-        QCoreApplication::CodecForTr).arg(exe));
+        this->className(), sStatusTip).arg(exe));
     pcAction->setWhatsThis(QLatin1String(sWhatsThis));
     pcAction->setIcon(QApplication::windowIcon());
     pcAction->setShortcut(QString::fromLatin1(sAccel));
-    //Prevent Qt from using AboutRole -- fixes issue #0001485
+#if QT_VERSION > 0x050000
+    // Needs to have AboutRole set to avoid duplicates if adding the about action more than once on macOS
+    pcAction->setMenuRole(QAction::AboutRole);
+#else
+    // With Qt 4.8, having AboutRole set causes it to disappear when readding it: issue #0001485
     pcAction->setMenuRole(QAction::ApplicationSpecificRole);
-
+#endif
     return pcAction;
 }
 
@@ -223,6 +224,7 @@ bool StdCmdAbout::isActive()
  */
 void StdCmdAbout::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     const Gui::Dialog::AboutDialogFactory* f = Gui::Dialog::AboutDialogFactory::defaultFactory();
     boost::scoped_ptr<QDialog> dlg(f->create(getMainWindow()));
     dlg->exec();
@@ -233,14 +235,11 @@ void StdCmdAbout::languageChange()
     if (_pcAction) {
         QString exe = qApp->applicationName();
         _pcAction->setText(QCoreApplication::translate(
-            this->className(), sMenuText, 0,
-            QCoreApplication::CodecForTr).arg(exe));
+            this->className(), sMenuText).arg(exe));
         _pcAction->setToolTip(QCoreApplication::translate(
-            this->className(), sToolTipText, 0,
-            QCoreApplication::CodecForTr).arg(exe));
+            this->className(), sToolTipText).arg(exe));
         _pcAction->setStatusTip(QCoreApplication::translate(
-            this->className(), sStatusTip, 0,
-            QCoreApplication::CodecForTr).arg(exe));
+            this->className(), sStatusTip).arg(exe));
         _pcAction->setWhatsThis(QLatin1String(sWhatsThis));
     }
 }
@@ -263,7 +262,8 @@ StdCmdAboutQt::StdCmdAboutQt()
 
 void StdCmdAboutQt::activated(int iMsg)
 {
-  qApp->aboutQt();
+    Q_UNUSED(iMsg); 
+    qApp->aboutQt();
 }
 
 //===========================================================================
@@ -286,6 +286,7 @@ StdCmdWhatsThis::StdCmdWhatsThis()
 
 void StdCmdWhatsThis::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     QWhatsThis::enterWhatsThisMode();
 }
 
@@ -308,9 +309,10 @@ StdCmdDlgParameter::StdCmdDlgParameter()
 
 void StdCmdDlgParameter::activated(int iMsg)
 {
-  Gui::Dialog::DlgParameterImp cDlg(getMainWindow());
-  cDlg.resize(QSize(800, 600));
-  cDlg.exec();
+    Q_UNUSED(iMsg); 
+    Gui::Dialog::DlgParameterImp cDlg(getMainWindow());
+    cDlg.resize(QSize(800, 600));
+    cDlg.exec();
 }
 
 //===========================================================================
@@ -339,6 +341,7 @@ Action * StdCmdDlgPreferences::createAction(void)
 
 void StdCmdDlgPreferences::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     Gui::Dialog::DlgPreferencesImp cDlg(getMainWindow());
     cDlg.exec();
 }
@@ -362,6 +365,7 @@ StdCmdDlgCustomize::StdCmdDlgCustomize()
 
 void StdCmdDlgCustomize::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     static QPointer<QDialog> dlg = 0;
     if (!dlg)
         dlg = new Gui::Dialog::DlgCustomizeImp(getMainWindow());
@@ -388,6 +392,7 @@ StdCmdCommandLine::StdCmdCommandLine()
 
 void StdCmdCommandLine::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     bool show = getMainWindow()->isMaximized ();
 
     // pop up the Gui command window
@@ -436,6 +441,7 @@ StdCmdOnlineHelp::StdCmdOnlineHelp()
 
 void StdCmdOnlineHelp::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     Gui::getMainWindow()->showDocumentation(QString::fromLatin1("Online_Help_Startpage"));
 }
 
@@ -458,7 +464,8 @@ StdCmdOnlineHelpWebsite::StdCmdOnlineHelpWebsite()
 
 void StdCmdOnlineHelpWebsite::activated(int iMsg)
 {
-    std::string defaulturl = QCoreApplication::translate(this->className(),"http://www.freecadweb.org/wiki/index.php?title=Online_Help_Toc").toStdString();
+    Q_UNUSED(iMsg); 
+    std::string defaulturl = QCoreApplication::translate(this->className(),"http://www.freecadweb.org/wiki/Online_Help_Toc").toStdString();
     ParameterGrp::handle hURLGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Websites");
     std::string url = hURLGrp->GetASCII("OnlineHelp", defaulturl.c_str());
     hURLGrp->SetASCII("OnlineHelp", url.c_str());
@@ -485,6 +492,7 @@ StdCmdFreeCADWebsite::StdCmdFreeCADWebsite()
 
 void StdCmdFreeCADWebsite::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     std::string defaulturl = QCoreApplication::translate(this->className(),"http://www.freecadweb.org").toStdString();
     ParameterGrp::handle hURLGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Websites");
     std::string url = hURLGrp->GetASCII("WebPage", defaulturl.c_str());
@@ -512,7 +520,8 @@ StdCmdFreeCADUserHub::StdCmdFreeCADUserHub()
 
 void StdCmdFreeCADUserHub::activated(int iMsg)
 {
-    std::string defaulturl = QCoreApplication::translate(this->className(),"http://www.freecadweb.org/wiki/index.php?title=User_hub").toStdString();
+    Q_UNUSED(iMsg); 
+    std::string defaulturl = QCoreApplication::translate(this->className(),"http://www.freecadweb.org/wiki/User_hub").toStdString();
     ParameterGrp::handle hURLGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Websites");
     std::string url = hURLGrp->GetASCII("Documentation", defaulturl.c_str());
     hURLGrp->SetASCII("Documentation", url.c_str());
@@ -539,7 +548,8 @@ StdCmdFreeCADPowerUserHub::StdCmdFreeCADPowerUserHub()
 
 void StdCmdFreeCADPowerUserHub::activated(int iMsg)
 {
-    std::string defaulturl = QCoreApplication::translate(this->className(),"http://www.freecadweb.org/wiki/index.php?title=Power_users_hub").toStdString();
+    Q_UNUSED(iMsg); 
+    std::string defaulturl = QCoreApplication::translate(this->className(),"http://www.freecadweb.org/wiki/Power_users_hub").toStdString();
     ParameterGrp::handle hURLGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Websites");
     std::string url = hURLGrp->GetASCII("PowerUsers", defaulturl.c_str());
     hURLGrp->SetASCII("PowerUsers", url.c_str());
@@ -566,6 +576,7 @@ StdCmdFreeCADForum::StdCmdFreeCADForum()
 
 void StdCmdFreeCADForum::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     std::string defaulturl = QCoreApplication::translate(this->className(),"http://forum.freecadweb.org").toStdString();
     ParameterGrp::handle hURLGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Websites");
     std::string url = hURLGrp->GetASCII("UserForum", defaulturl.c_str());
@@ -593,7 +604,8 @@ StdCmdFreeCADFAQ::StdCmdFreeCADFAQ()
 
 void StdCmdFreeCADFAQ::activated(int iMsg)
 {
-    std::string defaulturl = QCoreApplication::translate(this->className(),"http://www.freecadweb.org/wiki/index.php?title=FAQ").toStdString();
+    Q_UNUSED(iMsg); 
+    std::string defaulturl = QCoreApplication::translate(this->className(),"http://www.freecadweb.org/wiki/FAQ").toStdString();
     ParameterGrp::handle hURLGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Websites");
     std::string url = hURLGrp->GetASCII("FAQ", defaulturl.c_str());
     hURLGrp->SetASCII("FAQ", url.c_str());
@@ -620,6 +632,7 @@ StdCmdPythonWebsite::StdCmdPythonWebsite()
 
 void StdCmdPythonWebsite::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     OpenURLInBrowser("http://python.org");
 }
 
@@ -635,7 +648,7 @@ StdCmdMeasurementSimple::StdCmdMeasurementSimple()
     sGroup        = QT_TR_NOOP("Tools");
     sMenuText     = QT_TR_NOOP("Measure distance");
     sToolTipText  = QT_TR_NOOP("Measures distance between two selected objects");
-    sWhatsThis    = QT_TR_NOOP("Measures distance between two selected objects");
+    sWhatsThis    = "Std_MeasurementSimple";
     sStatusTip    = QT_TR_NOOP("Measures distance between two selected objects");
     sPixmap       = "view-measurement";
     eType         = 0;
@@ -643,6 +656,7 @@ StdCmdMeasurementSimple::StdCmdMeasurementSimple()
 
 void StdCmdMeasurementSimple::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     unsigned int n = getSelection().countObjectsOfType(App::DocumentObject::getClassTypeId());
  
     if (n == 1) {
@@ -689,7 +703,7 @@ StdCmdUnitsCalculator::StdCmdUnitsCalculator()
     sGroup        = QT_TR_NOOP("Tools");
     sMenuText     = QT_TR_NOOP("&Units calculator...");
     sToolTipText  = QT_TR_NOOP("Start the units calculator");
-    sWhatsThis    = QT_TR_NOOP("Start the units calculator");
+    sWhatsThis    = "Std_UnitsCalculator";
     sStatusTip    = QT_TR_NOOP("Start the units calculator");
     sPixmap       = "accessories-calculator";
     eType         = 0;
@@ -697,6 +711,7 @@ StdCmdUnitsCalculator::StdCmdUnitsCalculator()
 
 void StdCmdUnitsCalculator::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     Gui::Dialog::DlgUnitsCalculator *dlg = new Gui::Dialog::DlgUnitsCalculator( getMainWindow() );
     dlg->show();
 }

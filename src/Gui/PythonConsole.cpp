@@ -50,7 +50,6 @@
 #include "FileDialog.h"
 #include "MainWindow.h"
 
-
 #include <Base/Interpreter.h>
 #include <Base/Exception.h>
 #include <CXX/Exception.hxx>
@@ -100,7 +99,13 @@ struct PythonConsoleP
     PythonConsoleP()
     {
         type = Normal;
+        _stdoutPy = 0;
+        _stderrPy = 0;
+        _stdinPy = 0;
+        _stdin = 0;
         interpreter = 0;
+        callTipsList = 0;
+        interactive = false;
         colormap[QLatin1String("Text")] = Qt::black;
         colormap[QLatin1String("Bookmark")] = Qt::cyan;
         colormap[QLatin1String("Breakpoint")] = Qt::red;
@@ -160,9 +165,17 @@ void InteractiveInterpreter::setPrompt()
     Base::PyGILStateLocker lock;
     d->sysmodule = PyImport_ImportModule("sys");
     if (!PyObject_HasAttrString(d->sysmodule, "ps1"))
+#if PY_MAJOR_VERSION >= 3
+        PyObject_SetAttrString(d->sysmodule, "ps1", PyUnicode_FromString(">>> "));
+#else
         PyObject_SetAttrString(d->sysmodule, "ps1", PyString_FromString(">>> "));
+#endif
     if (!PyObject_HasAttrString(d->sysmodule, "ps2"))
+#if PY_MAJOR_VERSION >= 3
+        PyObject_SetAttrString(d->sysmodule, "ps2", PyUnicode_FromString("... "));
+#else
         PyObject_SetAttrString(d->sysmodule, "ps2", PyString_FromString("... "));
+#endif
 }
 
 /**
@@ -190,7 +203,7 @@ PyObject* InteractiveInterpreter::compile(const char* source) const
         return eval;
     } else {
         // do not throw Base::PyException as this clears the error indicator
-        throw Base::Exception();
+        throw Base::RuntimeError("Code evaluation failed");
     }
 
     // can never happen
@@ -296,15 +309,51 @@ void InteractiveInterpreter::runCode(PyCodeObject* code) const
         throw Base::PyException();                 /* not incref'd */
 
     // It seems that the return value is always 'None' or Null
+#if PY_MAJOR_VERSION >= 3
+    presult = PyEval_EvalCode((PyObject*)code, dict, dict); /* run compiled bytecode */
+#else
     presult = PyEval_EvalCode(code, dict, dict); /* run compiled bytecode */
+#endif
     Py_XDECREF(code);                            /* decref the code object */
     if (!presult) {
         if (PyErr_ExceptionMatches(PyExc_SystemExit)) {
             // throw SystemExit exception
             throw Base::SystemExitException();
         }
-        if ( PyErr_Occurred() )                    /* get latest python exception information */
+        if (PyErr_Occurred()) {                   /* get latest python exception information */
+            PyObject *errobj, *errdata, *errtraceback;
+            PyErr_Fetch(&errobj, &errdata, &errtraceback);
+            if (PyDict_Check(errdata)) {
+                PyObject* value = PyDict_GetItemString(errdata, "swhat");
+                if (value) {
+                    Base::Exception e;
+                    e.setPyObject(errdata);
+                    Py_DECREF(errdata);
+
+                    std::stringstream str;
+                    str << e.what();
+                    if (!e.getFunction().empty()) {
+                        str << " In " << e.getFunction();
+                    }
+                    if (!e.getFile().empty() && e.getLine() > 0) {
+                        std::string file = e.getFile();
+                        std::size_t pos = file.find("src");
+                        if (pos!=std::string::npos)
+                            file = file.substr(pos);
+                        str << " in " << file << ":" << e.getLine();
+                    }
+
+                    std::string err = str.str();
+#if PY_MAJOR_VERSION >= 3
+                    errdata = PyUnicode_FromString(err.c_str());
+#else
+                    errdata = PyString_FromString(err.c_str());
+#endif
+                }
+            }
+            PyErr_Restore(errobj, errdata, errtraceback);
             PyErr_Print();                           /* and print the error to the error output */
+        }
     } else {
         Py_DECREF(presult);
     }
@@ -410,8 +459,13 @@ PythonConsole::PythonConsole(QWidget *parent)
     d->_stdin  = PySys_GetObject("stdin");
     PySys_SetObject("stdin", d->_stdinPy);
 
+#if PY_MAJOR_VERSION >= 3
+    const char* version  = PyUnicode_AsUTF8(PySys_GetObject("version"));
+    const char* platform = PyUnicode_AsUTF8(PySys_GetObject("platform"));
+#else
     const char* version  = PyString_AsString(PySys_GetObject("version"));
     const char* platform = PyString_AsString(PySys_GetObject("platform"));
+#endif
     d->info = QString::fromLatin1("Python %1 on %2\n"
     "Type 'help', 'copyright', 'credits' or 'license' for more information.")
     .arg(QString::fromLatin1(version)).arg(QString::fromLatin1(platform));
@@ -435,7 +489,17 @@ PythonConsole::~PythonConsole()
 /** Set new font and colors according to the paramerts. */  
 void PythonConsole::OnChange( Base::Subject<const char*> &rCaller,const char* sReason )
 {
+    Q_UNUSED(rCaller); 
     ParameterGrp::handle hPrefGrp = getWindowParameter();
+
+    bool pythonWordWrap = App::GetApplication().GetUserParameter().
+        GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("General")->GetBool("PythonWordWrap", true);
+
+    if (pythonWordWrap) {
+      this->setWordWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
+    } else {
+      this->setWordWrapMode(QTextOption::NoWrap);
+    }
 
     if (strcmp(sReason, "FontSize") == 0 || strcmp(sReason, "Font") == 0) {
         int fontSize = hPrefGrp->GetInt("FontSize", 10);
@@ -720,8 +784,8 @@ void PythonConsole::appendOutput(const QString& output, int state)
 void PythonConsole::runSource(const QString& line)
 {
     /**
-     * Check if there's a "source drain", which want's to consume the source in another way then just executing it.
-     * If so, put the source to the drain and emit a signal to notify the consumer, whoever this may be.
+     * Check if there's a "source drain", which wants to consume the source in another way then just executing it.
+     * If so, put the source to the drain and emit a signal to notify the consumer, whomever this may be.
      */
     if (this->_sourceDrain)
     {
@@ -747,6 +811,12 @@ void PythonConsole::runSource(const QString& line)
         setFocus(); // if focus was lost
     }
     catch (const Base::SystemExitException&) {
+#if PY_MAJOR_VERSION >= 3
+        // In Python the exception must be cleared because when the message box below appears
+        // callable Python objects can be invoked and due to a failing assert the application
+        // will be aborted.
+        PyErr_Clear();
+#endif
         ParameterGrp::handle hPrefGrp = getWindowParameter();
         bool check = hPrefGrp->GetBool("CheckSystemExit",true);
         int ret = QMessageBox::Yes;
@@ -982,7 +1052,7 @@ QTextCursor PythonConsole::inputBegin( void ) const
   // construct cursor at begin of input line ...
   QTextCursor inputLineBegin( this->textCursor() );
   inputLineBegin.movePosition( QTextCursor::End );
-  inputLineBegin.movePosition( QTextCursor::StartOfLine );
+  inputLineBegin.movePosition( QTextCursor::StartOfBlock );
   // ... and move cursor right beyond the prompt.
   inputLineBegin.movePosition( QTextCursor::Right, QTextCursor::MoveAnchor, promptLength( inputLineBegin.block().text() ) );
   return inputLineBegin;
@@ -1177,12 +1247,26 @@ void PythonConsole::contextMenuEvent ( QContextMenuEvent * e )
 
     QAction* wrap = menu.addAction(tr("Word wrap"));
     wrap->setCheckable(true);
-    wrap->setChecked(this->wordWrapMode() != QTextOption::NoWrap);
+
+    ParameterGrp::handle hGrp = App::GetApplication().GetUserParameter().
+        GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("General");
+    if (hGrp->GetBool("PythonWordWrap", true)) {
+        wrap->setChecked(true);
+        this->setWordWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
+    } else {
+        wrap->setChecked(false);
+        this->setWordWrapMode(QTextOption::NoWrap);
+    }
 
     QAction* exec = menu.exec(e->globalPos());
     if (exec == wrap) {
-        this->setWordWrapMode(wrap->isChecked()
-            ? QTextOption::WrapAtWordBoundaryOrAnywhere : QTextOption::NoWrap);
+        if (wrap->isChecked()) {
+            this->setWordWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
+            hGrp->SetBool("PythonWordWrap", true);
+        } else {
+            this->setWordWrapMode(QTextOption::NoWrap);
+            hGrp->SetBool("PythonWordWrap", false);
+        }
     }
 }
 
@@ -1307,6 +1391,8 @@ void PythonConsoleHighlighter::highlightBlock(const QString& text)
 
 void PythonConsoleHighlighter::colorChanged(const QString& type, const QColor& col)
 {
+    Q_UNUSED(type); 
+    Q_UNUSED(col); 
 }
 
 // ---------------------------------------------------------------------

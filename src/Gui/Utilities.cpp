@@ -39,12 +39,19 @@ using namespace Gui;
 
 ViewVolumeProjection::ViewVolumeProjection (const SbViewVolume &vv)
   : viewVolume(vv)
+  , hasTransform(false)
 {
 }
 
 Base::Vector3f ViewVolumeProjection::operator()(const Base::Vector3f &pt) const
 {
     SbVec3f pt3d(pt.x,pt.y,pt.z);
+    if (hasTransform) {
+        Base::Vector3f ptt = transform * pt;
+        pt3d.setValue(ptt.x, ptt.y, ptt.z);
+    }
+
+    // Calling this function is expensive as the complete projection matrix is recomputed on each step
     viewVolume.projectToScreen(pt3d,pt3d);
     return Base::Vector3f(pt3d[0],pt3d[1],pt3d[2]);
 }
@@ -79,16 +86,41 @@ Base::Vector3d ViewVolumeProjection::inverse (const Base::Vector3d &pt) const
     return Base::convertTo<Base::Vector3d>(ptf);
 }
 
+/*!
+ * \brief This method applies an additional transformation to the input points
+ * passed with the () operator.
+ * \param mat
+ */
+void ViewVolumeProjection::setTransform(const Base::Matrix4D& mat)
+{
+    transform = mat;
+    hasTransform = (mat != Base::Matrix4D());
+}
+
 Base::Matrix4D ViewVolumeProjection::getProjectionMatrix () const
 {
     // Inventor stores the transposed matrix
     Base::Matrix4D mat;
     SbMatrix affine, proj;
+
+    // The Inventor projection matrix is obtained by multiplying both matrices together (cf source)
     viewVolume.getMatrices(affine, proj);
+    SbMatrix pmatrix = affine.multRight(proj);
+
     for (int i=0; i<4; i++) {
         for (int j=0; j<4; j++)
-            mat[i][j] = proj[j][i];
+            mat[i][j] = pmatrix[j][i];
     }
+
+    // Compose the object transform, if defined
+    if (hasTransform) {
+        mat = mat * transform;
+    }
+
+    // Scale from [-1,1] to [0,1]
+    // As done in OpenInventor sources (see SbDPViewVolume::projectToScreen)
+    mat.scale(0.5, 0.5, 0.5);
+    mat.move(0.5, 0.5, 0.5);
 
     return mat;
 }

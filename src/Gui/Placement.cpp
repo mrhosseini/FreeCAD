@@ -30,10 +30,13 @@
 #include "ui_Placement.h"
 #include <Gui/DockWindowManager.h>
 #include <Gui/Application.h>
+#include <Gui/Command.h>
 #include <Gui/Document.h>
 #include <Gui/Selection.h>
 #include <Gui/ViewProvider.h>
+#include <Gui/Window.h>
 #include <App/Document.h>
+#include <App/GeoFeature.h>
 #include <App/PropertyGeo.h>
 #include <Base/Console.h>
 #include <Base/Tools.h>
@@ -112,6 +115,11 @@ Placement::Placement(QWidget* parent, Qt::WindowFlags fl)
         (boost::bind(&Placement::slotActiveDocument, this, _1));
     App::Document* activeDoc = App::GetApplication().getActiveDocument();
     if (activeDoc) documents.insert(activeDoc->getName());
+
+    ParameterGrp::handle hGrp = WindowParameter::getDefaultParameter()->GetGroup("Placement");
+    long index = hGrp->GetInt("RotationMethod");
+    ui->rotationInput->setCurrentIndex(index);
+    ui->stackedWidget->setCurrentIndex(index);
 }
 
 Placement::~Placement()
@@ -218,19 +226,21 @@ void Placement::applyPlacement(const QString& data, bool incremental)
                 QString cmd;
                 if (incremental)
                     cmd = QString::fromLatin1(
-                        "App.getDocument(\"%1\").%2.Placement=%3.multiply(App.getDocument(\"%1\").%2.Placement)")
+                        "App.getDocument(\"%1\").%2.%3=%4.multiply(App.getDocument(\"%1\").%2.%3)")
                         .arg(QLatin1String((*it)->getDocument()->getName()))
                         .arg(QLatin1String((*it)->getNameInDocument()))
+                        .arg(QLatin1String(this->propertyName.c_str()))
                         .arg(data);
                 else {
                     cmd = QString::fromLatin1(
-                        "App.getDocument(\"%1\").%2.Placement=%3")
+                        "App.getDocument(\"%1\").%2.%3=%4")
                         .arg(QLatin1String((*it)->getDocument()->getName()))
                         .arg(QLatin1String((*it)->getNameInDocument()))
+                        .arg(QLatin1String(this->propertyName.c_str()))
                         .arg(data);
                 }
 
-                Application::Instance->runPythonCode((const char*)cmd.toLatin1());
+                Gui::Command::runCommand(Gui::Command::App, cmd.toLatin1());
             }
         }
 
@@ -258,6 +268,32 @@ void Placement::onPlacementChanged(int)
 
     QVariant data = QVariant::fromValue<Base::Placement>(plm);
     /*emit*/ placementChanged(data, incr, false);
+}
+
+void Placement::on_centerOfMass_toggled(bool on)
+{
+    ui->xCnt->setDisabled(on);
+    ui->yCnt->setDisabled(on);
+    ui->zCnt->setDisabled(on);
+
+    if (on) {
+        cntOfMass.Set(0,0,0);
+        std::vector<App::DocumentObject*> sel = Gui::Selection().getObjectsOfType
+            (App::GeoFeature::getClassTypeId());
+        if (!sel.empty()) {
+            for (auto it : sel) {
+                const App::PropertyComplexGeoData* propgeo = static_cast<App::GeoFeature*>(it)->getPropertyOfGeometry();
+                const Data::ComplexGeoData* geodata = propgeo ? propgeo->getComplexData() : nullptr;
+                if (geodata && geodata->getCenterOfGravity(cntOfMass)) {
+                    break;
+                }
+            }
+        }
+
+        ui->xCnt->setValue(cntOfMass.x);
+        ui->yCnt->setValue(cntOfMass.y);
+        ui->zCnt->setValue(cntOfMass.z);
+    }
 }
 
 void Placement::on_applyIncrementalPlacement_toggled(bool on)
@@ -332,6 +368,9 @@ bool Placement::onApply()
             (*it)->blockSignals(false);
         }
     }
+
+    ParameterGrp::handle hGrp = WindowParameter::getDefaultParameter()->GetGroup("Placement");
+    hGrp->SetInt("RotationMethod", ui->rotationInput->currentIndex());
 
     return true;
 }
@@ -416,6 +455,15 @@ Base::Placement Placement::getPlacement() const
     return p;
 }
 
+Base::Vector3d Placement::getCenterData() const
+{
+    if (ui->centerOfMass->isChecked())
+        return this->cntOfMass;
+    return Base::Vector3d(ui->xCnt->value().getValue(),
+                          ui->yCnt->value().getValue(),
+                          ui->zCnt->value().getValue());
+}
+
 Base::Placement Placement::getPlacementData() const
 {
     int index = ui->rotationInput->currentIndex();
@@ -424,7 +472,7 @@ Base::Placement Placement::getPlacementData() const
     Base::Vector3d cnt;
 
     pos = Base::Vector3d(ui->xPos->value().getValue(),ui->yPos->value().getValue(),ui->zPos->value().getValue());
-    cnt = Base::Vector3d(ui->xCnt->value().getValue(),ui->yCnt->value().getValue(),ui->zCnt->value().getValue());
+    cnt = getCenterData();
 
     if (index == 0) {
         Base::Vector3d dir = getDirection();
@@ -445,6 +493,7 @@ QString Placement::getPlacementString() const
 {
     QString cmd;
     int index = ui->rotationInput->currentIndex();
+    Base::Vector3d cnt = getCenterData();
 
     if (index == 0) {
         Base::Vector3d dir = getDirection();
@@ -457,9 +506,9 @@ QString Placement::getPlacementString() const
             .arg(dir.y)
             .arg(dir.z)
             .arg(ui->angle->value().getValue())
-            .arg(ui->xCnt->value().getValue())
-            .arg(ui->yCnt->value().getValue())
-            .arg(ui->zCnt->value().getValue());
+            .arg(cnt.x)
+            .arg(cnt.y)
+            .arg(cnt.z);
     }
     else if (index == 1) {
         cmd = QString::fromLatin1(
@@ -470,9 +519,9 @@ QString Placement::getPlacementString() const
             .arg(ui->yawAngle->value().getValue())
             .arg(ui->pitchAngle->value().getValue())
             .arg(ui->rollAngle->value().getValue())
-            .arg(ui->xCnt->value().getValue())
-            .arg(ui->yCnt->value().getValue())
-            .arg(ui->zCnt->value().getValue());
+            .arg(cnt.x)
+            .arg(cnt.y)
+            .arg(cnt.z);
     }
 
     return cmd;

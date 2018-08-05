@@ -29,6 +29,7 @@
 # include <Geom_Plane.hxx>
 # include <Precision.hxx>
 # include <QMessageBox>
+# include <QAction>
 # include <QRegExp>
 # include <QTextStream>
 # include <TopoDS.hxx>
@@ -260,7 +261,8 @@ const std::string TaskFemConstraintFixed::getReferences() const
 }
 
 
-void TaskFemConstraintFixed::changeEvent(QEvent *e){
+void TaskFemConstraintFixed::changeEvent(QEvent *)
+{
 }
 
 //**************************************************************************

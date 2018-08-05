@@ -38,6 +38,7 @@
 #include <App/Expression.h>
 #include <boost/math/special_functions/round.hpp>
 #include "QuantitySpinBox_p.h"
+#include <App/PropertyUnits.h>
 
 using namespace Gui;
 using namespace App;
@@ -279,7 +280,7 @@ void UIntSpinBox::setExpression(boost::shared_ptr<Expression> expr)
 void UIntSpinBox::onChange() {
     
     if (getExpression()) {
-        std::auto_ptr<Expression> result(getExpression()->eval());
+        std::unique_ptr<Expression> result(getExpression()->eval());
         NumberExpression * value = freecad_dynamic_cast<NumberExpression>(result.get());
 
         if (value) {
@@ -331,7 +332,7 @@ void UIntSpinBox::resizeEvent(QResizeEvent * event)
 
     try {
         if (isBound() && getExpression()) {
-            std::auto_ptr<Expression> result(getExpression()->eval());
+            std::unique_ptr<Expression> result(getExpression()->eval());
             NumberExpression * value = freecad_dynamic_cast<NumberExpression>(result.get());
 
             if (value) {
@@ -371,7 +372,13 @@ void UIntSpinBox::openFormulaDialog()
 {
     Q_ASSERT(isBound());
 
-    Gui::Dialog::DlgExpressionInput* box = new Gui::Dialog::DlgExpressionInput(getPath(), getExpression(), Unit(), this);
+    PropertyQuantity *  qprop = freecad_dynamic_cast<PropertyQuantity>(getPath().getProperty());
+    Unit unit;
+
+    if (qprop != 0)
+        unit = qprop->getUnit();
+
+    Gui::Dialog::DlgExpressionInput* box = new Gui::Dialog::DlgExpressionInput(getPath(), getExpression(), unit, this);
     connect(box, SIGNAL(finished(int)), this, SLOT(finishFormulaDialog()));
     box->show();
 
@@ -470,7 +477,7 @@ void IntSpinBox::setExpression(boost::shared_ptr<Expression> expr)
 void IntSpinBox::onChange() {
     
     if (getExpression()) {
-        std::auto_ptr<Expression> result(getExpression()->eval());
+        std::unique_ptr<Expression> result(getExpression()->eval());
         NumberExpression * value = freecad_dynamic_cast<NumberExpression>(result.get());
 
         if (value) {
@@ -506,7 +513,7 @@ void IntSpinBox::resizeEvent(QResizeEvent * event)
 
     try {
         if (isBound() && getExpression()) {
-            std::auto_ptr<Expression> result(getExpression()->eval());
+            std::unique_ptr<Expression> result(getExpression()->eval());
             NumberExpression * value = freecad_dynamic_cast<NumberExpression>(result.get());
 
             if (value) {
@@ -546,7 +553,13 @@ void IntSpinBox::openFormulaDialog()
 {
     Q_ASSERT(isBound());
 
-    Gui::Dialog::DlgExpressionInput* box = new Gui::Dialog::DlgExpressionInput(getPath(), getExpression(), Unit(), this);
+    PropertyQuantity *  qprop = freecad_dynamic_cast<PropertyQuantity>(getPath().getProperty());
+    Unit unit;
+
+    if (qprop != 0)
+        unit = qprop->getUnit();
+
+    Gui::Dialog::DlgExpressionInput* box = new Gui::Dialog::DlgExpressionInput(getPath(), getExpression(),unit, this);
     connect(box, SIGNAL(finished(int)), this, SLOT(finishFormulaDialog()));
     box->show();
 
@@ -645,7 +658,7 @@ void DoubleSpinBox::setExpression(boost::shared_ptr<Expression> expr)
 void DoubleSpinBox::onChange() {
     
     if (getExpression()) {
-        std::auto_ptr<Expression> result(getExpression()->eval());
+        std::unique_ptr<Expression> result(getExpression()->eval());
         NumberExpression * value = freecad_dynamic_cast<NumberExpression>(result.get());
 
         if (value) {
@@ -681,7 +694,7 @@ void DoubleSpinBox::resizeEvent(QResizeEvent * event)
 
     try {
         if (isBound() && getExpression()) {
-            std::auto_ptr<Expression> result(getExpression()->eval());
+            std::unique_ptr<Expression> result(getExpression()->eval());
             NumberExpression * value = freecad_dynamic_cast<NumberExpression>(result.get());
 
             if (value) {
@@ -721,7 +734,13 @@ void DoubleSpinBox::openFormulaDialog()
 {
     Q_ASSERT(isBound());
 
-    Gui::Dialog::DlgExpressionInput* box = new Gui::Dialog::DlgExpressionInput(getPath(), getExpression(), Unit(), this);
+    PropertyQuantity *  qprop = freecad_dynamic_cast<PropertyQuantity>(getPath().getProperty());
+    Unit unit;
+
+    if (qprop != 0)
+        unit = qprop->getUnit();
+
+    Gui::Dialog::DlgExpressionInput* box = new Gui::Dialog::DlgExpressionInput(getPath(), getExpression(), unit, this);
     connect(box, SIGNAL(finished(int)), this, SLOT(finishFormulaDialog()));
     box->show();
 

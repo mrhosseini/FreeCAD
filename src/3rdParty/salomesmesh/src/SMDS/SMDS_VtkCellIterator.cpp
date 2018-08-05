@@ -63,16 +63,17 @@ SMDS_VtkCellIteratorToUNV::SMDS_VtkCellIteratorToUNV(SMDS_Mesh* mesh, int vtkCel
   _mesh = mesh;
   _cellId = vtkCellId;
   _index = 0;
-  // _type = aType;
+  _type = aType;
   //MESSAGE("SMDS_VtkCellInterlacedIterator (UNV)" << _type);
 
   _vtkIdList = vtkIdList::New();
   vtkIdType* pts;
+  vtkIdType npts;
   vtkUnstructuredGrid* grid = _mesh->getGrid();
-  grid->GetCellPoints((vtkIdType)_cellId, (vtkIdType&)_nbNodes, pts);
+  grid->GetCellPoints((vtkIdType)_cellId, npts, pts);
+  _nbNodes = static_cast<int>(npts);
   _vtkIdList->SetNumberOfIds(_nbNodes);
   const int *ids = 0;
-  _type = aType;
   switch (_type)
   {
   case SMDSEntity_Quad_Edge:

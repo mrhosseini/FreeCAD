@@ -77,32 +77,12 @@
 #include <App/OriginFeature.h>
 #include <App/Document.h>
 #include <Mod/Part/App/modelRefine.h>
+#include <Mod/Part/App/FaceMakerCheese.h>
 #include "FeatureSketchBased.h"
 #include "DatumPlane.h"
 #include "DatumLine.h"
 
 using namespace PartDesign;
-
-// sort bounding boxes according to diagonal length
-class ProfileBased::Wire_Compare : public std::binary_function<const TopoDS_Wire&,
-                                                              const TopoDS_Wire&, bool> {
-public:
-    bool operator() (const TopoDS_Wire& w1, const TopoDS_Wire& w2)
-    {
-        Bnd_Box box1, box2;
-        if (!w1.IsNull()) {
-            BRepBndLib::Add(w1, box1);
-            box1.SetGap(0.0);
-        }
-
-        if (!w2.IsNull()) {
-            BRepBndLib::Add(w2, box2);
-            box2.SetGap(0.0);
-        }
-
-        return box1.SquareExtent() < box2.SquareExtent();
-    }
-};
 
 PROPERTY_SOURCE(PartDesign::ProfileBased, PartDesign::FeatureAddSub)
 
@@ -112,6 +92,12 @@ ProfileBased::ProfileBased()
     ADD_PROPERTY_TYPE(Midplane,(0),"SketchBased", App::Prop_None, "Extrude symmetric to sketch face");
     ADD_PROPERTY_TYPE(Reversed, (0),"SketchBased", App::Prop_None, "Reverse extrusion direction");
     ADD_PROPERTY_TYPE(UpToFace,(0),"SketchBased",(App::PropertyType)(App::Prop_None),"Face where feature will end");
+    ADD_PROPERTY_TYPE(Refine,(0),"SketchBased",(App::PropertyType)(App::Prop_None),"Refine shape (clean up redundant edges) after adding/subtracting");
+
+    //init Refine property
+    Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter()
+        .GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("Mod/PartDesign");
+    this->Refine.setValue(hGrp->GetBool("RefineModel", false));
 }
 
 short ProfileBased::mustExecute() const
@@ -203,7 +189,7 @@ TopoDS_Shape ProfileBased::getVerifiedFace(bool silent) const {
         if (result->getTypeId().isDerivedFrom(Part::Part2DObject::getClassTypeId())) {
             
             auto wires = getProfileWires();
-            return makeFace(wires);
+            return Part::FaceMakerCheese::makeFace(wires);
         }
         else if(result->getTypeId().isDerivedFrom(Part::Feature::getClassTypeId())) {
             if(Profile.getSubValues().empty())
@@ -292,6 +278,12 @@ const TopoDS_Face ProfileBased::getSupportFace() const {
         if (part && part->getTypeId().isDerivedFrom(Part::Feature::getClassTypeId())) {
             const std::vector<std::string> &sub = Support.getSubValues();
             assert(sub.size()==1);
+
+            if (sub.at(0) == "") {
+                // This seems to happen when sketch is on a datum plane
+                return TopoDS::Face(Feature::makeShapeFromPlane(sketch));
+            }
+
             // get the selected sub shape (a Face)
             const Part::TopoShape &shape = part->Shape.getShape();
             if (shape.getShape().IsNull())
@@ -373,195 +365,6 @@ void ProfileBased::onChanged(const App::Property* prop)
     FeatureAddSub::onChanged(prop);
 }
 
-bool ProfileBased::isInside(const TopoDS_Wire& wire1, const TopoDS_Wire& wire2) const
-{
-    Bnd_Box box1;
-    BRepBndLib::Add(wire1, box1);
-    box1.SetGap(0.0);
-
-    Bnd_Box box2;
-    BRepBndLib::Add(wire2, box2);
-    box2.SetGap(0.0);
-
-    if (box1.IsOut(box2))
-        return false;
-
-    double prec = Precision::Confusion();
-
-    BRepBuilderAPI_MakeFace mkFace(wire1);
-    if (!mkFace.IsDone())
-        Standard_Failure::Raise("Failed to create a face from wire in sketch");
-    TopoDS_Face face = validateFace(mkFace.Face());
-    BRepAdaptor_Surface adapt(face);
-    IntTools_FClass2d class2d(face, prec);
-    Handle_Geom_Surface surf = new Geom_Plane(adapt.Plane());
-    ShapeAnalysis_Surface as(surf);
-
-    TopExp_Explorer xp(wire2,TopAbs_VERTEX);
-    while (xp.More())  {
-        TopoDS_Vertex v = TopoDS::Vertex(xp.Current());
-        gp_Pnt p = BRep_Tool::Pnt(v);
-        gp_Pnt2d uv = as.ValueOfUV(p, prec);
-        if (class2d.Perform(uv) == TopAbs_IN)
-            return true;
-        // TODO: We can make a check to see if all points are inside or all outside
-        // because otherwise we have some intersections which is not allowed
-        else
-            return false;
-        xp.Next();
-    }
-
-    return false;
-}
-
-TopoDS_Face ProfileBased::validateFace(const TopoDS_Face& face) const
-{
-    BRepCheck_Analyzer aChecker(face);
-    if (!aChecker.IsValid()) {
-        TopoDS_Wire outerwire = ShapeAnalysis::OuterWire(face);
-        TopTools_IndexedMapOfShape myMap;
-        myMap.Add(outerwire);
-
-        TopExp_Explorer xp(face,TopAbs_WIRE);
-        ShapeFix_Wire fix;
-        fix.SetFace(face);
-        fix.Load(outerwire);
-        fix.Perform();
-        BRepBuilderAPI_MakeFace mkFace(fix.WireAPIMake());
-        while (xp.More()) {
-            if (!myMap.Contains(xp.Current())) {
-                fix.Load(TopoDS::Wire(xp.Current()));
-                fix.Perform();
-                mkFace.Add(fix.WireAPIMake());
-            }
-            xp.Next();
-        }
-
-        aChecker.Init(mkFace.Face());
-        if (!aChecker.IsValid()) {
-            ShapeFix_Shape fix(mkFace.Face());
-            fix.SetPrecision(Precision::Confusion());
-            fix.SetMaxTolerance(Precision::Confusion());
-            fix.SetMaxTolerance(Precision::Confusion());
-            fix.Perform();
-            fix.FixWireTool()->Perform();
-            fix.FixFaceTool()->Perform();
-            TopoDS_Face fixedFace = TopoDS::Face(fix.Shape());
-            aChecker.Init(fixedFace);
-            if (!aChecker.IsValid())
-                Standard_Failure::Raise("Failed to validate broken face");
-            return fixedFace;
-        }
-        return mkFace.Face();
-    }
-
-    return face;
-}
-
-TopoDS_Shape ProfileBased::makeFace(std::list<TopoDS_Wire>& wires) const
-{
-    BRepBuilderAPI_MakeFace mkFace(wires.front());
-    const TopoDS_Face& face = mkFace.Face();
-    if (face.IsNull())
-        return face;
-    gp_Dir axis(0,0,1);
-    BRepAdaptor_Surface adapt(face);
-    if (adapt.GetType() == GeomAbs_Plane) {
-        axis = adapt.Plane().Axis().Direction();
-    }
-
-    wires.pop_front();
-    for (std::list<TopoDS_Wire>::iterator it = wires.begin(); it != wires.end(); ++it) {
-        BRepBuilderAPI_MakeFace mkInnerFace(*it);
-        const TopoDS_Face& inner_face = mkInnerFace.Face();
-        if (inner_face.IsNull())
-            return inner_face; // failure
-        gp_Dir inner_axis(0,0,1);
-        BRepAdaptor_Surface adapt(inner_face);
-        if (adapt.GetType() == GeomAbs_Plane) {
-            inner_axis = adapt.Plane().Axis().Direction();
-        }
-        // It seems that orientation is always 'Forward' and we only have to reverse
-        // if the underlying plane have opposite normals.
-        if (axis.Dot(inner_axis) < 0)
-            it->Reverse();
-        mkFace.Add(*it);
-    }
-    return validateFace(mkFace.Face());
-}
-
-TopoDS_Shape ProfileBased::makeFace(const std::vector<TopoDS_Wire>& w) const
-{
-    if (w.empty())
-        return TopoDS_Shape();
-
-    //FIXME: Need a safe method to sort wire that the outermost one comes last
-    // Currently it's done with the diagonal lengths of the bounding boxes
-#if 1
-    std::vector<TopoDS_Wire> wires = w;
-    std::sort(wires.begin(), wires.end(), Wire_Compare());
-    std::list<TopoDS_Wire> wire_list;
-    wire_list.insert(wire_list.begin(), wires.rbegin(), wires.rend());
-#else
-    //bug #0001133: try alternative sort algorithm
-    std::list<TopoDS_Wire> unsorted_wire_list;
-    unsorted_wire_list.insert(unsorted_wire_list.begin(), w.begin(), w.end());
-    std::list<TopoDS_Wire> wire_list;
-    Wire_Compare wc;
-    while (!unsorted_wire_list.empty()) {
-        std::list<TopoDS_Wire>::iterator w_ref = unsorted_wire_list.begin();
-        std::list<TopoDS_Wire>::iterator w_it = unsorted_wire_list.begin();
-        for (++w_it; w_it != unsorted_wire_list.end(); ++w_it) {
-            if (wc(*w_ref, *w_it))
-                w_ref = w_it;
-        }
-        wire_list.push_back(*w_ref);
-        unsorted_wire_list.erase(w_ref);
-    }
-#endif
-
-    // separate the wires into several independent faces
-    std::list< std::list<TopoDS_Wire> > sep_wire_list;
-    while (!wire_list.empty()) {
-        std::list<TopoDS_Wire> sep_list;
-        TopoDS_Wire wire = wire_list.front();
-        wire_list.pop_front();
-        sep_list.push_back(wire);
-
-        std::list<TopoDS_Wire>::iterator it = wire_list.begin();
-        while (it != wire_list.end()) {
-            if (isInside(wire, *it)) {
-                sep_list.push_back(*it);
-                it = wire_list.erase(it);
-            }
-            else {
-                ++it;
-            }
-        }
-
-        sep_wire_list.push_back(sep_list);
-    }
-
-    if (sep_wire_list.size() == 1) {
-        std::list<TopoDS_Wire>& wires = sep_wire_list.front();
-        return makeFace(wires);
-    }
-    else if (sep_wire_list.size() > 1) {
-        TopoDS_Compound comp;
-        BRep_Builder builder;
-        builder.MakeCompound(comp);
-        for (std::list< std::list<TopoDS_Wire> >::iterator it = sep_wire_list.begin(); it != sep_wire_list.end(); ++it) {
-            TopoDS_Shape aFace = makeFace(*it);
-            if (!aFace.IsNull())
-                builder.Add(comp, aFace);
-        }
-
-        return comp;
-    }
-    else {
-        return TopoDS_Shape(); // error
-    }
-}
 
 void ProfileBased::getUpToFaceFromLinkSub(TopoDS_Face& upToFace,
                                          const App::PropertyLinkSub& refFace)
@@ -639,10 +442,28 @@ void ProfileBased::getUpToFace(TopoDS_Face& upToFace,
             }
         }
 
+        // It must also be checked that all projected inner wires of the upToFace
+        // lie outside the sketch shape. If this is not the case then the sketch
+        // shape is not completely covered by the upToFace. See #0003141
+        if (!remove_limits) {
+            TopoDS_Wire outerWire = ShapeAnalysis::OuterWire(upToFace);
+            for (Ex.Init(upToFace, TopAbs_WIRE); Ex.More(); Ex.Next()) {
+                if (!outerWire.IsSame(Ex.Current())) {
+                    BRepProj_Projection proj(TopoDS::Wire(Ex.Current()), sketchshape, -dir);
+                    if (proj.More()) {
+                        remove_limits = true;
+                        break;
+                    }
+                }
+            }
+        }
+
         if (remove_limits) {
             // Note: Using an unlimited face every time gives unnecessary failures for concave faces
             TopLoc_Location loc = upToFace.Location();
             BRepAdaptor_Surface adapt(upToFace, Standard_False);
+            // use the placement of the adapter, not of the upToFace
+            loc = TopLoc_Location(adapt.Trsf());
             BRepBuilderAPI_MakeFace mkFace(adapt.Surface().Surface()
     #if OCC_VERSION_HEX >= 0x060502
                   , Precision::Confusion()
@@ -730,8 +551,8 @@ void ProfileBased::generatePrism(TopoDS_Shape& prism,
 
 }
 
-const bool ProfileBased::checkWireInsideFace(const TopoDS_Wire& wire, const TopoDS_Face& face,
-                                            const gp_Dir& dir) {
+bool ProfileBased::checkWireInsideFace(const TopoDS_Wire& wire, const TopoDS_Face& face,
+                                       const gp_Dir& dir) {
     // Project wire onto the face (face, not surface! So limits of face apply)
     // FIXME: The results of BRepProj_Projection do not seem to be very stable. Sometimes they return no result
     // even in the simplest projection case.
@@ -741,7 +562,7 @@ const bool ProfileBased::checkWireInsideFace(const TopoDS_Wire& wire, const Topo
     return (proj.More() && proj.Current().Closed());
 }
 
-const bool ProfileBased::checkLineCrossesFace(const gp_Lin &line, const TopoDS_Face &face)
+bool ProfileBased::checkLineCrossesFace(const gp_Lin &line, const TopoDS_Face &face)
 {
 #if 1
     BRepBuilderAPI_MakeEdge mkEdge(line);
@@ -775,7 +596,7 @@ const bool ProfileBased::checkLineCrossesFace(const gp_Lin &line, const TopoDS_F
                 // now check if we get a change in the sign of the distances
                 Standard_Real dist_p_eps1_pnt = gp_Vec(p_eps1, pnt).Dot(gp_Vec(dir));
                 Standard_Real dist_p_eps2_pnt = gp_Vec(p_eps2, pnt).Dot(gp_Vec(dir));
-                // distance to the plane must be noticable
+                // distance to the plane must be noticeable
                 if (fabs(dist_p_eps1_pnt) > 5*Precision::Confusion() &&
                     fabs(dist_p_eps2_pnt) > 5*Precision::Confusion()) {
                     if (dist_p_eps1_pnt * dist_p_eps2_pnt < 0)
@@ -819,7 +640,7 @@ const bool ProfileBased::checkLineCrossesFace(const gp_Lin &line, const TopoDS_F
                     // now check if we get a change in the sign of the distances
                     Standard_Real dist_p_eps1_pnt = gp_Vec(p_eps1, pnt).Dot(gp_Vec(dir));
                     Standard_Real dist_p_eps2_pnt = gp_Vec(p_eps2, pnt).Dot(gp_Vec(dir));
-                    // distance to the plane must be noticable
+                    // distance to the plane must be noticeable
                     if (fabs(dist_p_eps1_pnt) > Precision::Confusion() &&
                         fabs(dist_p_eps2_pnt) > Precision::Confusion()) {
                         if (dist_p_eps1_pnt * dist_p_eps2_pnt < 0)
@@ -847,7 +668,7 @@ const bool ProfileBased::checkLineCrossesFace(const gp_Lin &line, const TopoDS_F
     int intersections = 0;
     std::vector<gp_Pnt> intersectionpoints;
 
-    // Note: We need to look at evey edge separately to catch coincident lines
+    // Note: We need to look at every edge separately to catch coincident lines
     for (ex.Init(outerWire, TopAbs_EDGE); ex.More(); ex.Next()) {
         BRepAdaptor_Curve edge(TopoDS::Edge(ex.Current()));
         Extrema_ExtCC intersector(axis, edge);
@@ -1086,7 +907,7 @@ bool ProfileBased::isParallelPlane(const TopoDS_Shape& s1, const TopoDS_Shape& s
 }
 
 
-const double ProfileBased::getReversedAngle(const Base::Vector3d &b, const Base::Vector3d &v)
+double ProfileBased::getReversedAngle(const Base::Vector3d &b, const Base::Vector3d &v)
 {
     try {
         Part::Feature* obj = getVerifiedObject();
@@ -1121,13 +942,51 @@ void ProfileBased::getAxis(const App::DocumentObject *pcReferenceAxis, const std
     if (pcReferenceAxis == NULL)
         return;
 
-    Part::Part2DObject* sketch = getVerifiedSketch();
-    Base::Placement SketchPlm = sketch->Placement.getValue();
-    Base::Vector3d SketchPos = SketchPlm.getPosition();
-    Base::Rotation SketchOrientation = SketchPlm.getRotation();
-    Base::Vector3d SketchVector(0,0,1);
-    SketchOrientation.multVec(SketchVector,SketchVector);
-    gp_Pln sketchplane(gp_Pnt(SketchPos.x, SketchPos.y, SketchPos.z), gp_Dir(SketchVector.x, SketchVector.y, SketchVector.z));
+    App::DocumentObject* profile = Profile.getValue();
+    gp_Pln sketchplane;
+
+    if (profile->getTypeId().isDerivedFrom(Part::Part2DObject::getClassTypeId())) {
+        Part::Part2DObject* sketch = getVerifiedSketch();
+        Base::Placement SketchPlm = sketch->Placement.getValue();
+        Base::Vector3d SketchVector = Base::Vector3d(0, 0, 1);
+        Base::Rotation SketchOrientation = SketchPlm.getRotation();
+        SketchOrientation.multVec(SketchVector, SketchVector);
+        Base::Vector3d SketchPos = SketchPlm.getPosition();
+        sketchplane = gp_Pln(gp_Pnt(SketchPos.x, SketchPos.y, SketchPos.z), gp_Dir(SketchVector.x, SketchVector.y, SketchVector.z));
+
+        if (pcReferenceAxis == profile) {
+            bool hasValidAxis = false;
+            Base::Axis axis;
+            if (subReferenceAxis[0] == "V_Axis") {
+                hasValidAxis = true;
+                axis = sketch->getAxis(Part::Part2DObject::V_Axis);
+            }
+            else if (subReferenceAxis[0] == "H_Axis") {
+                hasValidAxis = true;
+                axis = sketch->getAxis(Part::Part2DObject::H_Axis);
+            }
+            else if (subReferenceAxis[0].size() > 4 && subReferenceAxis[0].substr(0, 4) == "Axis") {
+                int AxId = std::atoi(subReferenceAxis[0].substr(4, 4000).c_str());
+                if (AxId >= 0 && AxId < sketch->getAxisCount()) {
+                    hasValidAxis = true;
+                    axis = sketch->getAxis(AxId);
+                }
+            }
+            if (hasValidAxis) {
+                axis *= SketchPlm;
+                base = axis.getBase();
+                dir = axis.getDirection();
+                return;
+            } //else - an edge of the sketch was selected as an axis
+        }
+
+    }
+    else if (profile->getTypeId().isDerivedFrom(Part::Feature::getClassTypeId())) {
+        Base::Placement SketchPlm = getVerifiedObject()->Placement.getValue();
+        Base::Vector3d SketchVector = getProfileNormal();
+        Base::Vector3d SketchPos = SketchPlm.getPosition();
+        sketchplane = gp_Pln(gp_Pnt(SketchPos.x, SketchPos.y, SketchPos.z), gp_Dir(SketchVector.x, SketchVector.y, SketchVector.z));
+    }
 
     // get reference axis
     if (pcReferenceAxis->getTypeId().isDerivedFrom(PartDesign::Line::getClassTypeId())) {
@@ -1136,44 +995,20 @@ void ProfileBased::getAxis(const App::DocumentObject *pcReferenceAxis, const std
         dir = line->getDirection();
 
         // Check that axis is perpendicular with sketch plane!
-        if (sketchplane.Axis().Direction().Angle(gp_Dir(dir.x, dir.y, dir.z))< Precision::Angular())
-             throw Base::Exception("Rotation axis must not be perpendicular with the sketch plane");
+        if (sketchplane.Axis().Direction().IsParallel(gp_Dir(dir.x, dir.y, dir.z), Precision::Angular()))
+            throw Base::Exception("Rotation axis must not be perpendicular with the sketch plane");
         return;
     }
 
     if (pcReferenceAxis->getTypeId().isDerivedFrom(App::Line::getClassTypeId())) {
         const App::Line* line = static_cast<const App::Line*>(pcReferenceAxis);
         base = Base::Vector3d(0,0,0);
-        line->Placement.getValue().multVec (Base::Vector3d (1,0,0), dir);
+        line->Placement.getValue().multVec(Base::Vector3d (1,0,0), dir);
 
         // Check that axis is perpendicular with sketch plane!
-        if (sketchplane.Axis().Direction().Angle(gp_Dir(dir.x, dir.y, dir.z)) < Precision::Angular())
-             throw Base::Exception("Rotation axis must not be perpendicular with the sketch plane");
+        if (sketchplane.Axis().Direction().IsParallel(gp_Dir(dir.x, dir.y, dir.z), Precision::Angular()))
+            throw Base::Exception("Rotation axis must not be perpendicular with the sketch plane");
         return;
-    }
-
-    if (pcReferenceAxis == sketch){
-        bool hasValidAxis=false;
-        Base::Axis axis;
-        if (subReferenceAxis[0] == "V_Axis") {
-            hasValidAxis = true;
-            axis = sketch->getAxis(Part::Part2DObject::V_Axis);
-        } else if (subReferenceAxis[0] == "H_Axis") {
-            hasValidAxis = true;
-            axis = sketch->getAxis(Part::Part2DObject::H_Axis);
-        } else if (subReferenceAxis[0].size() > 4 && subReferenceAxis[0].substr(0,4) == "Axis") {
-            int AxId = std::atoi(subReferenceAxis[0].substr(4,4000).c_str());
-            if (AxId >= 0 && AxId < sketch->getAxisCount()) {
-                hasValidAxis = true;
-                axis = sketch->getAxis(AxId);
-            }
-        }
-        if (hasValidAxis) {
-            axis *= SketchPlm;
-            base=axis.getBase();
-            dir=axis.getDirection();
-            return;
-        } //else - an edge of the sketch was selected as an axis
     }
 
     if (pcReferenceAxis->getTypeId().isDerivedFrom(Part::Feature::getClassTypeId())) {
@@ -1197,7 +1032,7 @@ void ProfileBased::getAxis(const App::DocumentObject *pcReferenceAxis, const std
             dir = Base::Vector3d(d.X(), d.Y(), d.Z());
             // Check that axis is co-planar with sketch plane!
             // Check that axis is perpendicular with sketch plane!
-            if (sketchplane.Axis().Direction().Angle(d) < Precision::Angular())
+            if (sketchplane.Axis().Direction().IsParallel(d, Precision::Angular()))
                 throw Base::Exception("Rotation axis must not be perpendicular with the sketch plane");
             return;
         } else {
@@ -1210,12 +1045,15 @@ void ProfileBased::getAxis(const App::DocumentObject *pcReferenceAxis, const std
 
 TopoDS_Shape ProfileBased::refineShapeIfActive(const TopoDS_Shape& oldShape) const
 {
-    Base::Reference<ParameterGrp> hGrp = App::GetApplication().GetUserParameter()
-        .GetGroup("BaseApp")->GetGroup("Preferences")->GetGroup("Mod/PartDesign");
-    if (hGrp->GetBool("RefineModel", false)) {
-        Part::BRepBuilderAPI_RefineModel mkRefine(oldShape);
-        TopoDS_Shape resShape = mkRefine.Shape();
-        return resShape;
+    if (this->Refine.getValue()) {
+        try {
+            Part::BRepBuilderAPI_RefineModel mkRefine(oldShape);
+            TopoDS_Shape resShape = mkRefine.Shape();
+            return resShape;
+        }
+        catch (Standard_Failure) {
+            return oldShape;
+        }
     }
 
     return oldShape;
@@ -1236,7 +1074,10 @@ Base::Vector3d ProfileBased::getProfileNormal() const {
     }
     else {
         TopoDS_Shape shape = getVerifiedFace(true);
-        if(shape.ShapeType() == TopAbs_FACE) {
+        if (shape == TopoDS_Shape())
+            return SketchVector;
+
+        if (shape.ShapeType() == TopAbs_FACE) {
             BRepAdaptor_Surface adapt(TopoDS::Face(shape));
             double u = adapt.FirstUParameter() + (adapt.LastUParameter() - adapt.FirstUParameter())/2.;
             double v = adapt.FirstVParameter() + (adapt.LastVParameter() - adapt.FirstVParameter())/2.;

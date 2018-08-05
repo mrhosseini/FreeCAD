@@ -114,18 +114,22 @@ QString UnitsSchemaImperial1::schemaTranslate(const Quantity &quant, double &fac
         factor = 0.45359237;
     }
     else if (unit == Unit::Pressure) {
-        if (UnitValue < 145.038) {// psi is the smallest
+        if (UnitValue < 6894.744) {// psi is the smallest
             unitString = QString::fromLatin1("psi");
-            factor = 0.145038;
+            factor = 6.894744825494;
         }
-        else if (UnitValue < 145038) {
+        else if (UnitValue < 6894744.825) {
             unitString = QString::fromLatin1("ksi");
-            factor = 145.038;
+            factor = 6894.744825494;
         }
         else { // bigger then 1000 ksi -> psi + scientific notation
             unitString = QString::fromLatin1("psi");
-            factor = 0.145038;
+            factor = 6.894744825494;
         }
+    }
+    else if (unit == Unit::Velocity) {
+        unitString = QString::fromLatin1("in/min");
+        factor = 25.4/60;
     }
     else{
         // default action for all cases without special treatment:
@@ -176,17 +180,18 @@ QString UnitsSchemaImperialDecimal::schemaTranslate(const Base::Quantity& quant,
         factor = 0.45359237;
     }
     else if (unit == Unit::Pressure) {
-        if (UnitValue < 145.038) {// psi is the smallest
+        if (UnitValue < 6894.744) {// psi is the smallest
             unitString = QString::fromLatin1("psi");
-            factor = 0.145038;
-        //}else if(UnitValue < 145038){
-        //    unitString = QString::fromLatin1("ksi");
-        //    factor = 145.038;
+            factor = 6.894744825494;
         }
         else { // bigger then 1000 ksi -> psi + scientific notation
             unitString = QString::fromLatin1("psi");
-            factor = 0.145038;
+            factor = 6.894744825494;
         }
+    }
+    else if (unit == Unit::Velocity) {
+        unitString = QString::fromLatin1("in/min");
+        factor = 25.4/60;
     }
     else {
         // default action for all cases without special treatment:
@@ -227,15 +232,23 @@ QString UnitsSchemaImperialBuilding::schemaTranslate(const Quantity &quant, doub
         // feet
         if (feet > 0) {
             output << feet << "'";
-            if ( (inches > 0) || (fraction > 0.0625) )
-                output << " ";
+            if ( (inches > 0) || (fraction > 0.0625) ) {
+                if (quant.getValue() < 0)
+                    output << " -";
+                else
+                    output << " ";
+            }
         }
 
         // inches
         if (inches > 0) {
             output << inches;
-            if (fraction > 0.0625)
-                output << "+";
+            if (fraction > 0.0625) {
+                if (quant.getValue() < 0)
+                    output << "-";
+                else
+                    output << "+";
+            }
             else
                 output << "\"";
         }
@@ -265,6 +278,10 @@ QString UnitsSchemaImperialBuilding::schemaTranslate(const Quantity &quant, doub
     else if (unit == Unit::Volume) {
         unitString = QString::fromLatin1("cuft");
         factor = 28316846.592;
+    }
+    else if (unit == Unit::Velocity) {
+        unitString = QString::fromLatin1("in/min");
+        factor = 25.4/60;
     }
     else {
         unitString = quant.getUnit().getString();

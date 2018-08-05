@@ -70,12 +70,22 @@ public:
         SetPreselect,
         RmvPreselect
     };
+    SelectionChanges()
+    : Type(ClrSelection)
+    , pDocName(0)
+    , pObjectName(0)
+    , pSubName(0)
+    , pTypeName(0)
+    , x(0),y(0),z(0)
+    {
+    }
 
     MsgType Type;
 
     const char* pDocName;
     const char* pObjectName;
     const char* pSubName;
+    const char* pTypeName;
     float x;
     float y;
     float z;
@@ -93,7 +103,7 @@ public:
 // 'explicit instantiation of 'class Base::Subject<const Gui::SelectionChanges&>'
 // in namespace 'Gui' (which does not enclose namespace 'Base')
 // 
-// It seems that this costruct is not longer needed for gcc4.4 and even leads to
+// It seems that this construct is not longer needed for gcc4.4 and even leads to
 // errors under Mac OS X. Thus, we check for version between 4.1 and 4.4.
 // It seems that for Mac OS X this can be completely ignored
 
@@ -326,6 +336,8 @@ protected:
     static PyObject *sIsSelected          (PyObject *self,PyObject *args,PyObject *kwd);
     static PyObject *sCountObjectsOfType  (PyObject *self,PyObject *args,PyObject *kwd);
     static PyObject *sGetSelection        (PyObject *self,PyObject *args,PyObject *kwd);
+    static PyObject *sGetPreselection     (PyObject *self,PyObject *args,PyObject *kwd);
+    static PyObject *sRemPreselection     (PyObject *self,PyObject *args,PyObject *kwd);
     static PyObject *sGetCompleteSelection(PyObject *self,PyObject *args,PyObject *kwd);
     static PyObject *sGetSelectionEx      (PyObject *self,PyObject *args,PyObject *kwd);
     static PyObject *sGetSelectionObject  (PyObject *self,PyObject *args,PyObject *kwd);

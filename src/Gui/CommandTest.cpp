@@ -69,6 +69,7 @@ Std_TestQM::Std_TestQM()
 
 void Std_TestQM::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     QStringList files = QFileDialog::getOpenFileNames(getMainWindow(),
         QString::fromLatin1("Test translation"), QString(),
         QString::fromLatin1("Translation (*.qm)"));
@@ -106,6 +107,7 @@ Std_TestReloadQM::Std_TestReloadQM()
 
 void Std_TestReloadQM::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     Translator::instance()->activateLanguage(Translator::instance()->activeLanguage().c_str());
 }
 
@@ -128,7 +130,7 @@ FCCmdTest1::FCCmdTest1()
 
 void FCCmdTest1::activated(int iMsg)
 {
-
+    Q_UNUSED(iMsg); 
 }
 
 bool FCCmdTest1::isActive(void)
@@ -148,7 +150,7 @@ FCCmdTest2::FCCmdTest2()
     sGroup          = "Standard-Test";
     sMenuText       = "Test2";
     sToolTipText    = "Test function 2";
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Std_Test2";
     sStatusTip      = sToolTipText;
     sPixmap         = "Std_Tool2";
 }
@@ -156,8 +158,7 @@ FCCmdTest2::FCCmdTest2()
 
 void FCCmdTest2::activated(int iMsg)
 {
-
-
+    Q_UNUSED(iMsg); 
 }
 
 bool FCCmdTest2::isActive(void)
@@ -176,13 +177,14 @@ FCCmdTest3::FCCmdTest3()
     sGroup          = "Standard-Test";
     sMenuText       = "Test3";
     sToolTipText    = "Test function 3";
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Std_Test3";
     sStatusTip      = sToolTipText;
     sPixmap         = "Std_Tool3";
 }
 
 void FCCmdTest3::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     App::Document *pcDoc = getDocument();
     if (!pcDoc) return;
 }
@@ -205,13 +207,14 @@ FCCmdTest4::FCCmdTest4()
     sGroup          = "Standard-Test";
     sMenuText       = "Test4";
     sToolTipText    = "Test function 4";
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Std_Test4";
     sStatusTip      = sToolTipText;
     sPixmap         = "Std_Tool4";
 }
 
 void FCCmdTest4::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     App::Document *pcDoc = getDocument();
     if(!pcDoc) return;
 }
@@ -233,13 +236,14 @@ FCCmdTest5::FCCmdTest5()
     sGroup          = "Standard-Test";
     sMenuText       = "Test5";
     sToolTipText    = "Test function 5";
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Std_Test5";
     sStatusTip      = sToolTipText;
     sPixmap         = "Std_Tool5";
 }
 
 void FCCmdTest5::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     App::Document *pcDoc = getDocument();
     if(!pcDoc) return;
 }
@@ -261,13 +265,14 @@ FCCmdTest6::FCCmdTest6()
     sGroup          = "Standard-Test";
     sMenuText       = "Test6";
     sToolTipText    = "Test function 6";
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Std_Test6";
     sStatusTip      = sToolTipText;
     sPixmap         = "Std_Tool6";
 }
 
 void FCCmdTest6::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     App::Document *pcDoc = getDocument();
     if(!pcDoc) return;
 }
@@ -288,13 +293,14 @@ CmdTestProgress1::CmdTestProgress1()
     sGroup          = "Standard-Test";
     sMenuText       = "Breakable bar";
     sToolTipText    = "Test a breakable progress bar";
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Std_TestProgress1";
     sStatusTip      = sToolTipText;
     sPixmap         = "Std_Tool7";
 }
 
 void CmdTestProgress1::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     QMutex mutex;
     QMutexLocker ml(&mutex);
     try
@@ -329,13 +335,14 @@ CmdTestProgress2::CmdTestProgress2()
     sGroup          = "Standard-Test";
     sMenuText       = "Unbreakable bar";
     sToolTipText    = "Test a unbreakable progress bar";
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Std_TestProgress2";
     sStatusTip      = sToolTipText;
     sPixmap         = "Std_Tool7";
 }
 
 void CmdTestProgress2::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     QMutex mutex;
     QMutexLocker ml(&mutex);
 
@@ -371,13 +378,14 @@ CmdTestProgress3::CmdTestProgress3()
     sGroup          = "Standard-Test";
     sMenuText       = "Nested progress bar";
     sToolTipText    = "Test nested progress bar";
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Std_TestProgress3";
     sStatusTip      = sToolTipText;
     sPixmap         = "Std_Tool8";
 }
 
 void CmdTestProgress3::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     QMutex mutex;
     QMutexLocker ml(&mutex);
     
@@ -440,13 +448,14 @@ CmdTestProgress4::CmdTestProgress4()
     sGroup          = "Standard-Test";
     sMenuText       = "Mixed nested bar";
     sToolTipText    = "Test a mixed up nested progress bar";
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Std_TestProgress4";
     sStatusTip      = sToolTipText;
     sPixmap         = "Std_Tool7";
 }
 
 void CmdTestProgress4::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     QMutex mutex;
     QMutexLocker ml(&mutex);
 
@@ -494,7 +503,7 @@ CmdTestProgress5::CmdTestProgress5()
     sGroup          = "Standard-Test";
     sMenuText       = "From thread";
     sToolTipText    = "Test a progress bar from a thread";
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Std_TestProgress5";
     sStatusTip      = sToolTipText;
     sPixmap         = "Std_Tool7";
 }
@@ -537,6 +546,7 @@ private:
 
 void CmdTestProgress5::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     QEventLoop loop;
 
     BarThread* thr1 = new BarThread(2000);
@@ -573,12 +583,13 @@ CmdTestMDI1::CmdTestMDI1()
     sGroup          = "Standard-Test";
     sMenuText       = "Remove MDI 1";
     sToolTipText    = "Remove MDI from main window";
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Std_MDITest1";
     sStatusTip      = sToolTipText;
 }
 
 void CmdTestMDI1::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     MDIView* mdi = getMainWindow()->activeWindow();
     getMainWindow()->removeWindow(mdi);
 }
@@ -596,12 +607,13 @@ CmdTestMDI2::CmdTestMDI2()
     sGroup          = "Standard-Test";
     sMenuText       = "Remove MDI 2";
     sToolTipText    = "Remove view from MDI area";
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Std_MDITest2";
     sStatusTip      = sToolTipText;
 }
 
 void CmdTestMDI2::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     QMdiArea* area = getMainWindow()->findChild<QMdiArea*>();
     if (area) {
         MDIView* mdi = getMainWindow()->activeWindow();
@@ -623,12 +635,13 @@ CmdTestMDI3::CmdTestMDI3()
     sGroup          = "Standard-Test";
     sMenuText       = "Remove MDI 3";
     sToolTipText    = "Unset parent and remove from main window";
-    sWhatsThis      = sToolTipText;
+    sWhatsThis      = "Std_MDITest3";
     sStatusTip      = sToolTipText;
 }
 
 void CmdTestMDI3::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     MDIView* mdi = getMainWindow()->activeWindow();
     getMainWindow()->removeWindow(mdi);
     mdi->setParent(0, Qt::Window | Qt::WindowTitleHint |
@@ -728,6 +741,7 @@ public:
 
 void CmdTestConsoleOutput::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     TestConsoleObserver obs;
     Base::Console().AttachObserver(&obs);
     QThreadPool::globalInstance()->start(new ConsoleMessageTask);

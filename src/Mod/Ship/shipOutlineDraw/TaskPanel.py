@@ -24,10 +24,10 @@
 import FreeCAD as App
 from FreeCAD import Base, Vector
 import FreeCADGui as Gui
-import Units
+from FreeCAD import Units
 import Part
 from PySide import QtGui, QtCore
-import Preview
+from . import Preview
 import Instance
 from shipUtils import Paths
 import shipUtils.Locale as Locale
@@ -131,13 +131,14 @@ class TaskPanel:
         if self.initValues():
             return True
         self.retranslateUi()
-        self.obj = self.preview.update(self.ship.Length.getValueAs('m').Value,
-                                       self.ship.Breadth.getValueAs('m').Value,
-                                       self.ship.Draft.getValueAs('m').Value,
-                                       self.LSections,
-                                       self.BSections,
-                                       self.TSections,
-                                       self.ship.Shape)
+        #don't do that here.
+        #self.obj = self.preview.update(self.ship.Length.getValueAs('m').Value,
+       #                                self.ship.Breadth.getValueAs('m').Value,
+        #                               self.ship.Draft.getValueAs('m').Value,
+        #                               self.LSections,
+        #                               self.BSections,
+        #                               self.TSections,
+        #                               self.ship.Shape)
         # Connect Signals and Slots
         QtCore.QObject.connect(
             form.sectionType,
@@ -155,9 +156,17 @@ class TaskPanel:
             form.createButton,
             QtCore.SIGNAL("pressed()"),
             self.onCreateButton)
-
+            
+    def createPreview(self):
+        self.obj = self.preview.update(self.ship.Length.getValueAs('m').Value,
+                                      self.ship.Breadth.getValueAs('m').Value,
+                                       self.ship.Draft.getValueAs('m').Value,
+                                       self.LSections,
+                                       self.BSections,
+                                       self.TSections,
+                                       self.ship.Shape)
     def getMainWindow(self):
-        toplevel = QtGui.qApp.topLevelWidgets()
+        toplevel = QtGui.QApplication.topLevelWidgets()
         for i in toplevel:
             if i.metaObject().className() == "Gui::MainWindow":
                 return i
@@ -184,8 +193,7 @@ class TaskPanel:
                 "ship_console",
                 "A ship instance must be selected before use this tool (no"
                 " objects selected)",
-                None,
-                QtGui.QApplication.UnicodeUTF8)
+                None)
             App.Console.PrintError(msg + '\n')
             return True
         for i in range(0, len(selObjs)):
@@ -203,8 +211,7 @@ class TaskPanel:
                         "ship_console",
                         "More than one ship has been selected (just the first"
                         " one will be used)",
-                        None,
-                        QtGui.QApplication.UnicodeUTF8)
+                        None)
                     App.Console.PrintWarning(msg + '\n')
                     break
                 self.ship = obj
@@ -214,8 +221,7 @@ class TaskPanel:
                 "ship_console",
                 "A ship instance must be selected before use this tool (no"
                 "valid ships found in the selected objects)",
-                None,
-                QtGui.QApplication.UnicodeUTF8)
+                None)
             App.Console.PrintError(msg + '\n')
             return True
         # Load sections (if exist)
@@ -227,47 +233,40 @@ class TaskPanel:
         self.form.setWindowTitle(QtGui.QApplication.translate(
             "ship_outline",
             "Outline draw",
-            None,
-            QtGui.QApplication.UnicodeUTF8))
+            None))
         self.widget(QtGui.QGroupBox, "AutoCreateBox").setTitle(
             QtGui.QApplication.translate(
                 "ship_outline",
                 "Auto create",
-                None,
-                QtGui.QApplication.UnicodeUTF8))
+                None))
         self.widget(QtGui.QPushButton, "DeleteButton").setText(
             QtGui.QApplication.translate(
                 "ship_outline",
                 "Delete all sections",
-                None,
-                QtGui.QApplication.UnicodeUTF8))
+                None))
         self.widget(QtGui.QPushButton, "CreateButton").setText(
             QtGui.QApplication.translate(
                 "ship_outline",
                 "Create sections",
-                None,
-                QtGui.QApplication.UnicodeUTF8))
+                None))
         self.widget(QtGui.QComboBox, "SectionType").setItemText(
             0,
             QtGui.QApplication.translate(
                 "ship_outline",
                 "Transversal",
-                None,
-                QtGui.QApplication.UnicodeUTF8))
+                None))
         self.widget(QtGui.QComboBox, "SectionType").setItemText(
             1,
             QtGui.QApplication.translate(
                 "ship_outline",
                 "Longitudinal",
-                None,
-                QtGui.QApplication.UnicodeUTF8))
+                None))
         self.widget(QtGui.QComboBox, "SectionType").setItemText(
             2,
             QtGui.QApplication.translate(
                 "ship_outline",
                 "Water lines",
-                None,
-                QtGui.QApplication.UnicodeUTF8))
+                None))
 
     def onSectionType(self):
         """ Function called when the section type is changed.
@@ -444,6 +443,7 @@ class TaskPanel:
         elif ID == 2:
             self.TSections = SectionList[:]
         self.setSectionType(ID)
+        self.createPreview()
 
     def loadSections(self):
         """ Loads from the ship object all the previously selected sections.
@@ -479,8 +479,7 @@ class TaskPanel:
             tooltip = str(QtGui.QApplication.translate(
                 "ship_outline",
                 "Transversal section positions [m]",
-                None,
-                QtGui.QApplication.UnicodeUTF8))
+                None))
             self.ship.addProperty("App::PropertyFloatList",
                                   "LSections",
                                   "Ship",
@@ -488,8 +487,7 @@ class TaskPanel:
             tooltip = str(QtGui.QApplication.translate(
                 "ship_outline",
                 "Longitudinal section positions [m]",
-                None,
-                QtGui.QApplication.UnicodeUTF8))
+                None))
             self.ship.addProperty("App::PropertyFloatList",
                                   "BSections",
                                   "Ship",
@@ -497,8 +495,7 @@ class TaskPanel:
             tooltip = str(QtGui.QApplication.translate(
                 "ship_outline",
                 "Water line positions [m]",
-                None,
-                QtGui.QApplication.UnicodeUTF8))
+                None))
             self.ship.addProperty("App::PropertyFloatList",
                                   "TSections",
                                   "Ship",

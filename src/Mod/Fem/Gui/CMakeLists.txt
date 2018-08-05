@@ -4,11 +4,11 @@ else(MSVC)
     add_definitions(-DHAVE_LIMITS_H -DHAVE_CONFIG_H)
 endif(MSVC)
 
+
 if(BUILD_FEM_NETGEN)
     add_definitions(-DFCWithNetgen)
 endif(BUILD_FEM_NETGEN)
-find_package(VTK REQUIRED)
-include(${VTK_USE_FILE})
+
 
 include_directories(
     ${CMAKE_BINARY_DIR}
@@ -18,15 +18,14 @@ include_directories(
     ${COIN3D_INCLUDE_DIRS}
     ${ZLIB_INCLUDE_DIR}
     ${OCC_INCLUDE_DIR}
-    ${QT_INCLUDE_DIR}
     ${PYTHON_INCLUDE_DIRS}
     ${XercesC_INCLUDE_DIRS}
     ${SMESH_INCLUDE_DIR}
-    ${VTK_INCLUDE_DIR}
+    ${VTK_INCLUDE_DIRS}
 )
 
 link_directories(${OCC_LIBRARY_DIR})
-
+link_directories(${SMESH_LIB_PATH})
 
 
 set(FemGui_LIBS
@@ -34,14 +33,9 @@ set(FemGui_LIBS
     FreeCADGui
 )
 
-if(BUILD_FEM_VTK)
-    set(FemGui_LIBS
-        ${FemGui_LIBS}
-        ${VTK_LIBRARIES}
-    )
-endif(BUILD_FEM_VTK)
 
 generate_from_xml(ViewProviderFemMeshPy)
+
 
 SET(Python_SRCS
     ViewProviderFemMeshPy.xml
@@ -52,7 +46,13 @@ SOURCE_GROUP("Python" FILES ${Python_SRCS})
 
 set(FemGui_MOC_HDRS
     DlgSettingsFemCcxImp.h
+    DlgSettingsFemElmerImp.h
+    DlgSettingsFemExportAbaqusImp.h
     DlgSettingsFemGeneralImp.h
+    DlgSettingsFemGmshImp.h
+    DlgSettingsFemInOutVtkImp.h
+    DlgSettingsFemMaterialImp.h
+    DlgSettingsFemZ88Imp.h
     PropertyFemMeshItem.h
     TaskObjectName.h
     TaskCreateNodeSet.h
@@ -61,7 +61,7 @@ set(FemGui_MOC_HDRS
     TaskFemConstraintBearing.h
     TaskFemConstraintFixed.h
     TaskFemConstraintForce.h
-    TaskFemConstraintFluidBoundary.h  
+    TaskFemConstraintFluidBoundary.h
     TaskFemConstraintPressure.h
     TaskFemConstraintGear.h
     TaskFemConstraintPulley.h
@@ -71,6 +71,7 @@ set(FemGui_MOC_HDRS
     TaskFemConstraintInitialTemperature.h
     TaskFemConstraintPlaneRotation.h
     TaskFemConstraintContact.h
+    TaskFemConstraintTransform.h
     TaskTetParameter.h
     TaskAnalysisInfo.h
     TaskDriver.h
@@ -87,9 +88,16 @@ endif(BUILD_FEM_VTK)
 fc_wrap_cpp(FemGui_MOC_SRCS ${FemGui_MOC_HDRS})
 SOURCE_GROUP("Moc" FILES ${FemGui_MOC_SRCS})
 
+
 set(FemGui_UIC_SRCS
     DlgSettingsFemCcx.ui
+    DlgSettingsFemElmer.ui
+    DlgSettingsFemExportAbaqus.ui
     DlgSettingsFemGeneral.ui
+    DlgSettingsFemGmsh.ui
+    DlgSettingsFemInOutVtk.ui
+    DlgSettingsFemMaterial.ui
+    DlgSettingsFemZ88.ui
     TaskCreateNodeSet.ui
     TaskObjectName.ui
     TaskFemConstraint.ui
@@ -104,6 +112,7 @@ set(FemGui_UIC_SRCS
     TaskFemConstraintInitialTemperature.ui
     TaskFemConstraintPlaneRotation.ui
     TaskFemConstraintContact.ui
+    TaskFemConstraintTransform.ui
     TaskTetParameter.ui
     TaskAnalysisInfo.ui
     TaskDriver.ui
@@ -113,6 +122,8 @@ if(BUILD_FEM_VTK)
         ${FemGui_UIC_SRCS}
         TaskPostDisplay.ui
         TaskPostClip.ui
+        TaskPostDataAlongLine.ui
+        TaskPostDataAtPoint.ui
         TaskPostScalarClip.ui
         TaskPostWarpVector.ui
         TaskPostCut.ui
@@ -120,16 +131,41 @@ if(BUILD_FEM_VTK)
         SphereWidget.ui
     )
 endif(BUILD_FEM_VTK)
-qt4_wrap_ui(FemGui_UIC_HDRS ${FemGui_UIC_SRCS})
+
+
+if(BUILD_QT5)
+    qt5_wrap_ui(FemGui_UIC_HDRS ${FemGui_UIC_SRCS})
+else()
+    qt4_wrap_ui(FemGui_UIC_HDRS ${FemGui_UIC_SRCS})
+endif()
+
 
 SET(FemGui_DLG_SRCS
     ${FemGui_UIC_HDRS}
     DlgSettingsFemCcx.ui
     DlgSettingsFemCcxImp.cpp
     DlgSettingsFemCcxImp.h
+    DlgSettingsFemElmer.ui
+    DlgSettingsFemElmerImp.cpp
+    DlgSettingsFemElmerImp.h
+    DlgSettingsFemExportAbaqus.ui
+    DlgSettingsFemExportAbaqusImp.cpp
+    DlgSettingsFemExportAbaqusImp.h
     DlgSettingsFemGeneral.ui
     DlgSettingsFemGeneralImp.cpp
     DlgSettingsFemGeneralImp.h
+    DlgSettingsFemGmsh.ui
+    DlgSettingsFemGmshImp.cpp
+    DlgSettingsFemGmshImp.h
+    DlgSettingsFemInOutVtk.ui
+    DlgSettingsFemInOutVtkImp.cpp
+    DlgSettingsFemInOutVtkImp.h
+    DlgSettingsFemMaterial.ui
+    DlgSettingsFemMaterialImp.cpp
+    DlgSettingsFemMaterialImp.h
+    DlgSettingsFemZ88.ui
+    DlgSettingsFemZ88Imp.cpp
+    DlgSettingsFemZ88Imp.h
     TaskFemConstraint.ui
     TaskFemConstraint.cpp
     TaskFemConstraint.h
@@ -170,12 +206,20 @@ SET(FemGui_DLG_SRCS
     TaskFemConstraintContact.ui
     TaskFemConstraintContact.cpp
     TaskFemConstraintContact.h
+    TaskFemConstraintTransform.ui
+    TaskFemConstraintTransform.cpp
+    TaskFemConstraintTransform.h
 )
 SOURCE_GROUP("Constraint-Dialogs" FILES ${FemGui_DLG_SRCS})
 
-qt4_add_resources(FemResource_SRCS Resources/Fem.qrc)
 
+if(BUILD_QT5)
+    qt5_add_resources(FemResource_SRCS Resources/Fem.qrc)
+else()
+    qt4_add_resources(FemResource_SRCS Resources/Fem.qrc)
+endif()
 SOURCE_GROUP("Resources" FILES ${FemResource_SRCS})
+
 
 SET(FemGui_SRCS_ViewProvider
     ViewProviderFemMesh.cpp
@@ -226,10 +270,13 @@ SET(FemGui_SRCS_ViewProvider
     ViewProviderFemConstraintPlaneRotation.h
     ViewProviderFemConstraintContact.cpp
     ViewProviderFemConstraintContact.h
+    ViewProviderFemConstraintTransform.cpp
+    ViewProviderFemConstraintTransform.h
     ViewProviderResult.cpp
     ViewProviderResult.h
 )
 SOURCE_GROUP("ViewProvider" FILES ${FemGui_SRCS_ViewProvider})
+
 
 SET(FemGui_SRCS_TaskBoxes
     TaskObjectName.ui
@@ -254,6 +301,8 @@ if(BUILD_FEM_VTK)
         PlaneWidget.ui
         SphereWidget.ui
         TaskPostClip.ui
+        TaskPostDataAlongLine.ui
+        TaskPostDataAtPoint.ui
         TaskPostScalarClip.ui
         TaskPostDisplay.ui
         TaskPostWarpVector.ui
@@ -264,6 +313,7 @@ if(BUILD_FEM_VTK)
 endif(BUILD_FEM_VTK)
 SOURCE_GROUP("Task_Boxes" FILES ${FemGui_SRCS_TaskBoxes})
 
+
 SET(FemGui_SRCS_TaskDlg
     TaskDlgCreateNodeSet.h
     TaskDlgCreateNodeSet.cpp
@@ -273,6 +323,7 @@ SET(FemGui_SRCS_TaskDlg
     TaskDlgAnalysis.cpp
 )
 SOURCE_GROUP("Task_Dialogs" FILES ${FemGui_SRCS_TaskDlg})
+
 
 SET(FemGui_SRCS_Module
     AppFemGui.cpp
@@ -292,6 +343,7 @@ SET(FemGui_SRCS_Module
 )
 SOURCE_GROUP("Module" FILES ${FemGui_SRCS_Module})
 
+
 if(BUILD_FEM_VTK)
     SET(FemGui_SRCS_Post
         ViewProviderFemPostObject.h
@@ -306,6 +358,7 @@ if(BUILD_FEM_VTK)
     SOURCE_GROUP("PostObjects" FILES ${FemGui_SRCS_Post})
 endif(BUILD_FEM_VTK)
 
+
 SET(FemGui_SRCS
     ${Python_SRCS}
     ${FemGui_DLG_SRCS}
@@ -319,25 +372,58 @@ SET(FemGui_SRCS
 
 
 add_library(FemGui SHARED ${FemGui_SRCS})
-target_link_libraries(FemGui ${FemGui_LIBS})
+target_link_libraries(FemGui ${FemGui_LIBS} ${VTK_LIBRARIES})
 
 
 fc_target_copy_resource(FemGui
     ${CMAKE_SOURCE_DIR}/src/Mod/Fem
     ${CMAKE_BINARY_DIR}/Mod/Fem
-    InitGui.py
-    TaskPanelMechanicalMaterial.ui
     )
+
 
 SET(FemGuiIcon_SVG
     Resources/icons/FemWorkbench.svg
 )
 
+
 fc_copy_sources(FemGui "${CMAKE_BINARY_DIR}/${CMAKE_INSTALL_DATADIR}/Mod/Fem" ${FemGuiIcon_SVG})
+
 
 INSTALL(FILES ${FemGuiIcon_SVG} DESTINATION "${CMAKE_INSTALL_DATADIR}/Mod/Fem/Resources/icons")
 
+
+# Python modules ui files, they are copied as they are, thus the need not to be added to Fem.qrc
+# see https://forum.freecadweb.org/viewtopic.php?f=10&t=25833
+SET(FemGuiPythonUI_SRCS
+    Resources/ui/ElectrostaticPotential.ui
+    Resources/ui/ElementFluid1D.ui
+    Resources/ui/ElementGeometry1D.ui
+    Resources/ui/ElementGeometry2D.ui
+    Resources/ui/ElementRotation1D.ui
+    Resources/ui/FlowVelocity.ui
+    Resources/ui/InitialFlowVelocity.ui
+    Resources/ui/Material.ui
+    Resources/ui/MeshBoundaryLayer.ui
+    Resources/ui/MeshGmsh.ui
+    Resources/ui/MeshGroup.ui
+    Resources/ui/MeshGroupXDMFExport.ui
+    Resources/ui/MeshRegion.ui
+    Resources/ui/ResultShow.ui
+    Resources/ui/SolverCalculix.ui
+)
+
+ADD_CUSTOM_TARGET(FemPythonUi ALL
+    SOURCES ${FemGuiPythonUI_SRCS}
+)
+
+fc_copy_sources(FemPythonUi "${CMAKE_BINARY_DIR}/Mod/Fem" ${FemGuiPythonUI_SRCS})
+
+INSTALL(FILES ${FemGuiPythonUI_SRCS} DESTINATION Mod/Fem/Resources/ui)
+
+
+
 SET_BIN_DIR(FemGui FemGui /Mod/Fem)
 SET_PYTHON_PREFIX_SUFFIX(FemGui)
+
 
 INSTALL(TARGETS FemGui DESTINATION ${CMAKE_INSTALL_LIBDIR})

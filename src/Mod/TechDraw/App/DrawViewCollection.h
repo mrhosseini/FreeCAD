@@ -39,7 +39,6 @@ class TechDrawExport DrawViewCollection : public DrawView
     PROPERTY_HEADER(TechDraw::DrawViewCollection);
 
 public:
-    App::PropertyLink     Source;
     App::PropertyLinkList Views;
 public:
     /// Constructor
@@ -48,22 +47,25 @@ public:
     short mustExecute() const;
 
     int addView(DrawView *view);
+    int removeView(DrawView *view);
+    void rebuildViewList(void);
+    bool isUnsetting(void) { return nowUnsetting; }
 
     int countChildren();
-    /** @name methods overide Feature */
-    //@{
-    /// recalculate the Feature
+
     virtual void onDocumentRestored();
     virtual App::DocumentObjectExecReturn *execute(void);
-    //@}
+    virtual void unsetupObject();
 
     /// returns the type name of the ViewProvider
     virtual const char* getViewProviderName(void) const {
         return "TechDrawGui::ViewProviderViewCollection";
     }
+    virtual QRectF getRect(void) const;
 
 protected:
     void onChanged(const App::Property* prop);
+    bool nowUnsetting;
 };
 
 } //namespace TechDraw

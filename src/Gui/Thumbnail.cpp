@@ -29,10 +29,9 @@
 # include <QByteArray>
 # include <QDateTime>
 # include <QImage>
-# include <QGLFramebufferObject>
-# include <QGLPixelBuffer>
 #endif
 
+#include <QtOpenGL.h>
 #include "Thumbnail.h"
 #include "BitmapFactory.h"
 #include "View3DInventorViewer.h"
@@ -79,6 +78,7 @@ void Thumbnail::Save (Base::Writer &writer) const
 
 void Thumbnail::Restore(Base::XMLReader &reader)
 {
+    Q_UNUSED(reader); 
     //reader.addFile("Thumbnail.png",this);
 }
 
@@ -87,23 +87,19 @@ void Thumbnail::SaveDocFile (Base::Writer &writer) const
     if (!this->viewer)
         return;
     QImage img;
-    bool pbuffer = QGLPixelBuffer::hasOpenGLPbuffers();
-    if (App::GetApplication().GetParameterGroupByPath
-        ("User parameter:BaseApp/Preferences/Document")->GetBool("DisablePBuffers",!pbuffer)) {
-        this->createThumbnailFromFramebuffer(img);
-    }
-    else {
-        try {
-            this->viewer->savePicture(this->size, this->size, QColor(), img);
-        }
-        catch (...) {
-            this->createThumbnailFromFramebuffer(img);
-        }
+    if (this->viewer->isActiveWindow()) {
+        QColor invalid;
+        this->viewer->imageFromFramebuffer(this->size, this->size, 0, invalid, img);
     }
 
     QPixmap px = Gui::BitmapFactory().pixmap(App::Application::Config()["AppIcon"].c_str());
-    if (!img.isNull())
-        px = BitmapFactory().merge(QPixmap::fromImage(img),px,BitmapFactoryInst::BottomRight);
+    if (!img.isNull()) {
+        if (App::GetApplication().GetParameterGroupByPath
+            ("User parameter:BaseApp/Preferences/Document")->GetBool("AddThumbnailLogo",true))
+            px = BitmapFactory().merge(QPixmap::fromImage(img),px,BitmapFactoryInst::BottomRight);
+        else
+            px = QPixmap::fromImage(img);
+    }
 
     if (!px.isNull()) {
         // according to specification add some meta-information to the image
@@ -124,14 +120,5 @@ void Thumbnail::SaveDocFile (Base::Writer &writer) const
 
 void Thumbnail::RestoreDocFile(Base::Reader &reader)
 {
-}
-
-void Thumbnail::createThumbnailFromFramebuffer(QImage& img) const
-{
-    // Alternative way of off-screen rendering
-    QGLFramebufferObject fbo(this->size, this->size,QGLFramebufferObject::Depth);
-    if (this->viewer->isActiveWindow()) {
-        this->viewer->renderToFramebuffer(&fbo);
-        img = fbo.toImage();
-    }
+    Q_UNUSED(reader); 
 }

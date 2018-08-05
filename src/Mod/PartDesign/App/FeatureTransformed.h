@@ -49,6 +49,8 @@ public:
       */
     App::PropertyLinkList Originals;
 
+    App::PropertyBool Refine;
+
     /**
      * Returns the BaseFeature property's object(if any) otherwise return first original,
      *         which serves as "Support" for old style workflows
@@ -63,7 +65,7 @@ public:
 
     /// Get the list of transformations describing the members of the pattern
     // Note: Only the Scaled feature requires the originals
-    virtual const std::list<gp_Trsf> getTransformations(const std::vector<App::DocumentObject*> originals) {
+    virtual const std::list<gp_Trsf> getTransformations(const std::vector<App::DocumentObject*> /*originals*/) {
         return std::list<gp_Trsf>(); // Default method
     }
 

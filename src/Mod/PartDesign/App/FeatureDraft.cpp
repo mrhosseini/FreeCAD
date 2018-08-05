@@ -164,21 +164,23 @@ App::DocumentObjectExecReturn *Draft::execute(void)
 
             if (c.IsClosed()) {
                 // Edge is a circle or a circular arc (other types are not allowed for drafting)
-                neutralPlane = gp_Pln(p1, c.Circle().Axis().Direction());
-                found = true;
-                break;
+                if (c.GetType() == GeomAbs_Circle) {
+                    neutralPlane = gp_Pln(p1, c.Circle().Axis().Direction());
+                    found = true;
+                    break;
+                }
             } else {
                 // Edge is linear
                 // Find midpoint of edge and create auxiliary plane through midpoint normal to edge
                 gp_Pnt pm = c.Value((c.FirstParameter() + c.LastParameter()) / 2.0);
-                Handle_Geom_Plane aux = new Geom_Plane(pm, gp_Dir(p2.X() - p1.X(), p2.Y() - p1.Y(), p2.Z() - p1.Z()));
+                Handle(Geom_Plane) aux = new Geom_Plane(pm, gp_Dir(p2.X() - p1.X(), p2.Y() - p1.Y(), p2.Z() - p1.Z()));
                 // Intersect plane with face. Is there no easier way?
                 BRepAdaptor_Surface adapt(TopoDS::Face(face), Standard_False);
-                Handle_Geom_Surface sf = adapt.Surface().Surface();
+                Handle(Geom_Surface) sf = adapt.Surface().Surface();
                 GeomAPI_IntSS intersector(aux, sf, Precision::Confusion());
                 if (!intersector.IsDone())
                     continue;
-                Handle_Geom_Curve icurve = intersector.Line(1);
+                Handle(Geom_Curve) icurve = intersector.Line(1);
                 if (!icurve->IsKind(STANDARD_TYPE(Geom_Line)))
                     continue;
                 // TODO: How to extract the line from icurve without creating an edge first?
@@ -302,11 +304,16 @@ App::DocumentObjectExecReturn *Draft::execute(void)
         if (shape.IsNull())
             return new App::DocumentObjectExecReturn("Resulting shape is null");
 
+        int solidCount = countSolids(shape);
+        if (solidCount > 1) {
+            return new App::DocumentObjectExecReturn("Fuse: Result has multiple solids. This is not supported at this time.");
+        }
+
         this->Shape.setValue(getSolid(shape));
         return App::DocumentObject::StdReturn;
     }
-    catch (Standard_Failure) {
-        Handle_Standard_Failure e = Standard_Failure::Caught();
-        return new App::DocumentObjectExecReturn(e->GetMessageString());
+    catch (Standard_Failure& e) {
+
+        return new App::DocumentObjectExecReturn(e.GetMessageString());
     }
 }

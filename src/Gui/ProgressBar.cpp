@@ -208,18 +208,22 @@ void Sequencer::setValue(int step)
         }
     }
     else {
-        if (thr != currentThread) {
-            QMetaObject::invokeMethod(d->bar, "setValue", Qt::/*Blocking*/QueuedConnection,
+        int elapsed = d->progressTime.elapsed();
+        if (elapsed > 100) {
+            d->progressTime.restart();
+            if (thr != currentThread) {
+                QMetaObject::invokeMethod(d->bar, "setValue", Qt::/*Blocking*/QueuedConnection,
                 QGenericReturnArgument(), Q_ARG(int,step));
-            if (d->bar->isVisible())
-                showRemainingTime();
-        }
-        else {
-            d->bar->setValue(step);
-            if (d->bar->isVisible())
-                showRemainingTime();
-            d->bar->resetObserveEventFilter();
-            qApp->processEvents();
+                if (d->bar->isVisible())
+                    showRemainingTime();
+            }
+            else {
+                d->bar->setValue(step);
+                if (d->bar->isVisible())
+                    showRemainingTime();
+                d->bar->resetObserveEventFilter();
+                qApp->processEvents();
+            }
         }
     }
 }
@@ -424,7 +428,7 @@ void ProgressBar::leaveControlEvents()
 {
     qApp->removeEventFilter(this);
 
-    // relase the keyboard again
+    // release the keyboard again
     releaseKeyboard();
 }
 
@@ -440,7 +444,7 @@ bool ProgressBar::eventFilter(QObject* o, QEvent* e)
                 if (ke->key() == Qt::Key_Escape) {
                     // eventFilter() was called from the application 50 times without performing a new step (app could hang)
                     if (d->observeEventFilter > 50) {
-                        // tries to unlock the application if it hangs (propably due to incorrect usage of Base::Sequencer)
+                        // tries to unlock the application if it hangs (probably due to incorrect usage of Base::Sequencer)
                         if (ke->modifiers() & (Qt::ControlModifier | Qt::AltModifier)) {
                             sequencer->resetData();
                             return true;

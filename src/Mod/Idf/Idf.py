@@ -44,7 +44,7 @@ step_path=FreeCAD.getHomePath()+ "Mod/Idf/Idflibs/"
 ignore_hole_size=0.5 # size in MM to prevent huge number of drilled holes
 EmpDisplayMode=2 # 0='Flat Lines', 1='Shaded', 2='Wireframe', 3='Points'; recommended 2 or 0
 
-IDF_sort=0 # 0-sort per refdes [1 - part number (not preffered)/refdes] 2-sort per footprint/refdes
+IDF_sort=0 # 0-sort per refdes [1 - part number (not preferred)/refdes] 2-sort per footprint/refdes
 
 IDF_diag=0 # 0/1=disabled/enabled output (footprint.lst/missing_models.lst) 
 IDF_diag_path="/tmp" # path for output of footprint.lst and missing_models.lst
@@ -153,7 +153,7 @@ def Process_board_outline(doc,board_outline,drills,board_thickness):
               out_shape.append(Part.Arc(per_point,mid_point(per_point,vertex,point[3]/2),vertex))
               out_shape.append(Part.Arc(per_point,mid_point(per_point,vertex,-point[3]/2),vertex))
            else:
-              out_shape.append(Part.Line(prev_vertex,vertex))
+              out_shape.append(Part.LineSegment(prev_vertex,vertex))
        else:
           out_shape=Part.Shape(out_shape)
           out_shape=Part.Wire(out_shape.Edges)
@@ -203,7 +203,7 @@ def mid_point(prev_vertex,vertex,angle):
 def split_records(line_record):
     """split_records(line_record)-> list of strings(records)
        
-       standard separator list separator is space, records containting encapsulated by " """
+       standard separator list separator is space, records containing encapsulated by " """
     split_result=[]
     quote_pos=line_record.find('"')
     while quote_pos!=-1:
@@ -227,7 +227,7 @@ def process_emp(doc,filename,placement,board_thickness):
    """process_emp(doc,filename,placement,board_thickness) -> place components from emn file to board"""
    filename=filename.partition(".emn")[0]+".emp"
    empfile=pythonopen(filename, "r")
-   emp_unit=1.0 #presume milimeter like emn unit
+   emp_unit=1.0 #presume millimeter like emn unit
    emp_version=2 #presume emn_version 2
    comp_height=0 #presume 0 part height
    comp_outline=[] #no part outline
@@ -281,7 +281,7 @@ def process_emp(doc,filename,placement,board_thickness):
    comps=dict(comps)
    grp=doc.addObject("App::DocumentObjectGroup", "EMP Models")
    for place_item in placement:
-     if comps.has_key(place_item[1]):
+     if place_item[1] in comps:
        doc_comp=doc.addObject("Part::Feature",place_item[0])
        FreeCAD.Console.PrintMessage("Adding EMP model "+str(place_item[0])+"\n")
        doc_comp.Shape=comps[place_item[1]][0]
@@ -316,7 +316,7 @@ def Process_comp_outline(doc,comp_outline,comp_height):
             out_shape.append(Part.Arc(per_point,mid_point(per_point,vertex,point[2]/2),vertex))
             out_shape.append(Part.Arc(per_point,mid_point(per_point,vertex,-point[2]/2),vertex))
          else:
-            out_shape.append(Part.Line(prev_vertex,vertex))
+            out_shape.append(Part.LineSegment(prev_vertex,vertex))
        prev_vertex=vertex
     out_shape=Part.Shape(out_shape)
     out_shape=Part.Wire(out_shape.Edges)
@@ -362,7 +362,7 @@ def place_steps(doc,placement,board_thickness):
     step_dict=dict(step_dict)
     grp=doc.addObject("App::DocumentObjectGroup", "Step Models")
     for place_item in placement:
-      if step_dict.has_key(place_item[2]):
+      if place_item[2] in step_dict:
         step_model=doc.addObject("Part::Feature",place_item[0]+"_s")
         FreeCAD.Console.PrintMessage("Adding STEP model "+str(place_item[0])+"\n")
         #if prev_step!=place_item[2]:
@@ -383,7 +383,7 @@ def place_steps(doc,placement,board_thickness):
             model_file.writelines(str(place_item[0])+" "+str(place_item[2])+"\n")
             model_file.close() 
     
-def toQuaternion(heading, attitude,bank): # rotation heading=arround Y, attitude =arround Z,  bank attitude =arround X
+def toQuaternion(heading, attitude,bank): # rotation heading=around Y, attitude =around Z,  bank attitude =around X
     """toQuaternion(heading, attitude,bank)->FreeCAD.Base.Rotation(Quternion)"""
     c1 = cos(heading/2)
     s1 = sin(heading/2)

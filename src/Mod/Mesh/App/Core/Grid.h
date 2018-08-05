@@ -206,7 +206,7 @@ public:
   /** Searches for the nearest facet in a given grid element and returns the facet index and the actual distance. */
   void SearchNearestFacetInGrid(unsigned long ulX, unsigned long ulY, unsigned long ulZ, const Base::Vector3f &rclPt,
                                 float &rfMinDist, unsigned long &rulFacetInd) const;
-  /** Does basically the same as the method above unless that grid neighbours upto the order of \a ulDistance
+  /** Does basically the same as the method above unless that grid neighbours up to the order of \a ulDistance
    * are introduced into the search. */
   void SearchNearestFacetInHull (unsigned long ulX, unsigned long ulY, unsigned long ulZ, unsigned long ulDistance, 
                                  const Base::Vector3f &rclPt, unsigned long &rulFacetInd, float &rfMinDist) const;
@@ -434,7 +434,7 @@ inline void MeshFacetGrid::PosWithCheck (const Base::Vector3f &rclPoint, unsigne
   assert((rulX < _ulCtGridsX) && (rulY < _ulCtGridsY) && (rulZ < _ulCtGridsZ));
 }
 
-inline void MeshFacetGrid::AddFacet (const MeshGeomFacet &rclFacet, unsigned long ulFacetIndex, float fEpsilon)
+inline void MeshFacetGrid::AddFacet (const MeshGeomFacet &rclFacet, unsigned long ulFacetIndex, float /*fEpsilon*/)
 {
 #if 0
   unsigned long  i, ulX, ulY, ulZ, ulX1, ulY1, ulZ1, ulX2, ulY2, ulZ2;

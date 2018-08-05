@@ -28,6 +28,7 @@
 #include <memory>
 #include <Base/Vector3D.h>
 #include <Gui/TaskView/TaskDialog.h>
+#include <Mod/Sketcher/App/SketchAnalysis.h>
 
 class SoGroup;
 namespace Sketcher { class SketchObject; } 
@@ -63,17 +64,10 @@ private:
     void hidePoints();
 
 private:
-    std::auto_ptr<Ui_TaskSketcherValidation> ui;
+    std::unique_ptr<Ui_TaskSketcherValidation> ui;
     Sketcher::SketchObject* sketch;
+    Sketcher::SketchAnalysis sketchAnalyser;
     SoGroup* coincidenceRoot;
-
-    struct VertexIds;
-    struct Vertex_Less;
-    struct Vertex_EqualTo;
-    struct ConstraintIds;
-    struct Constraint_Less;
-    std::vector<ConstraintIds> vertexConstraints;
-
 };
 
 class TaskSketcherValidation : public Gui::TaskView::TaskDialog

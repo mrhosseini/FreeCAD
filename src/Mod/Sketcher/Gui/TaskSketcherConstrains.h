@@ -61,6 +61,8 @@ protected Q_SLOTS:
     void doSelectConstraints();
     void updateDrivingStatus();
     void swapNamedOfSelectedItems();
+    void showConstraints();
+    void hideConstraints();
 };
 
 class TaskSketcherConstrains : public Gui::TaskView::TaskBox, public Gui::SelectionObserver
@@ -84,6 +86,8 @@ public Q_SLOTS:
     void on_listWidgetConstraints_itemChanged(QListWidgetItem * item);
     void on_listWidgetConstraints_updateDrivingStatus(QListWidgetItem *item, bool status);
     void on_listWidgetConstraints_emitCenterSelectedItems(void);
+    void on_filterInternalAlignment_stateChanged(int state);
+    void on_extendedInformation_stateChanged(int state);
 
 protected:
     void changeEvent(QEvent *e);

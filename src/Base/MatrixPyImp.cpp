@@ -30,6 +30,7 @@
 // inclusion of the generated files (generated out of MatrixPy.xml)
 #include "VectorPy.h"
 #include "GeometryPyCXX.h"
+#include "QuantityPy.h"
 #include "MatrixPy.h"
 #include "MatrixPy.cpp"
 
@@ -277,12 +278,29 @@ PyObject* MatrixPy::transform(PyObject * args)
 
 PyObject* MatrixPy::rotateX(PyObject * args)
 {
-    double a;
-    if (!PyArg_ParseTuple(args, "d: angle to rotate (double) needed", &a))     // convert args: Python->C
-        return NULL;                                 // NULL triggers exception
+    double angle = 0;
+    do {
+        PyObject *object;
+        if (PyArg_ParseTuple(args,"O!",&(Base::QuantityPy::Type), &object)) {
+            Quantity *q = static_cast<Base::QuantityPy*>(object)->getQuantityPtr();
+            if (q->getUnit() == Base::Unit::Angle) {
+                angle = q->getValueAs(Base::Quantity::Radian);
+                break;
+            }
+        }
+
+        PyErr_Clear();
+        if (PyArg_ParseTuple(args, "d: angle to rotate (double) needed", &angle)) {
+            break;
+        }
+
+        PyErr_SetString(PyExc_TypeError, "For angle either float or Quantity expected");
+        return 0;
+    }
+    while (false);
 
     PY_TRY {
-        getMatrixPtr()->rotX(a);
+        getMatrixPtr()->rotX(angle);
     }
     PY_CATCH;
 
@@ -291,12 +309,29 @@ PyObject* MatrixPy::rotateX(PyObject * args)
 
 PyObject* MatrixPy::rotateY(PyObject * args)
 {
-    double a;
-    if (!PyArg_ParseTuple(args, "d: angle to rotate (double) needed", &a))     // convert args: Python->C
-        return NULL;                                 // NULL triggers exception
+    double angle = 0;
+    do {
+        PyObject *object;
+        if (PyArg_ParseTuple(args,"O!",&(Base::QuantityPy::Type), &object)) {
+            Quantity *q = static_cast<Base::QuantityPy*>(object)->getQuantityPtr();
+            if (q->getUnit() == Base::Unit::Angle) {
+                angle = q->getValueAs(Base::Quantity::Radian);
+                break;
+            }
+        }
+
+        PyErr_Clear();
+        if (PyArg_ParseTuple(args, "d: angle to rotate (double) needed", &angle)) {
+            break;
+        }
+
+        PyErr_SetString(PyExc_TypeError, "For angle either float or Quantity expected");
+        return 0;
+    }
+    while (false);
 
     PY_TRY {
-        getMatrixPtr()->rotY(a);
+        getMatrixPtr()->rotY(angle);
     }
     PY_CATCH;
 
@@ -305,12 +340,29 @@ PyObject* MatrixPy::rotateY(PyObject * args)
 
 PyObject* MatrixPy::rotateZ(PyObject * args)
 {
-    double a;
-    if (!PyArg_ParseTuple(args, "d: angle to rotate (double) needed", &a))     // convert args: Python->C
-        return NULL;                                 // NULL triggers exception
+    double angle = 0;
+    do {
+        PyObject *object;
+        if (PyArg_ParseTuple(args,"O!",&(Base::QuantityPy::Type), &object)) {
+            Quantity *q = static_cast<Base::QuantityPy*>(object)->getQuantityPtr();
+            if (q->getUnit() == Base::Unit::Angle) {
+                angle = q->getValueAs(Base::Quantity::Radian);
+                break;
+            }
+        }
+
+        PyErr_Clear();
+        if (PyArg_ParseTuple(args, "d: angle to rotate (double) needed", &angle)) {
+            break;
+        }
+
+        PyErr_SetString(PyExc_TypeError, "For angle either float or Quantity expected");
+        return 0;
+    }
+    while (false);
 
     PY_TRY {
-        getMatrixPtr()->rotZ(a);
+        getMatrixPtr()->rotZ(angle);
     }
     PY_CATCH;
 
@@ -481,7 +533,11 @@ PyObject* MatrixPy::analyze(PyObject * args)
 
     PY_TRY {
         std::string type = getMatrixPtr()->analyse();
+#if PY_MAJOR_VERSION < 3
         return PyString_FromString(type.c_str());
+#else
+        return PyUnicode_FromString(type.c_str());
+#endif
     }
     PY_CATCH;
 }
@@ -696,120 +752,128 @@ int MatrixPy::setCustomAttributes(const char* /*attr*/, PyObject* /*obj*/)
     return 0; 
 }
 
-PyObject * MatrixPy::number_divide_handler (PyObject *self, PyObject *other)
+#if PY_MAJOR_VERSION < 3
+PyObject * MatrixPy::number_divide_handler (PyObject* /*self*/, PyObject* /*other*/)
+{
+    PyErr_SetString(PyExc_NotImplementedError, "Not implemented");
+    return 0;
+}
+#endif
+
+PyObject * MatrixPy::number_remainder_handler (PyObject* /*self*/, PyObject* /*other*/)
 {
     PyErr_SetString(PyExc_NotImplementedError, "Not implemented");
     return 0;
 }
 
-PyObject * MatrixPy::number_remainder_handler (PyObject *self, PyObject *other)
+PyObject * MatrixPy::number_divmod_handler (PyObject* /*self*/, PyObject* /*other*/)
 {
     PyErr_SetString(PyExc_NotImplementedError, "Not implemented");
     return 0;
 }
 
-PyObject * MatrixPy::number_divmod_handler (PyObject *self, PyObject *other)
+PyObject * MatrixPy::number_power_handler (PyObject* /*self*/, PyObject* /*other*/, PyObject* /*arg*/)
 {
     PyErr_SetString(PyExc_NotImplementedError, "Not implemented");
     return 0;
 }
 
-PyObject * MatrixPy::number_power_handler (PyObject *self, PyObject *other, PyObject *arg)
+PyObject * MatrixPy::number_negative_handler (PyObject* /*self*/)
 {
     PyErr_SetString(PyExc_NotImplementedError, "Not implemented");
     return 0;
 }
 
-PyObject * MatrixPy::number_negative_handler (PyObject *self)
+PyObject * MatrixPy::number_positive_handler (PyObject* /*self*/)
 {
     PyErr_SetString(PyExc_NotImplementedError, "Not implemented");
     return 0;
 }
 
-PyObject * MatrixPy::number_positive_handler (PyObject *self)
+PyObject * MatrixPy::number_absolute_handler (PyObject* /*self*/)
 {
     PyErr_SetString(PyExc_NotImplementedError, "Not implemented");
     return 0;
 }
 
-PyObject * MatrixPy::number_absolute_handler (PyObject *self)
-{
-    PyErr_SetString(PyExc_NotImplementedError, "Not implemented");
-    return 0;
-}
-
-int MatrixPy::number_nonzero_handler (PyObject *self)
+int MatrixPy::number_nonzero_handler (PyObject* /*self*/)
 {
     return 1;
 }
 
-PyObject * MatrixPy::number_invert_handler (PyObject *self)
+PyObject * MatrixPy::number_invert_handler (PyObject* /*self*/)
 {
     PyErr_SetString(PyExc_NotImplementedError, "Not implemented");
     return 0;
 }
 
-PyObject * MatrixPy::number_lshift_handler (PyObject *self, PyObject *other)
+PyObject * MatrixPy::number_lshift_handler (PyObject* /*self*/, PyObject* /*other*/)
 {
     PyErr_SetString(PyExc_NotImplementedError, "Not implemented");
     return 0;
 }
 
-PyObject * MatrixPy::number_rshift_handler (PyObject *self, PyObject *other)
+PyObject * MatrixPy::number_rshift_handler (PyObject* /*self*/, PyObject* /*other*/)
 {
     PyErr_SetString(PyExc_NotImplementedError, "Not implemented");
     return 0;
 }
 
-PyObject * MatrixPy::number_and_handler (PyObject *self, PyObject *other)
+PyObject * MatrixPy::number_and_handler (PyObject* /*self*/, PyObject* /*other*/)
 {
     PyErr_SetString(PyExc_NotImplementedError, "Not implemented");
     return 0;
 }
 
-PyObject * MatrixPy::number_xor_handler (PyObject *self, PyObject *other)
+PyObject * MatrixPy::number_xor_handler (PyObject* /*self*/, PyObject* /*other*/)
 {
     PyErr_SetString(PyExc_NotImplementedError, "Not implemented");
     return 0;
 }
 
-PyObject * MatrixPy::number_or_handler (PyObject *self, PyObject *other)
+PyObject * MatrixPy::number_or_handler (PyObject* /*self*/, PyObject* /*other*/)
 {
     PyErr_SetString(PyExc_NotImplementedError, "Not implemented");
     return 0;
 }
 
-int MatrixPy::number_coerce_handler (PyObject **self, PyObject **other)
+#if PY_MAJOR_VERSION < 3
+int MatrixPy::number_coerce_handler (PyObject ** /*self*/, PyObject ** /*other*/)
 {
     return 1;
 }
+#endif
 
-PyObject * MatrixPy::number_int_handler (PyObject *self)
+PyObject * MatrixPy::number_int_handler (PyObject * /*self*/)
 {
     PyErr_SetString(PyExc_NotImplementedError, "Not implemented");
     return 0;
 }
 
-PyObject * MatrixPy::number_long_handler (PyObject *self)
+#if PY_MAJOR_VERSION < 3
+PyObject * MatrixPy::number_long_handler (PyObject * /*self*/)
+{
+    PyErr_SetString(PyExc_NotImplementedError, "Not implemented");
+    return 0;
+}
+#endif
+
+PyObject * MatrixPy::number_float_handler (PyObject * /*self*/)
 {
     PyErr_SetString(PyExc_NotImplementedError, "Not implemented");
     return 0;
 }
 
-PyObject * MatrixPy::number_float_handler (PyObject *self)
+#if PY_MAJOR_VERSION < 3
+PyObject * MatrixPy::number_oct_handler (PyObject * /*self*/)
 {
     PyErr_SetString(PyExc_NotImplementedError, "Not implemented");
     return 0;
 }
 
-PyObject * MatrixPy::number_oct_handler (PyObject *self)
+PyObject * MatrixPy::number_hex_handler (PyObject * /*self*/)
 {
     PyErr_SetString(PyExc_NotImplementedError, "Not implemented");
     return 0;
 }
-
-PyObject * MatrixPy::number_hex_handler (PyObject *self)
-{
-    PyErr_SetString(PyExc_NotImplementedError, "Not implemented");
-    return 0;
-}
+#endif

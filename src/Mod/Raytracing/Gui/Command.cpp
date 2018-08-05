@@ -81,13 +81,13 @@ CmdRaytracingWriteCamera::CmdRaytracingWriteCamera()
     sAppModule    = "Raytracing";
     sGroup        = QT_TR_NOOP("Raytracing");
     sMenuText     = QT_TR_NOOP("Export camera to POV-Ray...");
-    sToolTipText  = QT_TR_NOOP("Export the camera positon of the active 3D view in POV-Ray format to a file");
+    sToolTipText  = QT_TR_NOOP("Export the camera position of the active 3D view in POV-Ray format to a file");
     sWhatsThis    = "Raytracing_WriteCamera";
     sStatusTip    = sToolTipText;
     sPixmap       = "Raytrace_Camera";
 }
 
-void CmdRaytracingWriteCamera::activated(int iMsg)
+void CmdRaytracingWriteCamera::activated(int)
 {
     const char* ppReturn=0;
     getGuiApplication()->sendMsgToActiveView("GetCamera",&ppReturn);
@@ -150,7 +150,7 @@ void CmdRaytracingWriteCamera::activated(int iMsg)
             << "(" << upvec.getValue()[0]  <<"," << upvec.getValue()[1]  <<"," << upvec.getValue()[2]  <<") )" ;
 
         doCommand(Doc,"import Raytracing");
-        doCommand(Gui,out.str().c_str());
+        doCommand(Gui,"%s", out.str().c_str());
 
         // Bring ref-count of root-node back to zero to cause the
         // destruction of the camera.
@@ -180,7 +180,7 @@ CmdRaytracingWritePart::CmdRaytracingWritePart()
     sPixmap       = "Raytrace_Part";
 }
 
-void CmdRaytracingWritePart::activated(int iMsg)
+void CmdRaytracingWritePart::activated(int)
 {
     QStringList filter;
     filter << QString::fromLatin1("%1 (*.pov)").arg(QObject::tr("POV-Ray"));
@@ -201,7 +201,7 @@ void CmdRaytracingWritePart::activated(int iMsg)
         << Name << "\",App.ActiveDocument." << obj.front()->getNameInDocument() << ".Shape)";
 
     doCommand(Doc,"import Raytracing");
-    doCommand(Doc,out.str().c_str());
+    doCommand(Doc,"%s",out.str().c_str());
 }
 
 bool CmdRaytracingWritePart::isActive(void)
@@ -226,7 +226,7 @@ CmdRaytracingWriteView::CmdRaytracingWriteView()
     sPixmap       = "Raytrace_Export";
 }
 
-void CmdRaytracingWriteView::activated(int iMsg)
+void CmdRaytracingWriteView::activated(int)
 {
     const char* ppReturn=0;
     Gui::Application::Instance->sendMsgToActiveView("GetCamera",&ppReturn);
@@ -369,9 +369,6 @@ Gui::Action * CmdRaytracingNewPovrayProject::createAction(void)
     pcAction->setDropDownMenu(true);
     applyCommandData(this->className(), pcAction);
 
-    QAction* defaultAction = 0;
-    int defaultId = 0;
-
     std::string path = App::Application::getResourceDir();
     path += "Mod/Raytracing/Templates/";
     QDir dir(QString::fromUtf8(path.c_str()), QString::fromLatin1("*.pov"));
@@ -385,11 +382,7 @@ Gui::Action * CmdRaytracingNewPovrayProject::createAction(void)
 
     _pcAction = pcAction;
     languageChange();
-    if (defaultAction) {
-        pcAction->setIcon(defaultAction->icon());
-        pcAction->setProperty("defaultAction", QVariant(defaultId));
-    }
-    else if (!pcAction->actions().isEmpty()) {
+    if (!pcAction->actions().isEmpty()) {
         pcAction->setIcon(pcAction->actions()[0]->icon());
         pcAction->setProperty("defaultAction", QVariant(0));
     }
@@ -424,7 +417,7 @@ CmdRaytracingNewPartSegment::CmdRaytracingNewPartSegment()
     sPixmap         = "Raytrace_NewPartSegment";
 }
 
-void CmdRaytracingNewPartSegment::activated(int iMsg)
+void CmdRaytracingNewPartSegment::activated(int)
 {
     std::vector<Part::Feature*> parts = Gui::Selection().getObjectsOfType<Part::Feature>();
     if (parts.empty()) {
@@ -498,7 +491,7 @@ DEF_STD_CMD_A(CmdRaytracingExportProject);
 CmdRaytracingExportProject::CmdRaytracingExportProject()
   : Command("Raytracing_ExportProject")
 {
-    // seting the
+    // setting the
     sAppModule    = "Raytracing";
     sGroup        = QT_TR_NOOP("File");
     sMenuText     = QT_TR_NOOP("&Export project...");
@@ -508,7 +501,7 @@ CmdRaytracingExportProject::CmdRaytracingExportProject()
     sPixmap       = "Raytrace_ExportProject";
 }
 
-void CmdRaytracingExportProject::activated(int iMsg)
+void CmdRaytracingExportProject::activated(int)
 {
     QString filterLabel;
     unsigned int n = getSelection().countObjectsOfType(Raytracing::RayProject::getClassTypeId());
@@ -570,7 +563,7 @@ CmdRaytracingRender::CmdRaytracingRender()
     sPixmap       = "Raytrace_Render";
 }
 
-void CmdRaytracingRender::activated(int iMsg)
+void CmdRaytracingRender::activated(int)
 {
     // determining render type
     Base::Type renderType;
@@ -654,7 +647,7 @@ void CmdRaytracingRender::activated(int iMsg)
             std::stringstream h;
             h << height;
             std::string par = hGrp->GetASCII("OutputParameters", "+P +A");
-            doCommand(Doc,"PageFile = open(App.activeDocument().%s.PageResult,'r')",Sel[0].getFeatName());
+            doCommand(Doc,"PageFile = open(App.activeDocument().%s.PageResult,'rb')",Sel[0].getFeatName());
             doCommand(Doc,"import os,subprocess,tempfile");
             doCommand(Doc,"fd, TempFile = tempfile.mkstemp(suffix='.pov')");
             doCommand(Doc,"f = open(TempFile,'wb')");
@@ -682,7 +675,7 @@ void CmdRaytracingRender::activated(int iMsg)
         }
 
         openCommand("Render project");
-        doCommand(Doc,"PageFile = open(App.activeDocument().%s.PageResult,'r')",Sel[0].getFeatName());
+        doCommand(Doc,"PageFile = open(App.activeDocument().%s.PageResult,'rb')",Sel[0].getFeatName());
         doCommand(Doc,"import subprocess,tempfile");
         doCommand(Doc,"TempFile = tempfile.mkstemp(suffix='.lxs')[1]");
         doCommand(Doc,"f = open(TempFile,'wb')");
@@ -767,9 +760,6 @@ Gui::Action * CmdRaytracingNewLuxProject::createAction(void)
     pcAction->setDropDownMenu(true);
     applyCommandData(this->className(), pcAction);
 
-    QAction* defaultAction = 0;
-    int defaultId = 0;
-
     std::string path = App::Application::getResourceDir();
     path += "Mod/Raytracing/Templates/";
     QDir dir(QString::fromUtf8(path.c_str()), QString::fromLatin1("*.lxs"));
@@ -783,11 +773,7 @@ Gui::Action * CmdRaytracingNewLuxProject::createAction(void)
 
     _pcAction = pcAction;
     languageChange();
-    if (defaultAction) {
-        pcAction->setIcon(defaultAction->icon());
-        pcAction->setProperty("defaultAction", QVariant(defaultId));
-    }
-    else if (!pcAction->actions().isEmpty()) {
+    if (!pcAction->actions().isEmpty()) {
         pcAction->setIcon(pcAction->actions()[0]->icon());
         pcAction->setProperty("defaultAction", QVariant(0));
     }
@@ -812,7 +798,7 @@ DEF_STD_CMD_A(CmdRaytracingResetCamera);
 CmdRaytracingResetCamera::CmdRaytracingResetCamera()
   : Command("Raytracing_ResetCamera")
 {
-    // seting the
+    // setting the
     sAppModule    = "Raytracing";
     sGroup        = QT_TR_NOOP("Raytracing");
     sMenuText     = QT_TR_NOOP("&Reset Camera");
@@ -822,7 +808,7 @@ CmdRaytracingResetCamera::CmdRaytracingResetCamera()
     sPixmap       = "Raytrace_ResetCamera";
 }
 
-void CmdRaytracingResetCamera::activated(int iMsg)
+void CmdRaytracingResetCamera::activated(int)
 {
     std::vector<App::DocumentObject*> sel = getSelection().getObjectsOfType(Raytracing::RayProject::getClassTypeId());
     if (sel.size() != 1) {

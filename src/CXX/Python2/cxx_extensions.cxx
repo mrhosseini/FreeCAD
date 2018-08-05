@@ -650,7 +650,7 @@ PythonType &PythonType::supportIter()
 //    Handlers
 //
 //--------------------------------------------------------------------------------
-PythonExtensionBase *getPythonExtensionBase( PyObject *self )
+PYCXX_EXPORT PythonExtensionBase *getPythonExtensionBase( PyObject *self )
 {
     if( self->ob_type->tp_flags&Py_TPFLAGS_BASETYPE )
     {
@@ -1397,7 +1397,7 @@ Py::Object PythonExtensionBase::callOnSelf( const std::string &fn_name,
     return self().callMemberFunction( fn_name, args );
 }
 
-void PythonExtensionBase::reinit( Tuple &args, Dict &kwds )
+void PythonExtensionBase::reinit( Tuple & /*args*/, Dict & /*kwds*/ )
 {
     throw RuntimeError( "Must not call __init__ twice on this class" );
 }
@@ -1447,7 +1447,7 @@ int PythonExtensionBase::compare( const Py::Object &)
 }
 
 #if PY_MAJOR_VERSION > 2 || (PY_MAJOR_VERSION == 2 && PY_MINOR_VERSION >= 1)
-Py::Object PythonExtensionBase::rich_compare( const Py::Object &, int op )
+Py::Object PythonExtensionBase::rich_compare( const Py::Object &, int /*op*/ )
 {
     missing_method( rich_compare );
     return Py::None();

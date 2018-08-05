@@ -100,7 +100,7 @@ bool Range::next()
 }
 
 /**
-  * Decode a row specification into a 0-based integer.
+  * @brief Decode a row specification into a 0-based integer.
   *
   * @param rowstr Row specified as a string, with "1" being the first row.
   *
@@ -114,11 +114,11 @@ int App::decodeRow(const std::string &rowstr)
     if (row >= 0)
         return row;
     else
-        throw Base::Exception("Invalid row specification.");
+        throw Base::IndexError("Invalid row specification.");
 }
 
 /**
-  * Decode a column specification into a 0-based integer.
+  * @brief Decode a column specification into a 0-based integer.
   *
   * @param colstr Column specified as a string, with "A" begin the first column.
   *
@@ -133,11 +133,11 @@ int App::decodeColumn(const std::string &colstr)
     if (col >= 0)
         return col;
     else
-        throw Base::Exception("Invalid column specification");
+        throw Base::IndexError("Invalid column specification");
 }
 
 /**
-  * Determine wheter a row specification is valid or not.
+  * @brief Determine whether a row specification is valid or not.
   *
   * @param rowstr Row specified as a string, with "1" being the first row.
   *
@@ -156,7 +156,7 @@ int App::validRow(const std::string &rowstr)
 }
 
 /**
-  * Determine whether a column specification is valid or not.
+  * @brief Determine whether a column specification is valid or not.
   *
   * @param colstr Column specified as a string, with "A" begin the first column.
   *
@@ -176,7 +176,7 @@ int App::validColumn(const std::string &colstr)
     }
     else {
         col = 0;
-        for (std::string::const_reverse_iterator i = colstr.rbegin(); i != colstr.rend(); ++i) {
+        for (std::string::const_iterator i = colstr.begin(); i != colstr.end(); ++i) {
             int v;
 
             if ((*i >= 'A' && *i <= 'Z'))
@@ -192,14 +192,12 @@ int App::validColumn(const std::string &colstr)
 }
 
 /**
-  * Convert a string address into integer \a row and \a column.
+  * @brief Convert a string address into integer \a row and \a column.
   * row and col are 0-based.
   *
   * This function will throw an exception if the specified \a address is invalid.
   *
-  * @param address Address to parse.
-  * @param row     Reference to integer where row position is stored.
-  * @param col     Reference to integer where col position is stored.
+  * @param strAddress Address to parse.
   *
   */
 
@@ -217,11 +215,11 @@ App::CellAddress App::stringToAddress(const char * strAddress)
         return CellAddress(decodeRow(rowstr.str()), decodeColumn(colstr.str()));
     }
     else
-        throw Base::Exception("Invalid cell specifier.");
+        throw Base::RuntimeError("Invalid cell specifier.");
 }
 
 /**
-  * Convert given \a cell address into its string representation.
+  * @brief Convert given \a cell address into its string representation.
   *
   * @returns Address given as a string.
   */

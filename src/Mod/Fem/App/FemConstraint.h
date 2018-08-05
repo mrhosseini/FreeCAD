@@ -25,6 +25,7 @@
 #define FEM_CONSTRAINT_H
 
 #include <Base/Vector3D.h>
+#include <App/FeaturePython.h>
 #include <App/DocumentObject.h>
 #include <App/PropertyLinks.h>
 #include <App/PropertyGeo.h>
@@ -67,13 +68,16 @@ protected:
 
 protected:
     /// Calculate the points where symbols should be drawn
-    const bool getPoints(std::vector<Base::Vector3d>& points, std::vector<Base::Vector3d>& normals, int * scale) const; //OvG: added scale parameter
-    const bool getCylinder(double& radius, double& height, Base::Vector3d& base, Base::Vector3d& axis) const;
+    bool getPoints(std::vector<Base::Vector3d>& points, std::vector<Base::Vector3d>& normals, int * scale) const; //OvG: added scale parameter
+    bool getCylinder(double& radius, double& height, Base::Vector3d& base, Base::Vector3d& axis) const;
     Base::Vector3d getBasePoint(const Base::Vector3d& base, const Base::Vector3d& axis,
                                 const App::PropertyLinkSub &location, const double& dist);
     const Base::Vector3d getDirection(const App::PropertyLinkSub &direction);
 
 };
+
+typedef App::FeaturePythonT<Constraint> ConstraintPython;
+
 
 } //namespace Fem
 

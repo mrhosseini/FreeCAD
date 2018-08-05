@@ -187,7 +187,7 @@ private:
             &Arg[0],&PyTuple_Type, &Arg[1],&PyTuple_Type, &Arg[2],&PyTuple_Type, &Arg[3])) 
             throw Py::Exception();
 
-        // go throug the Tuple of Tuples
+        // go through the Tuple of Tuples
         for (int i=0;i<4;i++) {
             // check the right size of the Tuple of floats
             if (PyTuple_GET_SIZE(Arg[i]) != 3)
@@ -201,8 +201,10 @@ private:
                     vecs[i][l] = PyFloat_AsDouble(temp);
                 else if (PyLong_Check(temp))
                     vecs[i][l] = (double) PyLong_AsLong(temp);
+#if PY_MAJOR_VERSION < 3
                 else if (PyInt_Check(temp))
                     vecs[i][l] = (double)  PyInt_AsLong(temp);
+#endif
                 else
                     throw Py::ValueError("Wrong parameter format, four Tuple of three floats needed!");
             }

@@ -45,10 +45,12 @@ public:
     PythonWrapper();
     bool loadCoreModule();
     bool loadGuiModule();
+    bool loadWidgetsModule();
 
     bool toCString(const Py::Object&, std::string&);
     QObject* toQObject(const Py::Object&);
     Py::Object fromQWidget(QWidget*, const char* className=0);
+    const char* getWrapperName(QObject*) const;
     /*!
       Create a Python wrapper for the icon. The icon must be created on the heap
       and the Python wrapper takes ownership of it.
@@ -114,8 +116,8 @@ public:
     virtual ~UiLoader();
 
     /**
-     * Creates a widget of the type \a className withe the parent \a parent.
-     * Fore more details see the documentation to QWidgetFactory.
+     * Creates a widget of the type \a className with the parent \a parent.
+     * For more details see the documentation to QWidgetFactory.
      */
     QWidget* createWidget(const QString & className, QWidget * parent=0, 
                           const QString& name = QString());
@@ -419,7 +421,7 @@ public:
     Py::Object connect(const Py::Tuple&);
 
 private:
-    std::vector<class SignalConnect*> mySingals;
+    std::vector<class SignalConnect*> mySignals;
     QDialog* myDlg;
 };
 

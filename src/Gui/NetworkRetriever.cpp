@@ -151,7 +151,7 @@ void NetworkRetriever::setEnableTimestamp(bool ts)
 
 /**
  * If you are behind a proxy server then you have to specify your proxy url with \a proxy.
- * Moreover, if the proxy requires user authentification then you can specify the username
+ * Moreover, if the proxy requires user authentication then you can specify the username
  * with \a user and the password with \a passwd.
  */
 void NetworkRetriever::setProxy( const QString& proxy, const QString& user, const QString& passwd )
@@ -162,8 +162,8 @@ void NetworkRetriever::setProxy( const QString& proxy, const QString& user, cons
 }
 
 /**
- * If \a recursive is true all referenced files are downloaded recursivly.
- * As default recursivion is disabled. \a level specifies the maximum recursion 
+ * If \a recursive is true all referenced files are downloaded recursively.
+ * As default recursion is disabled. \a level specifies the maximum recursion 
  * depth. If \a level is 0 the recursion depth is infinite. As default the level
  * property is 1.
  * \note: Use this with care!
@@ -272,7 +272,7 @@ bool NetworkRetriever::startDownload( const QString& startUrl )
         wget->setWorkingDirectory( dir.path() );
     }
 
-    // user authentification
+    // user authentication
     if ( !d->proxy.isEmpty() )
     {
         if ( !d->user.isEmpty() )
@@ -356,6 +356,8 @@ void NetworkRetriever::abort()
 
 void NetworkRetriever::wgetFinished(int exitCode, QProcess::ExitStatus status)
 {
+    Q_UNUSED(exitCode); 
+    Q_UNUSED(status); 
     wget->setReadChannel(QProcess::StandardError);
     if (wget->canReadLine()) {
         QByteArray data = wget->readAll();
@@ -386,7 +388,7 @@ StdCmdDownloadOnlineHelp::StdCmdDownloadOnlineHelp( QObject * parent)
     sGroup        = QT_TR_NOOP("Help");
     sMenuText     = QT_TR_NOOP("Download online help");
     sToolTipText  = QT_TR_NOOP("Download %1's online help");
-    sWhatsThis    = QT_TR_NOOP("Download %1's online help");
+    sWhatsThis    = "Std_DownloadOnlineHelp";
     sStatusTip    = QT_TR_NOOP("Download %1's online help");
     sPixmap       = "help";
 
@@ -417,17 +419,13 @@ Action * StdCmdDownloadOnlineHelp::createAction(void)
     QString exe = QString::fromLatin1(App::GetApplication().getExecutableName());
     pcAction = new Action(this,getMainWindow());
     pcAction->setText(QCoreApplication::translate(
-        this->className(), sMenuText, 0,
-        QCoreApplication::CodecForTr));
+        this->className(), sMenuText));
     pcAction->setToolTip(QCoreApplication::translate(
-        this->className(), sToolTipText, 0,
-        QCoreApplication::CodecForTr).arg(exe));
+        this->className(), sToolTipText).arg(exe));
     pcAction->setStatusTip(QCoreApplication::translate(
-        this->className(), sStatusTip, 0,
-        QCoreApplication::CodecForTr).arg(exe));
+        this->className(), sStatusTip).arg(exe));
     pcAction->setWhatsThis(QCoreApplication::translate(
-        this->className(), sWhatsThis, 0,
-        QCoreApplication::CodecForTr).arg(exe));
+        this->className(), sWhatsThis).arg(exe));
     pcAction->setIcon(Gui::BitmapFactory().pixmap(sPixmap));
     pcAction->setShortcut(QString::fromLatin1(sAccel));
 
@@ -439,22 +437,19 @@ void StdCmdDownloadOnlineHelp::languageChange()
     if (_pcAction) {
         QString exe = QString::fromLatin1(App::GetApplication().getExecutableName());
         _pcAction->setText(QCoreApplication::translate(
-            this->className(), sMenuText, 0,
-            QCoreApplication::CodecForTr));
+            this->className(), sMenuText));
         _pcAction->setToolTip(QCoreApplication::translate(
-            this->className(), sToolTipText, 0,
-            QCoreApplication::CodecForTr).arg(exe));
+            this->className(), sToolTipText).arg(exe));
         _pcAction->setStatusTip(QCoreApplication::translate(
-            this->className(), sStatusTip, 0,
-            QCoreApplication::CodecForTr).arg(exe));
+            this->className(), sStatusTip).arg(exe));
         _pcAction->setWhatsThis(QCoreApplication::translate(
-            this->className(), sWhatsThis, 0,
-            QCoreApplication::CodecForTr).arg(exe));
+            this->className(), sWhatsThis).arg(exe));
     }
 }
 
 void StdCmdDownloadOnlineHelp::activated(int iMsg)
 {
+    Q_UNUSED(iMsg); 
     if (!wget->isDownloading()) {
         ParameterGrp::handle hGrp = App::GetApplication().GetUserParameter().GetGroup("BaseApp");
         hGrp = hGrp->GetGroup("Preferences")->GetGroup("OnlineHelp");
@@ -553,8 +548,7 @@ void StdCmdDownloadOnlineHelp::wgetFinished()
 {
     if (_pcAction)
         _pcAction->setText(QCoreApplication::translate(
-            this->className(), sMenuText, 0,
-            QCoreApplication::CodecForTr));
+            this->className(), sMenuText));
 }
 
 #include "moc_NetworkRetriever.cpp"

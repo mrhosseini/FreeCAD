@@ -6,15 +6,15 @@ import os,sys,FileTools
 
 #import FileTools
 
-# line seperator
+# line separator
 ls = os.linesep
-# path seperator
+# path separator
 ps = os.pathsep
-# dir seperator
+# dir separator
 ds = os.sep
 
 #====================================================================
-# script asume to run in src/Doc
+# script assumes to run in src/Doc
 #os.chdir("e:/Develop/FreeCADWin/src/Doc")
 LogFile = open("MakeDoc.log",'w')
 if not os.path.isdir("../../doc"):
@@ -29,7 +29,7 @@ sys.stdout.write ('Running source documentation ...')
 # running doxygen with the parameters from the config file
 param = "doxygen fcbt"+ds+"BuildDocDoxy.cfg"
 LogFile.write(param)
-print param
+print(param)
 text = os.popen(param).read()
 LogFile.write(text)
 if not os.path.isdir("../../doc/SourceDocumentation"):

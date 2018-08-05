@@ -40,10 +40,26 @@
 #include <Base/Console.h>
 
 #include "Utils.h"
+#include "WorkflowManager.h"
 
 using namespace std;
 
 DEF_STD_CMD_ACL(CmdPrimtiveCompAdditive);
+
+static const char * primitiveIntToName(int id)
+{
+    switch(id) {
+        case 0:  return "Box";
+        case 1:  return "Cylinder";
+        case 2:  return "Sphere";
+        case 3:  return "Cone";
+        case 4:  return "Ellipsoid";
+        case 5:  return "Torus";
+        case 6:  return "Prism";
+        case 7:  return "Wedge";
+        default: return nullptr;
+    };
+};
 
 CmdPrimtiveCompAdditive::CmdPrimtiveCompAdditive()
   : Command("PartDesign_CompPrimitiveAdditive")
@@ -52,100 +68,64 @@ CmdPrimtiveCompAdditive::CmdPrimtiveCompAdditive()
     sGroup          = QT_TR_NOOP("PartDesign");
     sMenuText       = QT_TR_NOOP("Create an additive primitive");
     sToolTipText    = QT_TR_NOOP("Create an additive primitive");
-    sWhatsThis      = "Sketcher_CompPrimitiveAdditive";
+    sWhatsThis      = "PartDesign_CompPrimitiveAdditive";
     sStatusTip      = sToolTipText;
     eType           = ForEdit;
 }
 
 void CmdPrimtiveCompAdditive::activated(int iMsg)
 {
+    App::Document *doc = getDocument();
+    if (!PartDesignGui::assureModernWorkflow(doc))
+        return;
 
-    PartDesign::Body *pcActiveBody = PartDesignGui::getBody(/*messageIfNot = */true);
-    if (!pcActiveBody) return;
+    // We need either an active Body, or for there to be no Body objects
+    // (in which case, just make one) to make a new additive shape.
 
-    std::string FeatName;
-    std::string CSName = getUniqueObjectName("CoordinateSystem");;
-    if(iMsg == 0) {
+    PartDesign::Body *pcActiveBody = PartDesignGui::getBody( /* messageIfNot = */ false );
 
-        FeatName = getUniqueObjectName("Box");
-
-        Gui::Command::openCommand("Make additive box");
-        Gui::Command::doCommand(Gui::Command::Doc,"App.ActiveDocument.addObject(\'PartDesign::AdditiveBox\',\'%s\')",
-            FeatName.c_str());
-    }
-    else if(iMsg == 1) {
-
-        FeatName = getUniqueObjectName("Cylinder");
-
-        Gui::Command::openCommand("Make additive cylinder");
-        Gui::Command::doCommand(Gui::Command::Doc,"App.ActiveDocument.addObject(\'PartDesign::AdditiveCylinder\',\'%s\')",
-            FeatName.c_str());
-    }
-    else if(iMsg == 2) {
-
-        FeatName = getUniqueObjectName("Sphere");
-
-        Gui::Command::openCommand("Make additive sphere");
-        Gui::Command::doCommand(Gui::Command::Doc,"App.ActiveDocument.addObject(\'PartDesign::AdditiveSphere\',\'%s\')",
-            FeatName.c_str());
-    }
-    else if(iMsg == 3) {
-
-        FeatName = getUniqueObjectName("Cone");
-
-        Gui::Command::openCommand("Make additive cone");
-        Gui::Command::doCommand(Gui::Command::Doc,"App.ActiveDocument.addObject(\'PartDesign::AdditiveCone\',\'%s\')",
-            FeatName.c_str());
-    }
-    else if(iMsg == 4) {
-
-        FeatName = getUniqueObjectName("Ellipsoid");
-
-        Gui::Command::openCommand("Make additive ellipsoid");
-        Gui::Command::doCommand(Gui::Command::Doc,"App.ActiveDocument.addObject(\'PartDesign::AdditiveEllipsoid\',\'%s\')",
-            FeatName.c_str());
-    }
-    else if(iMsg == 5) {
-
-        FeatName = getUniqueObjectName("Torus");
-
-        Gui::Command::openCommand("Make additive torus");
-        Gui::Command::doCommand(Gui::Command::Doc,"App.ActiveDocument.addObject(\'PartDesign::AdditiveTorus\',\'%s\')",
-            FeatName.c_str());
-    }
-    else if(iMsg == 6) {
-
-        FeatName = getUniqueObjectName("Prism");
-
-        Gui::Command::openCommand("Make additive prism");
-        Gui::Command::doCommand(Gui::Command::Doc,"App.ActiveDocument.addObject(\'PartDesign::AdditivePrism\',\'%s\')",
-            FeatName.c_str());
-    }
-    else if(iMsg == 7) {
-
-        FeatName = getUniqueObjectName("Wedge");
-
-        Gui::Command::openCommand("Make additive wedge");
-        Gui::Command::doCommand(Gui::Command::Doc,"App.ActiveDocument.addObject(\'PartDesign::AdditiveWedge\',\'%s\')",
-            FeatName.c_str());
+    auto shouldMakeBody( false );
+    if (pcActiveBody == nullptr) {
+        if ( doc->getObjectsOfType(PartDesign::Body::getClassTypeId()).empty() ) {
+            shouldMakeBody = true;
+        } else {
+            PartDesignGui::needActiveBodyError();
+            return;
+        }
     }
 
+    Gui::ActionGroup* pcAction = qobject_cast<Gui::ActionGroup*>(_pcAction);
+    pcAction->setIcon(pcAction->actions().at(iMsg)->icon());
 
-    Gui::Command::doCommand(Doc,"App.ActiveDocument.%s.addFeature(App.activeDocument().%s)"
+    auto shapeType( primitiveIntToName(iMsg) );
+    auto FeatName( getUniqueObjectName(shapeType) );
+
+    Gui::Command::openCommand( (std::string("Make additive ") + shapeType).c_str() );
+    if (shouldMakeBody) {
+        pcActiveBody = PartDesignGui::makeBody(doc);
+    }
+
+    Gui::Command::doCommand(
+            Gui::Command::Doc,
+            "App.ActiveDocument.addObject(\'PartDesign::Additive%s\',\'%s\')",
+            shapeType, FeatName.c_str() );
+
+    Gui::Command::doCommand(Doc,"App.ActiveDocument.%s.addObject(App.activeDocument().%s)"
                     ,pcActiveBody->getNameInDocument(), FeatName.c_str());
-    Gui::Command::doCommand(Gui::Command::Doc,"App.ActiveDocument.addObject(\'PartDesign::CoordinateSystem\',\'%s\')",
-        CSName.c_str());
-    Gui::Command::doCommand(Doc,"App.ActiveDocument.%s.addFeature(App.activeDocument().%s)"
-                    ,pcActiveBody->getNameInDocument(), CSName.c_str());
-    Gui::Command::doCommand(Gui::Command::Doc,"App.ActiveDocument.%s.CoordinateSystem=(App.ActiveDocument.%s)",
-        FeatName.c_str(), CSName.c_str());
     Gui::Command::updateActive();
 
     auto* prm = static_cast<PartDesign::FeaturePrimitive*>(getDocument()->getObject(FeatName.c_str()));
     if (prm->BaseFeature.getValue())
        doCommand(Gui,"Gui.activeDocument().hide(\"%s\")", prm->BaseFeature.getValue()->getNameInDocument());
 
-    Gui::Command::doCommand(Gui, "Gui.activeDocument().hide(\'%s\')", CSName.c_str());
+    if (pcActiveBody) {
+        copyVisual(FeatName.c_str(), "ShapeColor", pcActiveBody->getNameInDocument());
+        copyVisual(FeatName.c_str(), "LineColor", pcActiveBody->getNameInDocument());
+        copyVisual(FeatName.c_str(), "PointColor", pcActiveBody->getNameInDocument());
+        copyVisual(FeatName.c_str(), "Transparency", pcActiveBody->getNameInDocument());
+        copyVisual(FeatName.c_str(), "DisplayMode", pcActiveBody->getNameInDocument());
+    }
+
     Gui::Command::doCommand(Gui, "Gui.activeDocument().setEdit(\'%s\')", FeatName.c_str());
 }
 
@@ -157,20 +137,36 @@ Gui::Action * CmdPrimtiveCompAdditive::createAction(void)
 
     QAction* p1 = pcAction->addAction(QString());
     p1->setIcon(Gui::BitmapFactory().pixmap("PartDesign_Additive_Box"));
+    p1->setObjectName(QString::fromLatin1("PartDesign_AdditiveBox"));
+    p1->setWhatsThis(QString::fromLatin1("PartDesign_AdditiveBox"));
     QAction* p2 = pcAction->addAction(QString());
     p2->setIcon(Gui::BitmapFactory().pixmap("PartDesign_Additive_Cylinder"));
+    p2->setObjectName(QString::fromLatin1("PartDesign_AdditiveCylinder"));
+    p2->setWhatsThis(QString::fromLatin1("PartDesign_AdditiveCylinder"));
     QAction* p3 = pcAction->addAction(QString());
     p3->setIcon(Gui::BitmapFactory().pixmap("PartDesign_Additive_Sphere"));
+    p3->setObjectName(QString::fromLatin1("PartDesign_AdditiveSphere"));
+    p3->setWhatsThis(QString::fromLatin1("PartDesign_AdditiveSphere"));
     QAction* p4 = pcAction->addAction(QString());
     p4->setIcon(Gui::BitmapFactory().pixmap("PartDesign_Additive_Cone"));
+    p4->setObjectName(QString::fromLatin1("PartDesign_AdditiveCone"));
+    p4->setWhatsThis(QString::fromLatin1("PartDesign_AdditiveCone"));
     QAction* p5 = pcAction->addAction(QString());
     p5->setIcon(Gui::BitmapFactory().pixmap("PartDesign_Additive_Ellipsoid"));
+    p5->setObjectName(QString::fromLatin1("PartDesign_AdditiveEllipsoid"));
+    p5->setWhatsThis(QString::fromLatin1("PartDesign_AdditiveEllipsoid"));
     QAction* p6 = pcAction->addAction(QString());
     p6->setIcon(Gui::BitmapFactory().pixmap("PartDesign_Additive_Torus"));
+    p6->setObjectName(QString::fromLatin1("PartDesign_AdditiveTorus"));
+    p6->setWhatsThis(QString::fromLatin1("PartDesign_AdditiveTorus"));
     QAction* p7 = pcAction->addAction(QString());
     p7->setIcon(Gui::BitmapFactory().pixmap("PartDesign_Additive_Prism"));
+    p7->setObjectName(QString::fromLatin1("PartDesign_AdditivePrism"));
+    p7->setWhatsThis(QString::fromLatin1("PartDesign_AdditivePrism"));
     QAction* p8 = pcAction->addAction(QString());
     p8->setIcon(Gui::BitmapFactory().pixmap("PartDesign_Additive_Wedge"));
+    p8->setObjectName(QString::fromLatin1("PartDesign_AdditiveWedge"));
+    p8->setWhatsThis(QString::fromLatin1("PartDesign_AdditiveWedge"));
 
     _pcAction = pcAction;
     languageChange();
@@ -193,7 +189,7 @@ void CmdPrimtiveCompAdditive::languageChange()
 
     QAction* arc1 = a[0];
     arc1->setText(QApplication::translate("CmdPrimtiveCompAdditive","Additive Box"));
-    arc1->setToolTip(QApplication::translate("PartDesign_CompPrimitiveAdditive","Create an additive box by its with, height and length"));
+    arc1->setToolTip(QApplication::translate("PartDesign_CompPrimitiveAdditive","Create an additive box by its width, height and length"));
     arc1->setStatusTip(arc1->toolTip());
     QAction* arc2 = a[1];
     arc2->setText(QApplication::translate("CmdPrimtiveCompAdditive","Additive Cylinder"));
@@ -201,7 +197,7 @@ void CmdPrimtiveCompAdditive::languageChange()
     arc2->setStatusTip(arc2->toolTip());
     QAction* arc3 = a[2];
     arc3->setText(QApplication::translate("CmdPrimtiveCompAdditive","Additive Sphere"));
-    arc3->setToolTip(QApplication::translate("PartDesign_CompPrimitiveAdditive","Create an additive sphere by its radius and varius angles"));
+    arc3->setToolTip(QApplication::translate("PartDesign_CompPrimitiveAdditive","Create an additive sphere by its radius and various angles"));
     arc3->setStatusTip(arc3->toolTip());
     QAction* arc4 = a[3];
     arc4->setText(QApplication::translate("CmdPrimtiveCompAdditive","Additive Cone"));
@@ -237,8 +233,8 @@ CmdPrimtiveCompSubtractive::CmdPrimtiveCompSubtractive()
 {
     sAppModule      = "PartDesign";
     sGroup          = QT_TR_NOOP("PartDesign");
-    sMenuText       = QT_TR_NOOP("Create an subtractive primitive");
-    sToolTipText    = QT_TR_NOOP("Create an subtractive primitive");
+    sMenuText       = QT_TR_NOOP("Create a subtractive primitive");
+    sToolTipText    = QT_TR_NOOP("Create a subtractive primitive");
     sWhatsThis      = "PartDesign_CompPrimitiveSubtractive";
     sStatusTip      = sToolTipText;
     eType           = ForEdit;
@@ -246,8 +242,17 @@ CmdPrimtiveCompSubtractive::CmdPrimtiveCompSubtractive()
 
 void CmdPrimtiveCompSubtractive::activated(int iMsg)
 {
-    PartDesign::Body *pcActiveBody = PartDesignGui::getBody(/*messageIfNot = */true);
-    if (!pcActiveBody) return;
+    App::Document *doc = getDocument();
+    if (!PartDesignGui::assureModernWorkflow(doc))
+        return;
+
+    PartDesign::Body *pcActiveBody = PartDesignGui::getBody(true);
+
+    if (!pcActiveBody)
+        return;
+
+    Gui::ActionGroup* pcAction = qobject_cast<Gui::ActionGroup*>(_pcAction);
+    pcAction->setIcon(pcAction->actions().at(iMsg)->icon());
 
     //check if we already have a feature as subtractive ones work only if we have
     //something to subtract from.
@@ -258,91 +263,34 @@ void CmdPrimtiveCompSubtractive::activated(int iMsg)
             return;
     }
 
-    std::string FeatName;
-    std::string CSName = getUniqueObjectName("CoordinateSystem");
-    if(iMsg == 0) {
+    auto shapeType( primitiveIntToName(iMsg) );
+    auto FeatName( getUniqueObjectName(shapeType) );
 
-        FeatName = getUniqueObjectName("Box");
+    Gui::Command::openCommand( (std::string("Make subtractive ") + shapeType).c_str() );
+    Gui::Command::doCommand(
+            Gui::Command::Doc,
+            "App.ActiveDocument.addObject(\'PartDesign::Subtractive%s\',\'%s\')",
+            shapeType, FeatName.c_str() );
 
-        Gui::Command::openCommand("Make subtractive box");
-        Gui::Command::doCommand(Gui::Command::Doc,"App.ActiveDocument.addObject(\'PartDesign::SubtractiveBox\',\'%s\')",
-            FeatName.c_str());
-    }
-    else if(iMsg == 1) {
-
-        FeatName = getUniqueObjectName("Cylinder");
-
-        Gui::Command::openCommand("Make subtractive cylinder");
-        Gui::Command::doCommand(Gui::Command::Doc,"App.ActiveDocument.addObject(\'PartDesign::SubtractiveCylinder\',\'%s\')",
-            FeatName.c_str());
-    }
-    else if(iMsg == 2) {
-
-        FeatName = getUniqueObjectName("Sphere");
-
-        Gui::Command::openCommand("Make subtractive sphere");
-        Gui::Command::doCommand(Gui::Command::Doc,"App.ActiveDocument.addObject(\'PartDesign::SubtractiveSphere\',\'%s\')",
-            FeatName.c_str());
-    }
-    else if(iMsg == 3) {
-
-        FeatName = getUniqueObjectName("Cone");
-
-        Gui::Command::openCommand("Make subtractive cone");
-        Gui::Command::doCommand(Gui::Command::Doc,"App.ActiveDocument.addObject(\'PartDesign::SubtractiveCone\',\'%s\')",
-            FeatName.c_str());
-    }
-    else if(iMsg == 4) {
-
-        FeatName = getUniqueObjectName("Ellipsoid");
-
-        Gui::Command::openCommand("Make subtractive ellipsoid");
-        Gui::Command::doCommand(Gui::Command::Doc,"App.ActiveDocument.addObject(\'PartDesign::SubtractiveEllipsoid\',\'%s\')",
-            FeatName.c_str());
-    }
-    else if(iMsg == 5) {
-
-        FeatName = getUniqueObjectName("Torus");
-
-        Gui::Command::openCommand("Make subtractive torus");
-        Gui::Command::doCommand(Gui::Command::Doc,"App.ActiveDocument.addObject(\'PartDesign::SubtractiveTorus\',\'%s\')",
-            FeatName.c_str());
-    }
-    else if(iMsg == 6) {
-
-        FeatName = getUniqueObjectName("Prism");
-
-        Gui::Command::openCommand("Make subtractive prism");
-        Gui::Command::doCommand(Gui::Command::Doc,"App.ActiveDocument.addObject(\'PartDesign::SubtractivePrism\',\'%s\')",
-            FeatName.c_str());
-    }
-    else if(iMsg == 7) {
-
-        FeatName = getUniqueObjectName("Wedge");
-
-        Gui::Command::openCommand("Make subtractive wedge");
-        Gui::Command::doCommand(Gui::Command::Doc,"App.ActiveDocument.addObject(\'PartDesign::SubtractiveWedge\',\'%s\')",
-            FeatName.c_str());
-    }
-
-    Gui::Command::doCommand(Doc,"App.ActiveDocument.%s.addFeature(App.activeDocument().%s)"
+    Gui::Command::doCommand(Doc,"App.ActiveDocument.%s.addObject(App.activeDocument().%s)"
                     ,pcActiveBody->getNameInDocument(), FeatName.c_str());
-    Gui::Command::doCommand(Gui::Command::Doc,"App.ActiveDocument.addObject(\'PartDesign::CoordinateSystem\',\'%s\')",
-        CSName.c_str());
-    Gui::Command::doCommand(Doc,"App.ActiveDocument.%s.addFeature(App.activeDocument().%s)"
-                    ,pcActiveBody->getNameInDocument(), CSName.c_str());
-    Gui::Command::doCommand(Gui::Command::Doc,"App.ActiveDocument.%s.CoordinateSystem=(App.ActiveDocument.%s)",
-        FeatName.c_str(), CSName.c_str());
     Gui::Command::updateActive();
 
-    if (isActiveObjectValid() && (pcActiveBody != NULL)) {
+    if ( isActiveObjectValid() ) {
         // TODO  (2015-08-05, Fat-Zer)
         if (prevSolid) {
             doCommand(Gui,"Gui.activeDocument().hide(\"%s\")", prevSolid->getNameInDocument());
         }
     }
 
-    Gui::Command::doCommand(Gui, "Gui.activeDocument().hide(\'%s\')", CSName.c_str());
+    if (pcActiveBody) {
+        copyVisual(FeatName.c_str(), "ShapeColor", pcActiveBody->getNameInDocument());
+        copyVisual(FeatName.c_str(), "LineColor", pcActiveBody->getNameInDocument());
+        copyVisual(FeatName.c_str(), "PointColor", pcActiveBody->getNameInDocument());
+        copyVisual(FeatName.c_str(), "Transparency", pcActiveBody->getNameInDocument());
+        copyVisual(FeatName.c_str(), "DisplayMode", pcActiveBody->getNameInDocument());
+    }
+
     Gui::Command::doCommand(Gui, "Gui.activeDocument().setEdit(\'%s\')", FeatName.c_str());
 }
 
@@ -354,20 +302,36 @@ Gui::Action * CmdPrimtiveCompSubtractive::createAction(void)
 
     QAction* p1 = pcAction->addAction(QString());
     p1->setIcon(Gui::BitmapFactory().pixmap("PartDesign_Subtractive_Box"));
+    p1->setObjectName(QString::fromLatin1("PartDesign_SubtractiveBox"));
+    p1->setWhatsThis(QString::fromLatin1("PartDesign_SubtractiveBox"));
     QAction* p2 = pcAction->addAction(QString());
     p2->setIcon(Gui::BitmapFactory().pixmap("PartDesign_Subtractive_Cylinder"));
+    p2->setObjectName(QString::fromLatin1("PartDesign_SubtractiveCylinder"));
+    p2->setWhatsThis(QString::fromLatin1("PartDesign_SubtractiveCylinder"));
     QAction* p3 = pcAction->addAction(QString());
     p3->setIcon(Gui::BitmapFactory().pixmap("PartDesign_Subtractive_Sphere"));
+    p3->setObjectName(QString::fromLatin1("PartDesign_SubtractiveSphere"));
+    p3->setWhatsThis(QString::fromLatin1("PartDesign_SubtractiveSphere"));
     QAction* p4 = pcAction->addAction(QString());
     p4->setIcon(Gui::BitmapFactory().pixmap("PartDesign_Subtractive_Cone"));
+    p4->setObjectName(QString::fromLatin1("PartDesign_SubtractiveCone"));
+    p4->setWhatsThis(QString::fromLatin1("PartDesign_SubtractiveCone"));
     QAction* p5 = pcAction->addAction(QString());
     p5->setIcon(Gui::BitmapFactory().pixmap("PartDesign_Subtractive_Ellipsoid"));
+    p5->setObjectName(QString::fromLatin1("PartDesign_SubtractiveEllipsoid"));
+    p5->setWhatsThis(QString::fromLatin1("PartDesign_SubtractiveEllipsoid"));
     QAction* p6 = pcAction->addAction(QString());
     p6->setIcon(Gui::BitmapFactory().pixmap("PartDesign_Subtractive_Torus"));
+    p6->setObjectName(QString::fromLatin1("PartDesign_SubtractiveTorus"));
+    p6->setWhatsThis(QString::fromLatin1("PartDesign_SubtractiveTorus"));
     QAction* p7 = pcAction->addAction(QString());
     p7->setIcon(Gui::BitmapFactory().pixmap("PartDesign_Subtractive_Prism"));
+    p7->setObjectName(QString::fromLatin1("PartDesign_SubtractivePrism"));
+    p7->setWhatsThis(QString::fromLatin1("PartDesign_SubtractivePrism"));
     QAction* p8 = pcAction->addAction(QString());
     p8->setIcon(Gui::BitmapFactory().pixmap("PartDesign_Subtractive_Wedge"));
+    p8->setObjectName(QString::fromLatin1("PartDesign_SubtractiveWedge"));
+    p8->setWhatsThis(QString::fromLatin1("PartDesign_SubtractiveWedge"));
 
     _pcAction = pcAction;
     languageChange();
@@ -390,35 +354,35 @@ void CmdPrimtiveCompSubtractive::languageChange()
 
     QAction* arc1 = a[0];
     arc1->setText(QApplication::translate("CmdPrimtiveCompSubtractive","Subtractive Box"));
-    arc1->setToolTip(QApplication::translate("PartDesign_CompPrimitiveSubtractive","Create an subtractive box by its with, height and length"));
+    arc1->setToolTip(QApplication::translate("PartDesign_CompPrimitiveSubtractive","Create a subtractive box by its width, height and length"));
     arc1->setStatusTip(arc1->toolTip());
     QAction* arc2 = a[1];
     arc2->setText(QApplication::translate("CmdPrimtiveCompSubtractive","Subtractive Cylinder"));
-    arc2->setToolTip(QApplication::translate("PartDesign_CompPrimitiveSubtractive","Create an subtractive cylinder by its radius, height and angle"));
+    arc2->setToolTip(QApplication::translate("PartDesign_CompPrimitiveSubtractive","Create a subtractive cylinder by its radius, height and angle"));
     arc2->setStatusTip(arc2->toolTip());
     QAction* arc3 = a[2];
     arc3->setText(QApplication::translate("CmdPrimtiveCompSubtractive","Subtractive Sphere"));
-    arc3->setToolTip(QApplication::translate("PartDesign_CompPrimitiveSubtractive","Create an subtractive sphere by its radius and varius angles"));
+    arc3->setToolTip(QApplication::translate("PartDesign_CompPrimitiveSubtractive","Create a subtractive sphere by its radius and various angles"));
     arc3->setStatusTip(arc3->toolTip());
     QAction* arc4 = a[3];
     arc4->setText(QApplication::translate("CmdPrimtiveCompSubtractive","Subtractive Cone"));
-    arc4->setToolTip(QApplication::translate("PartDesign_CompPrimitiveSubtractive","Create an subtractive cone"));
+    arc4->setToolTip(QApplication::translate("PartDesign_CompPrimitiveSubtractive","Create a subtractive cone"));
     arc4->setStatusTip(arc4->toolTip());
     QAction* arc5 = a[4];
     arc5->setText(QApplication::translate("CmdPrimtiveCompSubtractive","Subtractive Ellipsoid"));
-    arc5->setToolTip(QApplication::translate("PartDesign_CompPrimitiveSubtractive","Create an subtractive ellipsoid"));
+    arc5->setToolTip(QApplication::translate("PartDesign_CompPrimitiveSubtractive","Create a subtractive ellipsoid"));
     arc5->setStatusTip(arc5->toolTip());
     QAction* arc6 = a[5];
     arc6->setText(QApplication::translate("CmdPrimtiveCompSubtractive","Subtractive Torus"));
-    arc6->setToolTip(QApplication::translate("PartDesign_CompPrimitiveSubtractive","Create an subtractive torus"));
+    arc6->setToolTip(QApplication::translate("PartDesign_CompPrimitiveSubtractive","Create a subtractive torus"));
     arc6->setStatusTip(arc6->toolTip());
     QAction* arc7 = a[6];
     arc7->setText(QApplication::translate("CmdPrimtiveCompSubtractive","Subtractive Prism"));
-    arc7->setToolTip(QApplication::translate("PartDesign_CompPrimitiveSubtractive","Create an subtractive prism"));
+    arc7->setToolTip(QApplication::translate("PartDesign_CompPrimitiveSubtractive","Create a subtractive prism"));
     arc7->setStatusTip(arc7->toolTip());
     QAction* arc8 = a[7];
     arc8->setText(QApplication::translate("CmdPrimtiveCompSubtractive","Subtractive Wedge"));
-    arc8->setToolTip(QApplication::translate("PartDesign_CompPrimitiveSubtractive","Create an subtractive wedge"));
+    arc8->setToolTip(QApplication::translate("PartDesign_CompPrimitiveSubtractive","Create a subtractive wedge"));
     arc8->setStatusTip(arc8->toolTip());
 }
 

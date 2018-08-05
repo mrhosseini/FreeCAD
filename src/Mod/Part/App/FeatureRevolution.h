@@ -33,7 +33,7 @@ namespace Part
 
 class PartExport Revolution : public Part::Feature
 {
-    PROPERTY_HEADER(Part::Revolution);
+    PROPERTY_HEADER_WITH_OVERRIDE(Part::Revolution);
 
 public:
     Revolution();
@@ -45,17 +45,18 @@ public:
     App::PropertyFloatConstraint Angle;
     App::PropertyBool Symmetric; //like "Midplane" in PartDesign
     App::PropertyBool Solid;
+    App::PropertyString FaceMakerClass;
 
     /** @name methods override feature */
     //@{
     /// recalculate the feature
-    App::DocumentObjectExecReturn *execute(void);
-    short mustExecute() const;
+    App::DocumentObjectExecReturn *execute(void) override;
+    short mustExecute() const override;
 
     void onChanged(const App::Property* prop) override;
 
     /// returns the type name of the view provider
-    const char* getViewProviderName(void) const {
+    const char* getViewProviderName(void) const override{
         return "PartGui::ViewProviderRevolution";
     }
     //@}
@@ -79,6 +80,9 @@ public:
 
 private:
     static App::PropertyFloatConstraint::Constraints angleRangeU;
+
+protected:
+    virtual void setupObject() override;
 };
 
 } //namespace Part

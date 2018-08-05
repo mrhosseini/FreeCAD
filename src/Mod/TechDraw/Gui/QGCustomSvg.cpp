@@ -51,12 +51,7 @@ QGCustomSvg::~QGCustomSvg()
 
 void QGCustomSvg::centerAt(QPointF centerPos)
 {
-    QRectF box = boundingRect();
-    double width = box.width();
-    double height = box.height();
-    double newX = centerPos.x() - width/2.;
-    double newY = centerPos.y() - height/2.;
-    setPos(newX,newY);
+    centerAt(centerPos.x(),centerPos.y());
 }
 
 void QGCustomSvg::centerAt(double cX, double cY)
@@ -64,8 +59,8 @@ void QGCustomSvg::centerAt(double cX, double cY)
     QRectF box = boundingRect();
     double width = box.width();
     double height = box.height();
-    double newX = cX - width/2.;
-    double newY = cY - height/2.;
+    double newX = (cX - width/2.) * scale();
+    double newY = (cY - height/2.) * scale();
     setPos(newX,newY);
 }
 
@@ -77,18 +72,11 @@ bool QGCustomSvg::load(QByteArray *svgBytes)
     return(success);
 }
 
-QRectF QGCustomSvg::boundingRect() const
-{
-    QRectF box = m_svgRender->viewBoxF();
-    double w = box.width();
-    double h = box.height();
-    QRectF newRect(0,0,w*scale(),h*scale());
-    return newRect.adjusted(-1.,-1.,1.,1.);
-}
-
 void QGCustomSvg::paint ( QPainter * painter, const QStyleOptionGraphicsItem * option, QWidget * widget) {
     QStyleOptionGraphicsItem myOption(*option);
     myOption.state &= ~QStyle::State_Selected;
+
+    //painter->drawRect(boundingRect());          //good for debugging
 
     QGraphicsSvgItem::paint (painter, &myOption, widget);
 }

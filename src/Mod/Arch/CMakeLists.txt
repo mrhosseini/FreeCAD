@@ -24,6 +24,7 @@ SET(Arch_SRCS
     ArchRoof.py
     ArchStairs.py
     importWebGL.py
+    importJSON.py
     ArchSpace.py
     ArchRebar.py
     TestArch.py
@@ -31,13 +32,15 @@ SET(Arch_SRCS
     ArchPanel.py
     ArchEquipment.py
     ArchCutPlane.py
-    ArchServer.py
     ArchMaterial.py
     ArchSchedule.py
     ArchProfile.py
     import3DS.py
     ArchPrecast.py
     importSH3D.py
+    ArchPipe.py
+    ArchNesting.py
+    ArchBuildingPart.py
 )
 
 SET(Dice3DS_SRCS
@@ -48,6 +51,7 @@ SET(Dice3DS_SRCS
 
 SET(Arch_presets
     Presets/profiles.csv
+    Presets/pset_definitions.csv
 )
 
 SOURCE_GROUP("" FILES ${Arch_SRCS})
@@ -57,7 +61,7 @@ ADD_CUSTOM_TARGET(Arch ALL
 )
 
 fc_copy_sources(Arch "${CMAKE_BINARY_DIR}/Mod/Arch" ${Arch_SRCS})
-fc_copy_sources(Arch "${CMAKE_BINARY_DIR}/Mod/Arch/Dice3DS" ${Dice3DS_SRCS})
+fc_copy_sources(Arch "${CMAKE_BINARY_DIR}/Mod/Arch" ${Dice3DS_SRCS})
 
 fc_target_copy_resource(Arch
     ${CMAKE_SOURCE_DIR}/src/Mod/Arch

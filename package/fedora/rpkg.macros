@@ -1,0 +1,4 @@
+function git_commits_no {
+	commits=$(git fetch --unshallow && git rev-list master --count)
+	echo $commits
+}

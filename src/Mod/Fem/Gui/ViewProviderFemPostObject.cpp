@@ -66,7 +66,7 @@ ViewProviderFemPostObject::ViewProviderFemPostObject() : m_blockPropertyChanges(
     ADD_PROPERTY_TYPE(VectorMode,((long)0), "Coloring", App::Prop_None, "Select what to show for a vector field");
     ADD_PROPERTY(Transperency, (0));
 
-    sPixmap = "fem-fem-mesh-from-shape";
+    sPixmap = "fem-femmesh-from-shape";
 
     //create the subnodes which do the visualization work
     m_shapeHints = new SoShapeHints();
@@ -247,8 +247,11 @@ void ViewProviderFemPostObject::updateProperties() {
     colorArrays.push_back("None");
 
     vtkPointData* point = poly->GetPointData();
-    for(int i=0; i<point->GetNumberOfArrays(); ++i)
-        colorArrays.push_back(point->GetArrayName(i));
+    for(int i=0; i<point->GetNumberOfArrays(); ++i) {
+        std::string FieldName = point->GetArrayName(i);
+        if (FieldName != "Texture Coordinates")
+            colorArrays.push_back(FieldName);
+    }
 
     vtkCellData* cell = poly->GetCellData();
     for(int i=0; i<cell->GetNumberOfArrays(); ++i)
@@ -406,7 +409,7 @@ void ViewProviderFemPostObject::update3D() {
 
 void ViewProviderFemPostObject::WritePointData(vtkPoints* points, vtkDataArray* normals, vtkDataArray* tcoords) {
 
-
+    Q_UNUSED(tcoords)
     double *p;
     int i;
 
@@ -543,6 +546,13 @@ void ViewProviderFemPostObject::onChanged(const App::Property* prop) {
 }
 
 bool ViewProviderFemPostObject::doubleClicked(void) {
+    // work around for a problem in VTK implementation: https://forum.freecadweb.org/viewtopic.php?t=10587&start=130#p125688
+    // check if backlight is enabled
+    ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/View");
+    bool isBackLightEnabled = hGrp->GetBool("EnableBacklight", false);
+    if (isBackLightEnabled == false)
+        Base::Console().Error("Backlight is not enabled. Due to a VTK implementation problem you really should consider to enable backlight in FreeCAD display preferences if you work with VTK post processing.\n");
+    // set edit
     Gui::Application::Instance->activeDocument()->setEdit(this, (int)ViewProvider::Default);
     return true;
 }
@@ -615,7 +625,7 @@ void ViewProviderFemPostObject::show(void) {
 }
 
 
-void ViewProviderFemPostObject::OnChange(Base::Subject< int >& rCaller, int rcReason) {
+void ViewProviderFemPostObject::OnChange(Base::Subject< int >& /*rCaller*/, int /*rcReason*/) {
     bool ResetColorBarRange = false;
     WriteColorData(ResetColorBarRange);
 }

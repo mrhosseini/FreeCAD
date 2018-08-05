@@ -23,8 +23,8 @@
 #ifndef UTILS_H_CS5LK2ZQ
 #define UTILS_H_CS5LK2ZQ
 
-/** \file Utils.h
- *  This fiel contains some utility function used over PartDesignGui module
+/** \file PartDesign/Gui/Utils.h
+ *  This file contains some utility function used over PartDesignGui module
  */
 namespace PartDesign {
     class Body;
@@ -32,6 +32,7 @@ namespace PartDesign {
 }
 
 namespace App {
+    class Document;
     class DocumentObject;
     class Part;
 }
@@ -43,12 +44,20 @@ namespace Sketcher {
 namespace PartDesignGui {
 
 /// Return active body or show a warning message
-PartDesign::Body *getBody(bool messageIfNot);
+PartDesign::Body *getBody(bool messageIfNot, bool autoActivate=true, bool assertModern=true);
+
+/// Display error when there are existing Body objects, but none are active
+void needActiveBodyError(void);
+
+/// Create a Body object in doc, set it active, and return pointer to it
+PartDesign::Body * makeBody(App::Document *doc);
+
 /**
  * Finds a body for the given feature. And shows a message if not found
  * Also unlike Body::findBodyFor it checks if the active body has the feature first.
  */
-PartDesign::Body *getBodyFor(const App::DocumentObject*, bool messageIfNot);
+PartDesign::Body *getBodyFor(const App::DocumentObject*, bool messageIfNot,
+                             bool autoActivate=true, bool assertModern=true);
 App::Part        *getPartFor(const App::DocumentObject*, bool messageIfNot);
 App::Part        *getActivePart();
 
@@ -63,6 +72,13 @@ bool isAnyNonPartDesignLinksTo ( PartDesign::Feature *feature, bool respectGroup
 
 /// Relink all nonPartDesign features to the body instead of the given partDesign Feature
 void relinkToBody ( PartDesign::Feature *feature );
+
+/// Check if feature is dependent on anything except movable sketches and datums
+bool isFeatureMovable(App::DocumentObject* feature);
+/// Collect dependencies of the features during the move. Dependencies should only be dependent on origin
+std::vector<App::DocumentObject*> collectMovableDependencies(std::vector<App::DocumentObject*>& features);
+/// Relink sketches and datums to target body's origin
+void relinkToOrigin(App::DocumentObject* feature, PartDesign::Body* body);
 
 } /* PartDesignGui */
 

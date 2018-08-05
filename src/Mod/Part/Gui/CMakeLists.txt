@@ -13,7 +13,6 @@ include_directories(
     ${COIN3D_INCLUDE_DIRS}
     ${OCC_INCLUDE_DIR}
     ${PYTHON_INCLUDE_DIRS}
-    ${QT_INCLUDE_DIR}
     ${XercesC_INCLUDE_DIRS}
     ${ZLIB_INCLUDE_DIR}
 )
@@ -23,6 +22,21 @@ set(PartGui_LIBS
     Part
     FreeCADGui
 )
+
+if(MSVC)
+    include_directories(
+        ${CMAKE_SOURCE_DIR}/src/3rdParty/OpenGL/api
+    )
+endif(MSVC)
+
+if (BUILD_QT5)
+    include_directories(
+        ${Qt5Concurrent_INCLUDE_DIRS}
+    )
+    list(APPEND PartGui_LIBS
+        ${Qt5Concurrent_LIBRARIES}
+    )
+endif()
 
 set(PartGui_MOC_HDRS
     CrossSections.h
@@ -39,6 +53,7 @@ set(PartGui_MOC_HDRS
     DlgSettings3DViewPartImp.h
     DlgSettingsGeneral.h
     DlgSettingsObjectColor.h
+    PropertyEnumAttacherItem.h
     TaskFaceColors.h
     TaskShapeBuilder.h
     TaskLoft.h
@@ -47,11 +62,16 @@ set(PartGui_MOC_HDRS
     TaskThickness.h
     TaskDimension.h
     TaskCheckGeometry.h
+    TaskAttacher.h
 )
 fc_wrap_cpp(PartGui_MOC_SRCS ${PartGui_MOC_HDRS})
 SOURCE_GROUP("Moc" FILES ${PartGui_MOC_SRCS})
 
-qt4_add_resources(PartGui_QRC_SRCS Resources/Part.qrc)
+if (BUILD_QT5)
+    qt5_add_resources(PartGui_QRC_SRCS Resources/Part.qrc)
+else()
+    qt4_add_resources(PartGui_QRC_SRCS Resources/Part.qrc)
+endif()
 
 set(PartGui_UIC_SRCS
     CrossSections.ui
@@ -76,8 +96,14 @@ set(PartGui_UIC_SRCS
     TaskLoft.ui
     TaskOffset.ui
     TaskSweep.ui
+    TaskAttacher.ui
 )
-qt4_wrap_ui(PartGui_UIC_HDRS ${PartGui_UIC_SRCS})
+
+if (BUILD_QT5)
+    qt5_wrap_ui(PartGui_UIC_HDRS ${PartGui_UIC_SRCS})
+else()
+    qt4_wrap_ui(PartGui_UIC_HDRS ${PartGui_UIC_SRCS})
+endif()
 
 SET(PartGui_SRCS
     ${PartGui_QRC_SRCS}
@@ -85,6 +111,8 @@ SET(PartGui_SRCS
     AppPartGui.cpp
     AttacherTexts.h
     AttacherTexts.cpp
+    BoxSelection.cpp
+    BoxSelection.h
     Command.cpp
     CommandSimple.cpp
     CommandParametric.cpp
@@ -136,6 +164,8 @@ SET(PartGui_SRCS
     Resources/Part.qrc
     PreCompiled.cpp
     PreCompiled.h
+    PropertyEnumAttacherItem.cpp
+    PropertyEnumAttacherItem.h
     SoFCShapeObject.cpp
     SoFCShapeObject.h
     SoBrepEdgeSet.cpp
@@ -219,6 +249,8 @@ SET(PartGui_SRCS
     TaskDimension.h
     TaskCheckGeometry.cpp
     TaskCheckGeometry.h
+    TaskAttacher.h 
+    TaskAttacher.cpp 
 )
 
 SET(PartGui_Scripts

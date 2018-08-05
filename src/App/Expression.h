@@ -92,7 +92,7 @@ public:
 
     virtual int priority() const { return 0; }
 
-    virtual void getDeps(std::set<ObjectIdentifier> &props) const { }
+    virtual void getDeps(std::set<ObjectIdentifier> &/*props*/) const { }
 
     virtual Expression * simplify() const = 0;
 
@@ -328,6 +328,8 @@ public:
         TRUNC,
         CEIL,
         FLOOR,
+        HYPOT,
+        CATH,
 
         // Aggregates
         AGGREGATES,
@@ -481,6 +483,7 @@ AppExport Expression * parse(const App::DocumentObject *owner, const char *buffe
 AppExport UnitExpression * parseUnit(const App::DocumentObject *owner, const char *buffer);
 AppExport ObjectIdentifier parsePath(const App::DocumentObject *owner, const char* buffer);
 AppExport bool isTokenAnIndentifier(const std::string & str);
+AppExport bool isTokenAUnit(const std::string & str);
 AppExport std::vector<boost::tuple<int, int, std::string> > tokenize(const std::string & str);
 
 /**
@@ -507,7 +510,7 @@ public:
   std::string string;
   FunctionExpression::Function func;
   ObjectIdentifier::String string_or_identifier;
-  semantic_type() {}
+  semantic_type() : expr(0), ivalue(0), fvalue(0), func(FunctionExpression::NONE) {}
 };
 
 #define YYSTYPE semantic_type

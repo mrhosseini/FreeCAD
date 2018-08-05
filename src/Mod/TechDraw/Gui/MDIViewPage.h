@@ -29,6 +29,7 @@
 
 #include <QPrinter>
 #include <QGraphicsScene>
+#include <QPointF>
 
 QT_BEGIN_NAMESPACE
 class QAction;
@@ -36,6 +37,7 @@ QT_END_NAMESPACE
 
 namespace TechDraw {
 class DrawTemplate;
+class DrawView;
 }
 
 namespace TechDrawGui
@@ -53,17 +55,21 @@ public:
     MDIViewPage(ViewProviderPage *page, Gui::Document* doc, QWidget* parent = 0);
     virtual ~MDIViewPage();
 
-    /// Observer message from the Selection
+    /// Observer message from the Tree Selection mechanism
     void onSelectionChanged(const Gui::SelectionChanges& msg);
     void preSelectionChanged(const QPoint &pos);
-    void selectFeature(App::DocumentObject *obj, bool state);
-    void clearSelection();
+
+    /// QGraphicsScene seletion routines
+    void selectQGIView(App::DocumentObject *obj, bool state);
+    void clearSceneSelection();
     void blockSelection(bool isBlocked);
 
     void attachTemplate(TechDraw::DrawTemplate *obj);
     void updateTemplate(bool force = false);
-    void updateDrawing(bool force = false);
-
+//    void updateDrawing(bool force = false);
+    void updateDrawing(void);
+    void matchSceneRectToTemplate(void);
+    
     bool onMsg(const char* pMsg,const char** ppReturn);
     bool onHasMsg(const char* pMsg) const;
     void onRelabel(Gui::Document *pDoc);
@@ -71,22 +77,33 @@ public:
     void print();
     void print(QPrinter* printer);
     void printPdf();
+    void printPdf(std::string file);
     void printPreview();
+
+    void saveSVG(std::string file);
+
     void setFrameState(bool state);
     bool getFrameState(void) {return m_frameState;};
 
     void setDocumentObject(const std::string&);
+    void setDocumentName(const std::string&);
     PyObject* getPyObject();
 
     QGVPage* getQGVPage(void) {return m_view;};
 
     QGraphicsScene* m_scene;
 
+    QPointF getTemplateCenter(TechDraw::DrawTemplate *obj);
+    void centerOnPage(void);
+
+    void redrawAllViews(void);
+    void redraw1View(TechDraw::DrawView* dv);
+
 public Q_SLOTS:
     void setRenderer(QAction *action);
     void viewAll();
     void saveSVG(void);
-    void selectionChanged();
+    void sceneSelectionChanged();
 
 protected:
     void findMissingViews( const std::vector<App::DocumentObject*> &list, std::vector<App::DocumentObject*> &missing);
@@ -101,6 +118,14 @@ protected:
     QPrinter::PaperSize getPaperSize(int w, int h) const;
     void setDimensionGroups(void);
     void showStatusMsg(const char* s1, const char* s2, const char* s3) const;
+    
+    void onDeleteObject(const App::DocumentObject& obj);
+
+    typedef boost::BOOST_SIGNALS_NAMESPACE::connection Connection;
+    Connection connectDeletedObject;
+
+    bool compareSelections(std::vector<Gui::SelectionObject>& treeSel,QList<QGraphicsItem*>& sceneSel);
+    void setTreeToSceneSelect(void);
 
 private:
     QAction *m_nativeAction;
@@ -110,13 +135,14 @@ private:
     QAction *m_highQualityAntialiasingAction;
 
     std::string m_objectName;
+    std::string m_documentName;
     bool isSelectionBlocked;
     QGVPage *m_view;
 
     QString m_currentPath;
     QPrinter::Orientation m_orientation;
     QPrinter::PaperSize m_paperSize;
-    ViewProviderPage *pageGui;
+    ViewProviderPage *m_vpPage;
 
     bool m_frameState;
 

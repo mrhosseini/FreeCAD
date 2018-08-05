@@ -239,7 +239,7 @@ namespace Py
         //
 
         // Can pyob be used in this object's constructor?
-        virtual bool accepts( PyObject *pyob ) const
+        virtual bool accepts( PyObject * /* pyob */ ) const
         {
             // allow any object or NULL
             return true;
@@ -279,7 +279,7 @@ namespace Py
             return Object( PyObject_GetItem( p, *key ), true );
         }
 
-        long hashValue() const
+        Py_hash_t hashValue() const
         {
             return PyObject_Hash( p );
         }
@@ -429,12 +429,12 @@ namespace Py
     };
 
     //------------------------------------------------------------
-    bool operator==( const Object &o1, const Object &o2 );
-    bool operator!=( const Object &o1, const Object &o2 );
-    bool operator>=( const Object &o1, const Object &o2 );
-    bool operator<=( const Object &o1, const Object &o2 );
-    bool operator<( const Object &o1, const Object &o2 );
-    bool operator>( const Object &o1, const Object &o2 );
+    PYCXX_EXPORT bool operator==( const Object &o1, const Object &o2 );
+    PYCXX_EXPORT bool operator!=( const Object &o1, const Object &o2 );
+    PYCXX_EXPORT bool operator>=( const Object &o1, const Object &o2 );
+    PYCXX_EXPORT bool operator<=( const Object &o1, const Object &o2 );
+    PYCXX_EXPORT bool operator<( const Object &o1, const Object &o2 );
+    PYCXX_EXPORT bool operator>( const Object &o1, const Object &o2 );
 
     //------------------------------------------------------------
 
@@ -480,7 +480,7 @@ namespace Py
 
     // TMM: 31May'01 - Added the #ifndef so I can exlude iostreams.
 #ifndef CXX_NO_IOSTREAMS
-    std::ostream &operator<<( std::ostream &os, const Object &ob );
+    PYCXX_EXPORT std::ostream &operator<<( std::ostream &os, const Object &ob );
 #endif
 
     // Class Type
@@ -1285,7 +1285,7 @@ namespace Py
     // ...the base class for all sequence types
 
     template<TEMPLATE_TYPENAME T>
-    class PYCXX_EXPORT SeqBase: public Object
+    class SeqBase: public Object
     {
     public:
         // STL definitions
@@ -2179,7 +2179,7 @@ namespace Py
         }
 
         // New tuple of a given size
-        explicit Tuple( int size = 0 )
+        explicit Tuple( sequence_index_type size = 0 )
         {
             set( PyTuple_New( size ), true );
             validate();
@@ -2237,7 +2237,7 @@ namespace Py
     {
     public:
         TupleN()
-        : Tuple( 0 )
+        : Tuple( (sequence_index_type)0 )
         {
         }
 
@@ -2362,7 +2362,7 @@ namespace Py
             validate();
         }
         // Creation at a fixed size
-        List( int size = 0 )
+        List( sequence_index_type size = 0 )
         {
             set( PyList_New( size ), true );
             validate();
@@ -2379,7 +2379,7 @@ namespace Py
         List( const Sequence &s )
         : Sequence()
         {
-            int n =( int )s.length();
+            sequence_index_type n =( int )s.length();
             set( PyList_New( n ), true );
             validate();
             for( sequence_index_type i=0; i < n; i++ )
@@ -2415,12 +2415,12 @@ namespace Py
             return pyob && Py::_List_Check( pyob );
         }
 
-        List getSlice( int i, int j ) const
+        List getSlice( Py_ssize_t i, Py_ssize_t j ) const
         {
             return List( PyList_GetSlice( ptr(), i, j ), true );
         }
 
-        void setSlice( int i, int j, const Object &v )
+        void setSlice( Py_ssize_t i, Py_ssize_t j, const Object &v )
         {
             if( PyList_SetSlice( ptr(), i, j, *v ) == -1 )
             {
@@ -2648,7 +2648,7 @@ namespace Py
 #endif
 
     template<TEMPLATE_TYPENAME T>
-    class PYCXX_EXPORT MapBase: public Object
+    class MapBase: public Object
     {
     protected:
         explicit MapBase<T>()
@@ -2742,7 +2742,7 @@ namespace Py
             return mapref<T>( *this, key );
         }
 
-        int length() const
+        size_type length() const
         {
             return PyMapping_Length( ptr() );
         }
@@ -2838,7 +2838,7 @@ namespace Py
             //
             MapBase<T>      *map;
             List            keys;       // for iterating over the map
-            int             pos;        // index into the keys
+            size_type       pos;        // index into the keys
 
         public:
             ~iterator()
@@ -2862,7 +2862,7 @@ namespace Py
             , pos( other.pos )
             {}
 
-            iterator( MapBase<T> *map_, List keys_, int pos_ )
+            iterator( MapBase<T> *map_, List keys_, size_type pos_ )
             : map( map_ )
             , keys( keys_ )
             , pos( pos_ )
@@ -2955,7 +2955,7 @@ namespace Py
             friend class MapBase<T>;
             const MapBase<T>    *map;
             List                keys;   // for iterating over the map
-            int                 pos;    // index into the keys
+            size_type           pos;    // index into the keys
 
         public:
             ~const_iterator()
@@ -2967,7 +2967,7 @@ namespace Py
             , pos()
             {}
 
-            const_iterator( const MapBase<T> *m, List k, int p )
+            const_iterator( const MapBase<T> *m, List k, size_type p )
             : map( m )
             , keys( k )
             , pos( p )
@@ -3059,10 +3059,10 @@ namespace Py
     template <TEMPLATE_TYPENAME T> bool operator==( const EXPLICIT_TYPENAME MapBase<T>::const_iterator &left, const EXPLICIT_TYPENAME MapBase<T>::const_iterator &right );
     template <TEMPLATE_TYPENAME T> bool operator!=( const EXPLICIT_TYPENAME MapBase<T>::const_iterator &left, const EXPLICIT_TYPENAME MapBase<T>::const_iterator &right );
 
-    extern bool operator==( const Mapping::iterator &left, const Mapping::iterator &right );
-    extern bool operator!=( const Mapping::iterator &left, const Mapping::iterator &right );
-    extern bool operator==( const Mapping::const_iterator &left, const Mapping::const_iterator &right );
-    extern bool operator!=( const Mapping::const_iterator &left, const Mapping::const_iterator &right );
+    PYCXX_EXPORT extern bool operator==( const Mapping::iterator &left, const Mapping::iterator &right );
+    PYCXX_EXPORT extern bool operator!=( const Mapping::iterator &left, const Mapping::iterator &right );
+    PYCXX_EXPORT extern bool operator==( const Mapping::const_iterator &left, const Mapping::const_iterator &right );
+    PYCXX_EXPORT extern bool operator!=( const Mapping::const_iterator &left, const Mapping::const_iterator &right );
 
 
     // ==================================================
@@ -3233,7 +3233,7 @@ namespace Py
     inline Object Object::callMemberFunction( const std::string &function_name ) const
     {
         Callable target( getAttr( function_name ) );
-        Tuple args( 0 );
+        Tuple args( (sequence_index_type)0 );
         return target.apply( args );
     }
 

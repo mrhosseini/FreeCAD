@@ -78,7 +78,9 @@ public:
    * and get called by the observed class
    * @param rCaller a reference to the calling object
    */
-  virtual void OnDestroy(Subject<_MessageType> & rCaller){}
+  virtual void OnDestroy(Subject<_MessageType> & rCaller) {
+    (void)rCaller;
+  }
 
   /**
    * This method can be reimplemented from the concrete Observer
@@ -133,7 +135,7 @@ public:
   {
 #ifdef FC_DEBUG
     size_t count = _ObserverSet.size();
-    printf("Attach observer %p\n", ToObserv);
+    //printf("Attach observer %p\n", ToObserv);
     _ObserverSet.insert(ToObserv);
     if ( _ObserverSet.size() == count )
       printf("Observer %p already attached\n", ToObserv);
@@ -152,7 +154,7 @@ public:
   {
 #ifdef FC_DEBUG
     size_t count = _ObserverSet.size();
-    printf("Detach observer %p\n", ToObserv);
+    //printf("Detach observer %p\n", ToObserv);
     _ObserverSet.erase(ToObserv);
     if ( _ObserverSet.size() == count )
       printf("Observer %p already detached\n", ToObserv);

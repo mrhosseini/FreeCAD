@@ -30,6 +30,7 @@
 # include <QRegExp>
 # include <QTextStream>
 # include <QMessageBox>
+# include <QAction>
 # include <Precision.hxx>
 # include <TopoDS.hxx>
 # include <BRepAdaptor_Surface.hxx>
@@ -281,7 +282,8 @@ const std::string TaskFemConstraintPlaneRotation::getReferences() const
 }
 
 
-void TaskFemConstraintPlaneRotation::changeEvent(QEvent *e){
+void TaskFemConstraintPlaneRotation::changeEvent(QEvent *)
+{
 }
 
 //**************************************************************************

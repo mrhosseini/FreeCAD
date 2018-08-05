@@ -67,9 +67,15 @@ int PointsPy::PyInit(PyObject* args, PyObject* /*kwd*/)
         if (!addPoints(args))
             return -1;
     }
+#if PY_MAJOR_VERSION >= 3
+    else if (PyUnicode_Check(pcObj)) {
+        getPointKernelPtr()->load(PyUnicode_AsUTF8(pcObj));
+    }
+#else
     else if (PyString_Check(pcObj)) {
         getPointKernelPtr()->load(PyString_AsString(pcObj));
     }
+#endif
     else {
         PyErr_SetString(PyExc_TypeError, "optional argument must be list, tuple or string");
         return -1;
@@ -178,11 +184,15 @@ PyObject* PointsPy::fromSegment(PyObject * args)
     try {
         const PointKernel* points = getPointKernelPtr();
         Py::Sequence list(obj);
-        std::auto_ptr<PointKernel> pts(new PointKernel());
+        std::unique_ptr<PointKernel> pts(new PointKernel());
         pts->reserve(list.size());
         int numPoints = static_cast<int>(points->size());
         for (Py::Sequence::iterator it = list.begin(); it != list.end(); ++it) {
+#if PY_MAJOR_VERSION < 3
             int index = static_cast<int>(Py::Int(*it));
+#else
+            long index = static_cast<long>(Py::Long(*it));
+#endif
             if (index >= 0 && index < numPoints)
                 pts->push_back(points->getPoint(index));
         }
@@ -202,7 +212,7 @@ PyObject* PointsPy::fromValid(PyObject * args)
 
     try {
         const PointKernel* points = getPointKernelPtr();
-        std::auto_ptr<PointKernel> pts(new PointKernel());
+        std::unique_ptr<PointKernel> pts(new PointKernel());
         pts->reserve(points->size());
         for (PointKernel::const_iterator it = points->begin(); it != points->end(); ++it) {
             if (!boost::math::isnan(it->x) && !boost::math::isnan(it->y) && !boost::math::isnan(it->z))
@@ -217,9 +227,9 @@ PyObject* PointsPy::fromValid(PyObject * args)
     }
 }
 
-Py::Int PointsPy::getCountPoints(void) const
+Py::Long PointsPy::getCountPoints(void) const
 {
-    return Py::Int((long)getPointKernelPtr()->size());
+    return Py::Long((long)getPointKernelPtr()->size());
 }
 
 Py::List PointsPy::getPoints(void) const

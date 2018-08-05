@@ -19,39 +19,55 @@ include_directories(
     ${Boost_INCLUDE_DIRS}
     ${OCC_INCLUDE_DIR}
     ${COIN3D_INCLUDE_DIRS}
-    ${QT_INCLUDE_DIR}
     ${ZLIB_INCLUDE_DIR}
     ${PYTHON_INCLUDE_DIRS}
     ${XercesC_INCLUDE_DIRS}
 )
+
 link_directories(${OCC_LIBRARY_DIR})
+link_directories(${SMESH_LIB_PATH})
 
 set(MeshPartGui_LIBS
     MeshPart
+    PartGui
+    MeshGui
     FreeCADGui
 )
 
 set(MeshPartGui_MOC_HDRS
+    CurveOnMesh.h
+    TaskCurveOnMesh.h
     Tessellation.h
 )
 fc_wrap_cpp(MeshPartGui_MOC_SRCS ${MeshPartGui_MOC_HDRS})
 SOURCE_GROUP("Moc" FILES ${MeshPartGui_MOC_SRCS})
 
-qt4_add_resources(MeshPartGui_QRC_SRCS Resources/MeshPart.qrc)
-
 set(MeshPartGui_UIC_SRCS
+    TaskCurveOnMesh.ui
     Tessellation.ui
 )
-qt4_wrap_ui(MeshPartGui_UIC_HDRS ${MeshPartGui_UIC_SRCS})
+
+if(BUILD_QT5)
+    qt5_add_resources(MeshPartGui_QRC_SRCS Resources/MeshPart.qrc)
+    qt5_wrap_ui(MeshPartGui_UIC_HDRS ${MeshPartGui_UIC_SRCS})
+else()
+    qt4_add_resources(MeshPartGui_QRC_SRCS Resources/MeshPart.qrc)
+    qt4_wrap_ui(MeshPartGui_UIC_HDRS ${MeshPartGui_UIC_SRCS})
+endif()
 
 SET(MeshPartGui_SRCS
     ${MeshPartGui_QRC_SRCS}
     ${MeshPartGui_UIC_HDRS}
     AppMeshPartGui.cpp
     Command.cpp
+    CurveOnMesh.cpp
+    CurveOnMesh.h
     Resources/MeshPart.qrc
     PreCompiled.cpp
     PreCompiled.h
+    TaskCurveOnMesh.ui
+    TaskCurveOnMesh.cpp
+    TaskCurveOnMesh.h
     Tessellation.ui
     Tessellation.cpp
     Tessellation.h
@@ -72,3 +88,12 @@ SET_BIN_DIR(MeshPartGui MeshPartGui /Mod/MeshPart)
 SET_PYTHON_PREFIX_SUFFIX(MeshPartGui)
 
 INSTALL(TARGETS MeshPartGui DESTINATION ${CMAKE_INSTALL_LIBDIR})
+
+
+
+SET(FLATMESH_PY_SRCS
+    MeshFlatteningCommand.py
+    )
+
+fc_copy_sources(MeshPartGui "${CMAKE_BINARY_DIR}/Mod/MeshPart" ${FLATMESH_PY_SRCS})
+INSTALL(FILES ${FLATMESH_PY_SRCS} DESTINATION Mod/MeshPart)

@@ -100,7 +100,9 @@ void Enumeration::setEnums(const char **plEnums)
     std::string oldValue;
     bool preserve = (isValid() && plEnums != NULL);
     if (preserve) {
-        oldValue = getCStr();
+        const char* str = getCStr();
+        if (str)
+            oldValue = str;
     }
 
     // set _ownEnumArray
@@ -126,7 +128,9 @@ void Enumeration::setEnums(const std::vector<std::string> &values)
     std::string oldValue;
     bool preserve = isValid();
     if (preserve) {
-        oldValue = getCStr();
+        const char* str = getCStr();
+        if (str)
+            oldValue = str;
     }
 
     if (isValid() && _ownEnumArray) {
@@ -158,14 +162,14 @@ void Enumeration::setEnums(const std::vector<std::string> &values)
 void Enumeration::setValue(const char *value)
 {
     // using string methods without set, use setEnums(const char** plEnums) first!
-    assert(_EnumArray);
+    //assert(_EnumArray);
 
     if (!_EnumArray) {
         _index = 0;
         return;
     }
 
-    unsigned int i = 0;
+    int i = 0;
     const char **plEnums = _EnumArray;
 
     // search for the right entry
@@ -200,7 +204,7 @@ void Enumeration::setValue(long value, bool checkRange)
 bool Enumeration::isValue(const char *value) const
 {
     // using string methods without set, use setEnums(const char** plEnums) first!
-    assert(_EnumArray);
+    //assert(_EnumArray);
 
     int i = getInt();
 
@@ -214,7 +218,7 @@ bool Enumeration::isValue(const char *value) const
 bool Enumeration::contains(const char *value) const
 {
     // using string methods without set, use setEnums(const char** plEnums) first!
-    assert(_EnumArray);
+    //assert(_EnumArray);
 
     if (!isValid()) {
         return false;
@@ -236,7 +240,7 @@ bool Enumeration::contains(const char *value) const
 const char * Enumeration::getCStr(void) const
 {
     // using string methods without set, use setEnums(const char** plEnums) first!
-    assert(_EnumArray);
+    //assert(_EnumArray);
 
     if (!isValid() || _index < 0 || _index > _maxVal) {
         return NULL;
@@ -322,7 +326,10 @@ void Enumeration::findMaxVal(void)
     }
 
     const char **plEnums = _EnumArray;
-    long i = 0;
+
+    // the NULL terminator doesn't belong to the range of
+    // valid values
+    int i = -1;
     while (*(plEnums++) != NULL) {
         ++i;
         // very unlikely to have enums with more then 5000 entries!

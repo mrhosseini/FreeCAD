@@ -59,6 +59,12 @@ void MultiTransform::positionBySupport(void)
             throw Base::Exception("Transformation features must be subclasses of Transformed");
         PartDesign::Transformed* transFeature = static_cast<PartDesign::Transformed*>(*f);
         transFeature->Placement.setValue(this->Placement.getValue());
+
+        // To avoid that a linked transform feature stays touched after a recompute
+        // we have to purge the touched state
+        if (this->isRecomputing()) {
+            transFeature->purgeTouched();
+        }
     }
 }
 
@@ -80,9 +86,9 @@ const std::list<gp_Trsf> MultiTransform::getTransformations(const std::vector<Ap
 
     if (originalFeature->getTypeId().isDerivedFrom(PartDesign::FeatureAddSub::getClassTypeId())) {
         PartDesign::FeatureAddSub* addFeature = static_cast<PartDesign::FeatureAddSub*>(originalFeature);
-        if(addFeature->getAddSubType() == FeatureAddSub::Additive)
-            original = addFeature->AddSubShape.getShape().getShape();
-        else 
+        //if (addFeature->getAddSubType() == FeatureAddSub::Additive)
+        //    original = addFeature->AddSubShape.getShape().getShape();
+        //else
             original = addFeature->AddSubShape.getShape().getShape();
     }
 
@@ -124,6 +130,8 @@ const std::list<gp_Trsf> MultiTransform::getTransformations(const std::vector<Ap
                 // In other words, the length of the result vector is equal to the length of the
                 // oldTransformations vector
 
+                if (newTransformations.empty())
+                    throw Base::Exception("Number of occurrences must be a divisor of previous number of occurrences");
                 if (oldTransformations.size() % newTransformations.size() != 0)
                     throw Base::Exception("Number of occurrences must be a divisor of previous number of occurrences");
 

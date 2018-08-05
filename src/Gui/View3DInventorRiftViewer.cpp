@@ -52,7 +52,7 @@ View3DInventorRiftViewer::View3DInventorRiftViewer() : CoinRiftWidget()
 
 
     scale        = new SoScale         ;
-    scale->scaleFactor.setValue(0.001f,0.001f,0.001f); // scale from mm to m as neede by the Rift
+    scale->scaleFactor.setValue(0.001f,0.001f,0.001f); // scale from mm to m as needed by the Rift
     workplace->addChild(scale);
 
     ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Oculus");
@@ -68,7 +68,7 @@ View3DInventorRiftViewer::View3DInventorRiftViewer() : CoinRiftWidget()
     basePosition = SbVec3f(0.0f, 0.5f, 0.8f);
 }
 
-//void saveWinPostion(void)
+//void saveWinPosition(void)
 //{
 //  
 // 
@@ -79,7 +79,7 @@ View3DInventorRiftViewer::~View3DInventorRiftViewer()
 {
     ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Oculus");
 
-    // remeber last postion on close
+    // remember last position on close
     hGrp->SetInt("RenderWindowPosX",pos().x());
     hGrp->SetInt("RenderWindowPosY",pos().y());
     hGrp->SetInt("RenderWindowSizeW",size().width());
@@ -103,7 +103,7 @@ void View3DInventorRiftViewer::setSceneGraph(SoNode *sceneGraph)
 void View3DInventorRiftViewer::keyPressEvent(QKeyEvent *event)
 {
     static const float increment = 0.02; // move two centimeter per key
-    static const float rotIncrement = M_PI/4; // move two 90°  per key
+    static const float rotIncrement = M_PI/4; // move two 90° per key
 
 
     if (event->key() == Qt::Key_Plus) {

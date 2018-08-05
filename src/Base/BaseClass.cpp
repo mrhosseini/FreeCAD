@@ -58,7 +58,7 @@ BaseClass::~BaseClass()
 
 
 //**************************************************************************
-// separator for other implemetation aspects
+// separator for other implementation aspects
 
 void BaseClass::init(void)
 {
@@ -89,7 +89,7 @@ Type BaseClass::getTypeId(void) const
 void BaseClass::initSubclass(Base::Type &toInit,const char* ClassName, const char *ParentName,
                              Type::instantiationMethod method)
 {
-    // dont't init twice!
+    // don't init twice!
     assert(toInit == Base::Type::badType());
     // get the parent class
     Base::Type parentType(Base::Type::fromName(ParentName)); 

@@ -69,7 +69,7 @@ namespace geoff_geometry {
 		bool bClosed = Closed();
 		int nspans = nSpans();
 		if(bClosed) {
-			Get(nspans, curSpan, true);						// assign previus span for closed
+			Get(nspans, curSpan, true);						// assign previous span for closed
 
 			prevSpanOff = curSpan.Offset(offset);
 			nspans++; // read first again
@@ -168,7 +168,7 @@ namespace geoff_geometry {
 	static Kurve eliminateLoops(const Kurve& k , const Kurve& originalk, double offset, int& ret) {
 		// a simple loop elimination routine based on first offset ideas in Peps
 		// this needs extensive work for future
-		// start point musn't disappear & only one valid offset is determined
+		// start point mustn't disappear & only one valid offset is determined
 		//
 		// ret = 0 for ok
 		// ret = 2 for impossible geometry
@@ -186,7 +186,7 @@ namespace geoff_geometry {
 			sp0.dir = k.Get(kinVertex, sp0.p0, sp0.pc);
 			sp0.ID = k.GetSpanID(kinVertex++);
 			if (kinVertex == 1)	{
-				ko.Start(sp0.p0);							// start point mustn't dissappear for this simple method
+				ko.Start(sp0.p0);							// start point mustn't disappear for this simple method
 				ko.AddSpanID(sp0.ID);
 			}
 			if (kinVertex <= k.nSpans()) {   // any more?

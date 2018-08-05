@@ -26,7 +26,7 @@ import FreeCAD
 import FreeCADGui
 from FreeCAD import Base, Vector
 import Part
-import Units
+from FreeCAD import Units
 from shipUtils import Paths
 
 
@@ -54,8 +54,7 @@ class Preview(object):
         msg = QtGui.QApplication.translate(
             "ship_console",
             "Computing sections",
-            None,
-            QtGui.QApplication.UnicodeUTF8)
+            None)
         FreeCAD.Console.PrintMessage(msg + '...\n')
         # Destroy all previous entities
         self.clean()
@@ -123,13 +122,12 @@ class Preview(object):
                         if bbox.YMin < -0.01 * B * Units.Metre.Value:
                             del edges[k]
                 sections.extend(edges)
-        # Trabform and join all the BSplines into a shape
+        # Transform and join all the B-splines into a shape
         if not sections:
             msg = QtGui.QApplication.translate(
                 "ship_console",
                 "Any valid ship section found",
-                None,
-                QtGui.QApplication.UnicodeUTF8)
+                None)
             FreeCAD.Console.PrintWarning(msg + '\n')
             return
         obj = sections[0]

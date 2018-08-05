@@ -37,7 +37,7 @@ namespace PartDesignGui {
  * Legacy mode provides a free PartDesign features but forbids bodies and parts
  */
 enum class Workflow {
-    Undetermined = 0, ///< No workflow was choosen yet
+    Undetermined = 0, ///< No workflow was chosen yet
     Legacy = 1<<0,    ///< Old-style workflow with free features and no bodies
     Modern = 1<<1,    ///< New-style workflow with bodies, parts etc
 };
@@ -60,12 +60,12 @@ public:
     /**
      * Asserts the workflow of the document to be determined and prompt user to migrate if it is not modern.
      *
-     * If workflow was already choosen return it.
+     * If workflow was already chosen return it.
      * If the guesed workflow is Workflow::Legacy or Workflow::Mixed the user will be prompted to migrate.
      * If the user agrees the file will be migrated and the workflow will be set as modern.
      * If the user refuses to migrate use the old workflow.
      */
-    Workflow determinWorkflow(App::Document *doc);
+    Workflow determineWorkflow(App::Document *doc);
 
     /**
      * Force the desired workflow in document
@@ -107,12 +107,12 @@ private:
 
 /// Assures that workflow of the given document is determined and returns true if it is Workflow::Legacy
 inline bool assureLegacyWorkflow (App::Document *doc) {
-    return WorkflowManager::instance()->determinWorkflow( doc ) == Workflow::Legacy ;
+    return WorkflowManager::instance()->determineWorkflow( doc ) == Workflow::Legacy ;
 }
 
 /// Assures that workflow of the given document is determined and returns true if it is Workflow::Modern
 inline bool assureModernWorkflow (App::Document *doc) {
-    return WorkflowManager::instance()->determinWorkflow( doc ) == Workflow::Modern ;
+    return WorkflowManager::instance()->determineWorkflow( doc ) == Workflow::Modern ;
 }
 
 /// Returns true if the workflow of the given document is Workflow::Legacy

@@ -64,7 +64,7 @@ Workbench::~Workbench() {
     WorkflowManager::destruct();
 }
 
-void Workbench::_switchToDocument(const App::Document* doc)
+void Workbench::_switchToDocument(const App::Document* /*doc*/)
 {
 // TODO Commented out for thurther remove or rewrite  (2015-09-04, Fat-Zer)
 //    if (doc == NULL) return;
@@ -119,17 +119,17 @@ void Workbench::_switchToDocument(const App::Document* doc)
 //    }*/
 }
 
-void Workbench::slotActiveDocument(const Gui::Document& Doc)
+void Workbench::slotActiveDocument(const Gui::Document& /*Doc*/)
 {
 //     _switchToDocument(Doc.getDocument());
 }
 
-void Workbench::slotNewDocument(const App::Document& Doc)
+void Workbench::slotNewDocument(const App::Document& /*Doc*/)
 {
 //     _switchToDocument(&Doc);
 }
 
-void Workbench::slotFinishRestoreDocument(const App::Document& Doc)
+void Workbench::slotFinishRestoreDocument(const App::Document& /*Doc*/)
 {
 //     _switchToDocument(&Doc);
 }
@@ -151,7 +151,7 @@ void Workbench::slotNewObject(const App::DocumentObject& obj)
     if ((obj.getDocument() == ActiveAppDoc) && (ActivePartObject != NULL)) {
         // Add the new object to the active Body
         // Note: Will this break Undo? But how else can we catch Edit->Duplicate selection?
-        Gui::Command::doCommand(Gui::Command::Doc,"App.activeDocument().%s.addFeature(App.activeDocument().%s)",
+        Gui::Command::doCommand(Gui::Command::Doc,"App.activeDocument().%s.addObject(App.activeDocument().%s)",
                                 ActivePartObject->getNameInDocument(), obj.getNameInDocument());
     }
 }
@@ -163,8 +163,17 @@ void Workbench::setupContextMenu(const char* recipient, Gui::MenuItem* item) con
     // Add move Tip Command
     if ( selection.size () >= 1 ) {
         App::DocumentObject *feature = selection.front().pObject;
-        PartDesign::Body *body =  PartDesignGui::getBodyFor ( feature, false );
-        // lote of assertion so feature sould be marked as a tip
+        PartDesign::Body *body = nullptr;
+
+        // if PD workflow is not new-style then add a command to the context-menu
+        bool assertModern = true;
+        if (feature && !isModernWorkflow(feature->getDocument())) {
+            assertModern = false;
+            *item << "PartDesign_Migrate";
+        }
+
+        body = PartDesignGui::getBodyFor (feature, false, false, assertModern);
+        // lote of assertion so feature should be marked as a tip
         if ( selection.size () == 1 && feature && (
             feature->isDerivedFrom ( PartDesign::Body::getClassTypeId () ) ||
             ( feature->isDerivedFrom ( PartDesign::Feature::getClassTypeId () ) && body ) ||
@@ -191,9 +200,9 @@ void Workbench::setupContextMenu(const char* recipient, Gui::MenuItem* item) con
                         if ( addMoveFeature && !PartDesign::Body::isAllowed ( sel.pObject ) ) {
                             addMoveFeature = false;
                         }
-                        // if all at lest one selected feature doesn't belongs to the same body
+                        // if all at least one selected feature doesn't belong to the same body
                         // disable the menu entry
-                        if ( addMoveFeatureInTree && !body->hasFeature ( sel.pObject ) ) {
+                        if ( addMoveFeatureInTree && !body->hasObject ( sel.pObject ) ) {
                             addMoveFeatureInTree = false;
                         }
 
@@ -215,6 +224,11 @@ void Workbench::setupContextMenu(const char* recipient, Gui::MenuItem* item) con
             if (Gui::Selection().countObjectsOfType(PartDesign::Transformed::getClassTypeId()) -
                 Gui::Selection().countObjectsOfType(PartDesign::MultiTransform::getClassTypeId()) == 1 )
                 *item << "PartDesign_MultiTransform";
+
+            if (Gui::Selection().countObjectsOfType(App::DocumentObject::getClassTypeId()) > 0) {
+                *item << "Std_SetAppearance"
+                      << "Std_RandomColor";
+            }
         }
     }
 }
@@ -341,7 +355,6 @@ void Workbench::activated()
 
     const char* NoSel[] = {
         "PartDesign_Body",
-        "PartDesign_Part",
         0};
     Watcher.push_back(new Gui::TaskView::TaskWatcherCommandsEmptySelection(
         NoSel,
@@ -366,6 +379,7 @@ void Workbench::activated()
         "PartDesign_NewSketch",
         "PartDesign_Pad",
         "PartDesign_Pocket",
+        "PartDesign_Hole",
         "PartDesign_Revolution",
         "PartDesign_Groove",
         "PartDesign_AdditivePipe",
@@ -435,8 +449,7 @@ Gui::MenuItem* Workbench::setupMenuBar() const
     Gui::MenuItem* part = new Gui::MenuItem;
     root->insertItem(item, part);
     part->setCommand("&Part Design");
-    *part << "PartDesign_Part"
-          << "PartDesign_Body"
+    *part << "PartDesign_Body"
           << "PartDesign_NewSketch"
           << "Sketcher_LeaveSketch"
           << "Sketcher_ViewSketch"
@@ -448,14 +461,16 @@ Gui::MenuItem* Workbench::setupMenuBar() const
           << "PartDesign_Line"
           << "PartDesign_Plane"
           << "PartDesign_ShapeBinder"
+          << "PartDesign_Clone"
           << "Separator"
-          << "PartDesign_Pad"         
-          << "PartDesign_Revolution"          
+          << "PartDesign_Pad"
+          << "PartDesign_Revolution"
           << "PartDesign_AdditiveLoft"
-          << "PartDesign_AdditivePipe"          
+          << "PartDesign_AdditivePipe"
           << "PartDesign_CompPrimitiveAdditive"
           << "Separator"
           << "PartDesign_Pocket"
+          << "PartDesign_Hole"
           << "PartDesign_Groove"
           << "PartDesign_SubtractiveLoft"
           << "PartDesign_SubtractivePipe"
@@ -502,27 +517,27 @@ Gui::ToolBarItem* Workbench::setupToolBars() const
     Gui::ToolBarItem* root = StdWorkbench::setupToolBars();
     Gui::ToolBarItem* part = new Gui::ToolBarItem(root);
     part->setCommand("Part Design Helper");
-    *part << "PartDesign_Part"
-          << "PartDesign_Body"
+    *part << "PartDesign_Body"
           << "PartDesign_NewSketch"
-          << "Sketcher_ViewSketch"
+          << "Sketcher_EditSketch"
           << "Sketcher_MapSketch"
-          << "Sketcher_LeaveSketch"
           << "Separator"
           << "PartDesign_Point"
           << "PartDesign_Line"
           << "PartDesign_Plane"
-          << "PartDesign_ShapeBinder";
-          
+          << "PartDesign_ShapeBinder"
+          << "PartDesign_Clone";
+
     part = new Gui::ToolBarItem(root);
     part->setCommand("Part Design Modeling");
-    *part << "PartDesign_Pad"         
-          << "PartDesign_Revolution"          
+    *part << "PartDesign_Pad"
+          << "PartDesign_Revolution"
           << "PartDesign_AdditiveLoft"
-          << "PartDesign_AdditivePipe"          
+          << "PartDesign_AdditivePipe"
           << "PartDesign_CompPrimitiveAdditive"
           << "Separator"
           << "PartDesign_Pocket"
+          << "PartDesign_Hole"
           << "PartDesign_Groove"
           << "PartDesign_SubtractiveLoft"
           << "PartDesign_SubtractivePipe"

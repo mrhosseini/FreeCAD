@@ -321,7 +321,7 @@ namespace geoff_geometry {
 		// returns the near point to span from p 
 		if(this->dir == LINEAR) {
 			double t;
-			t = (Vector2d(this->p0, p) * this->vs);		// t parametised 0 - line length
+			t = (Vector2d(this->p0, p) * this->vs);		// t parametrised 0 - line length
 			return this->vs * t + this->p0;
 		} else {
 			double r = p.Dist(this->pc);
@@ -570,7 +570,7 @@ return;
 	{
 		// add a span (cw = -1 (T)   acw = 1 (A) )
 #ifdef _DEBUG
-		if(this == NULL) FAILURE(L"Kurve::Add - No Kurve Object");
+		//if(this == NULL) FAILURE(L"Kurve::Add - No Kurve Object");
 #endif
 
 		if(!m_started) {
@@ -676,7 +676,7 @@ return;
 	void Kurve::Replace(int vertexnumber, int type, const Point& p0, const Point& pc, int ID) {
 		// replace a span
 #ifdef _DEBUG
-		if(this == NULL || vertexnumber > m_nVertices) FAILURE(getMessage(L"Kurve::Replace - vertexNumber out of range"));
+		if(vertexnumber > m_nVertices) FAILURE(getMessage(L"Kurve::Replace - vertexNumber out of range"));
 #endif
 		SpanVertex* p = (SpanVertex*) m_spans[vertexnumber / SPANSTORAGE];
 		p->Add(vertexnumber % SPANSTORAGE, type, p0, pc, ID);
@@ -686,20 +686,20 @@ return;
 	void Kurve::ModifyIndex(int vertexnumber, WireExtraData* i) {
 		// replace an index
 #ifdef _DEBUG
-		if(this == NULL || vertexnumber > m_nVertices) FAILURE(getMessage(L"Kurve::ModifyIndex - vertexNumber out of range"));
+		if(vertexnumber > m_nVertices) FAILURE(getMessage(L"Kurve::ModifyIndex - vertexNumber out of range"));
 #endif
 		SpanVertex* p = (SpanVertex*) m_spans[vertexnumber / SPANSTORAGE];
 		p->Add(vertexnumber % SPANSTORAGE, i);
 	}
 #else
 	void Kurve::AddIndex(int vertexNumber, const SpanDataObject* data) {
-		if(this == NULL || vertexNumber > m_nVertices - 1) FAILURE(L"Kurve::AddIndex - vertexNumber out of range");
+		if(vertexNumber > m_nVertices - 1) FAILURE(L"Kurve::AddIndex - vertexNumber out of range");
 		SpanVertex* p = (SpanVertex*) m_spans[vertexNumber / SPANSTORAGE];
 		p->Add(vertexNumber % SPANSTORAGE, data);
 	}
 
 	const SpanDataObject* Kurve::GetIndex(int vertexNumber)const {
-		if(this == NULL || vertexNumber > m_nVertices - 1) FAILURE(L"Kurve::GetIndex - vertexNumber out of range");
+		if(vertexNumber > m_nVertices - 1) FAILURE(L"Kurve::GetIndex - vertexNumber out of range");
 		SpanVertex* p = (SpanVertex*) m_spans[vertexNumber / SPANSTORAGE];
 		return p->GetIndex(vertexNumber % SPANSTORAGE);
 	}
@@ -917,7 +917,7 @@ return;
 	}
 
 	Point Kurve::Near(const Point& p, int& nearSpanNumber)const {
-		// finds the nearest span on kurve to the the given point, nearSpanNumber is the spannumber
+		// finds the nearest span on kurve to the given point, nearSpanNumber is the spannumber
 		double minDist = 1.0e100;
 		Point pNear, pn;
 
@@ -939,7 +939,7 @@ return;
 
 
 	Point Kurve::NearToVertex(const Point& p, int& nearSpanNumber)const {
-		// finds the nearest span endpoint on kurve to the the given point, nearSpanNumber is the spannumber
+		// finds the nearest span endpoint on kurve to the given point, nearSpanNumber is the spannumber
 		double minDistSquared = 1.0e100;
 		Point pn;
 
@@ -1036,7 +1036,7 @@ return;
 			temp.Add(sp.dir, sp.p1, sp.pc, true);
 			if(spanno == endSpanno)break;
 
-			spanno++;
+			//spanno++;
 		}
 
 		*this = temp;

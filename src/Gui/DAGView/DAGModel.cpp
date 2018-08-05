@@ -90,7 +90,7 @@ void LineEdit::keyPressEvent(QKeyEvent *eventIn)
   QLineEdit::keyPressEvent(eventIn);
 }
 
-//I dont think I should have to call invalidate
+//I don't think I should have to call invalidate
 //and definitely not on the whole scene!
 //if we have performance problems, this will definitely
 //be something to re-visit. I am not wasting anymore time on
@@ -133,7 +133,9 @@ Model::Model(QObject *parentIn, const Gui::Document &documentIn) : QGraphicsScen
   renameAction = new QAction(this);
   renameAction->setText(tr("Rename"));
   renameAction->setStatusTip(tr("Rename object"));
+#ifndef Q_OS_MAC
   renameAction->setShortcut(Qt::Key_F2);
+#endif
   connect(renameAction, SIGNAL(triggered()), this, SLOT(onRenameSlot()));
   
   editingFinishedAction = new QAction(this);
@@ -345,7 +347,7 @@ void Model::slotResetEdit(const ViewProviderDocumentObject& VPDObjectIn)
 
 void Model::selectionChanged(const SelectionChanges& msg)
 {
-  //note that treeview uses set selection which sends a message with just a document name
+  //TODO: note that treeview uses set selection which sends a message with just a document name
   //and no object name. Have to explore further.
   
   auto getAllEdges = [this](const Vertex &vertexIn)
@@ -479,6 +481,8 @@ void Model::updateSlot()
     std::vector<App::DocumentObject *> otherDObjects = currentDObject->getOutList();
     for (auto &currentOtherDObject : otherDObjects)
     {
+      if (!hasRecord(currentOtherDObject, *graphLink))
+          continue;
       Vertex otherVertex = findRecord(currentOtherDObject, *graphLink).vertex;
       bool result;
       Edge edge;

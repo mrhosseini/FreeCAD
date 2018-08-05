@@ -23,11 +23,11 @@
 
 import FreeCAD as App
 import FreeCADGui as Gui
-import Units
+from FreeCAD import Units
 from PySide import QtGui, QtCore
-import Preview
-import Tools
-import Instance
+from . import Preview
+from . import Tools
+import Instance  # from ship
 from shipUtils import Paths
 import shipUtils.Units as USys
 import shipUtils.Locale as Locale
@@ -107,7 +107,7 @@ class TaskPanel:
             self.onData)
 
     def getMainWindow(self):
-        toplevel = QtGui.qApp.topLevelWidgets()
+        toplevel = QtGui.QApplication.topLevelWidgets()
         for i in toplevel:
             if i.metaObject().className() == "Gui::MainWindow":
                 return i
@@ -133,15 +133,13 @@ class TaskPanel:
                 "ship_console",
                 "Ship objects can only be created on top of hull geometry"
                 " (no objects selected)",
-                None,
-                QtGui.QApplication.UnicodeUTF8)
+                None)
             App.Console.PrintError(msg + '\n')
             msg = QtGui.QApplication.translate(
                 "ship_console",
                 "Please create or load a ship hull geometry before using"
                 " this tool",
-                None,
-                QtGui.QApplication.UnicodeUTF8)
+                None)
             App.Console.PrintError(msg + '\n')
             return True
         self.solids = []
@@ -154,15 +152,13 @@ class TaskPanel:
                 "ship_console",
                 "Ship objects can only be created on top of hull geometry"
                 " (no solid found at selected objects)",
-                None,
-                QtGui.QApplication.UnicodeUTF8)
+                None)
             App.Console.PrintError(msg + '\n')
             msg = QtGui.QApplication.translate(
                 "ship_console",
                 "Please create or load a ship hull geometry before using"
                 " this tool",
-                None,
-                QtGui.QApplication.UnicodeUTF8)
+                None)
             App.Console.PrintError(msg + '\n')
             return True
         # Get the ship bounds. The ship instance can not have dimensions
@@ -220,26 +216,22 @@ class TaskPanel:
         self.form.setWindowTitle(QtGui.QApplication.translate(
             "ship_create",
             "Create a new ship",
-            None,
-            QtGui.QApplication.UnicodeUTF8))
+            None))
         self.widget(QtGui.QLabel, "LengthLabel").setText(
             QtGui.QApplication.translate(
                 "ship_create",
                 "Length",
-                None,
-                QtGui.QApplication.UnicodeUTF8))
+                None))
         self.widget(QtGui.QLabel, "BreadthLabel").setText(
             QtGui.QApplication.translate(
                 "ship_create",
                 "Breadth",
-                None,
-                QtGui.QApplication.UnicodeUTF8))
+                None))
         self.widget(QtGui.QLabel, "DraftLabel").setText(
             QtGui.QApplication.translate(
                 "ship_create",
                 "Draft",
-                None,
-                QtGui.QApplication.UnicodeUTF8))
+                None))
 
     def clampVal(self, widget, val_min, val_max, val):
         if val >= val_min and val <= val_max:
@@ -256,7 +248,7 @@ class TaskPanel:
 
         Keyword arguments:
         value -- Edited value. This parameter is required in order to use this
-        method as a callback function, but it is unuseful.
+        method as a callback function, but it is not useful.
         """
         mw = self.getMainWindow()
         form = mw.findChild(QtGui.QWidget, "TaskPanel")

@@ -28,25 +28,521 @@
 # ifdef FC_OS_MACOSX
 # include <OpenGL/gl.h>
 # include <OpenGL/glu.h>
+# include <OpenGL/glext.h>
 # else
 # include <GL/gl.h>
 # include <GL/glu.h>
+# include <GL/glext.h>
 # endif
 # include <Inventor/actions/SoGLRenderAction.h>
 # include <Inventor/bundles/SoMaterialBundle.h>
 # include <Inventor/elements/SoCoordinateElement.h>
 # include <Inventor/elements/SoGLCoordinateElement.h>
+# include <Inventor/elements/SoGLLazyElement.h>
 # include <Inventor/elements/SoMaterialBindingElement.h>
+# include <Inventor/elements/SoNormalBindingElement.h>
 # include <Inventor/elements/SoProjectionMatrixElement.h>
 # include <Inventor/elements/SoViewingMatrixElement.h>
+# include <Inventor/errors/SoDebugError.h>
 #endif
+
+#include <Inventor/C/glue/gl.h>
+#include <Inventor/misc/SoContextHandler.h>
 
 #include <Gui/SoFCInteractiveElement.h>
 #include <Gui/SoFCSelectionAction.h>
 #include "SoFCIndexedFaceSet.h"
 
+#define RENDER_GL_VAO
+//#define RENDER_GLARRAYS
+
+
+
 using namespace MeshGui;
 
+#if defined RENDER_GL_VAO
+
+class CoinOpenGLBuffer {
+public:
+    CoinOpenGLBuffer(GLenum type)
+      : target(type)
+      , bufferId(0)
+      , context(-1)
+      , currentContext(-1)
+      , glue(0)
+    {
+        SoContextHandler::addContextDestructionCallback(context_destruction_cb, this);
+    }
+    ~CoinOpenGLBuffer()
+    {
+        SoContextHandler::removeContextDestructionCallback(context_destruction_cb, this);
+
+        destroy();
+    }
+    void setCurrentContext(uint32_t ctx)
+    {
+        currentContext = ctx;
+        glue = cc_glglue_instance(currentContext);
+    }
+    bool create()
+    {
+        if (bufferId > 0)
+            return true;
+        PFNGLGENBUFFERSPROC glGenBuffersARB = (PFNGLGENBUFFERSPROC)cc_glglue_getprocaddress(glue, "glGenBuffersARB");
+        glGenBuffersARB(1, &bufferId);
+        context = currentContext;
+        return true;
+    }
+    bool isCreated() const
+    {
+        return (bufferId > 0);
+    }
+    void destroy()
+    {
+        // schedule delete for all allocated GL resources
+        if (bufferId > 0) {
+            void * ptr0 = (void*) ((uintptr_t) bufferId);
+            SoGLCacheContextElement::scheduleDeleteCallback(context, buffer_delete, ptr0);
+            bufferId = 0;
+        }
+    }
+    void allocate(const void *data, int count)
+    {
+        if (bufferId > 0) {
+            PFNGLBUFFERDATAPROC glBufferDataARB = (PFNGLBUFFERDATAPROC)cc_glglue_getprocaddress(glue, "glBufferDataARB");
+            glBufferDataARB(target, count, data, GL_STATIC_DRAW);
+        }
+    }
+    bool bind()
+    {
+        if (bufferId) {
+            if (context != currentContext) {
+                SoDebugError::postWarning("CoinOpenGLBuffer::bind",
+                                          "buffer not created");
+                return false;
+            }
+            PFNGLBINDBUFFERPROC glBindBufferARB = (PFNGLBINDBUFFERPROC)cc_glglue_getprocaddress(glue, "glBindBufferARB");
+            glBindBufferARB(target, bufferId);
+            return true;
+        }
+        return false;
+    }
+    void release()
+    {
+        if (bufferId) {
+            PFNGLBINDBUFFERPROC glBindBufferARB = (PFNGLBINDBUFFERPROC)cc_glglue_getprocaddress(glue, "glBindBufferARB");
+            glBindBufferARB(target, 0);
+        }
+    }
+    GLuint getBufferId() const
+    {
+        return bufferId;
+    }
+    uint32_t getBoundContext() const
+    {
+        return context;
+    }
+    int size() const
+    {
+        GLint value = -1;
+        if (bufferId > 0) {
+            PFNGLGETBUFFERPARAMETERIVPROC glGetBufferParameteriv = (PFNGLGETBUFFERPARAMETERIVPROC)cc_glglue_getprocaddress(glue, "glGetBufferParameterivARB");
+            glGetBufferParameteriv(target, GL_BUFFER_SIZE, &value);
+        }
+        return value;
+    }
+
+private:
+    static void context_destruction_cb(uint32_t context, void * userdata)
+    {
+        CoinOpenGLBuffer * self = static_cast<CoinOpenGLBuffer*>(userdata);
+
+        if (self->context == context && self->bufferId) {
+            const cc_glglue * glue = cc_glglue_instance((int) context);
+            PFNGLDELETEBUFFERSARBPROC glDeleteBuffersARB = (PFNGLDELETEBUFFERSARBPROC)cc_glglue_getprocaddress(glue, "glDeleteBuffersARB");
+
+            GLuint buffer = self->bufferId;
+            glDeleteBuffersARB(1, &buffer);
+            self->context = -1;
+            self->bufferId = 0;
+        }
+    }
+    static void buffer_delete(void * closure, uint32_t contextid)
+    {
+        const cc_glglue * glue = cc_glglue_instance((int) contextid);
+        GLuint id = (GLuint) ((uintptr_t) closure);
+        cc_glglue_glDeleteBuffers(glue, 1, &id);
+    }
+
+    GLenum target;
+    GLuint bufferId;
+    uint32_t context;
+    uint32_t currentContext;
+    const cc_glglue* glue;
+};
+
+class MeshRenderer::Private {
+public:
+    CoinOpenGLBuffer vertices;
+    CoinOpenGLBuffer indices;
+    const SbColor * pcolors;
+    SoMaterialBindingElement::Binding matbinding;
+    bool initialized;
+
+    Private();
+    ~Private();
+    bool canRenderGLArray(SoGLRenderAction *) const;
+    void generateGLArrays(SoGLRenderAction* action,
+        SoMaterialBindingElement::Binding matbind,
+        std::vector<float>& vertex, std::vector<int32_t>& index);
+    void renderFacesGLArray(SoGLRenderAction*);
+    void renderCoordsGLArray(SoGLRenderAction *);
+
+private:
+    void renderGLArray(SoGLRenderAction *, GLenum);
+};
+
+MeshRenderer::Private::Private()
+  : vertices(GL_ARRAY_BUFFER)
+  , indices(GL_ELEMENT_ARRAY_BUFFER)
+  , pcolors(0)
+  , matbinding(SoMaterialBindingElement::OVERALL)
+  , initialized(false)
+{
+}
+
+MeshRenderer::Private::~Private()
+{
+}
+
+bool MeshRenderer::Private::canRenderGLArray(SoGLRenderAction *action) const
+{
+    static bool init = false;
+    static bool vboAvailable = false;
+    if (!init) {
+        std::string ext = (const char*)(glGetString(GL_EXTENSIONS));
+        vboAvailable = (ext.find("GL_ARB_vertex_buffer_object") != std::string::npos);
+        init = true;
+    }
+
+    if (!vboAvailable)
+        return false;
+
+    // if no buffer is created we must pass here in order to create it afterwards
+    if (!indices.isCreated())
+        return true;
+    return indices.getBoundContext() == action->getCacheContext();
+}
+
+void MeshRenderer::Private::generateGLArrays(SoGLRenderAction* action,
+                                             SoMaterialBindingElement::Binding matbind,
+                                             std::vector<float>& vertex, std::vector<int32_t>& index)
+{
+    if (vertex.empty() || index.empty())
+        return;
+
+    // lazy initialization
+    vertices.setCurrentContext(action->getCacheContext());
+    indices.setCurrentContext(action->getCacheContext());
+
+    if (!initialized) {
+        vertices.create();
+        indices.create();
+        initialized = true;
+    }
+
+    vertices.bind();
+    vertices.allocate(&(vertex[0]),
+                      vertex.size() * sizeof(float));
+    vertices.release();
+
+    indices.bind();
+    indices.allocate(&(index[0]),
+                     index.size() * sizeof(int32_t));
+    indices.release();
+    this->matbinding = matbind;
+}
+
+void MeshRenderer::Private::renderGLArray(SoGLRenderAction *action, GLenum mode)
+{
+    if (!initialized) {
+        SoDebugError::postWarning("MeshRenderer",
+                                  "not initialized");
+        return;
+    }
+
+    vertices.setCurrentContext(action->getCacheContext());
+    indices.setCurrentContext(action->getCacheContext());
+
+    glEnableClientState(GL_NORMAL_ARRAY);
+    glEnableClientState(GL_VERTEX_ARRAY);
+
+    vertices.bind();
+    indices.bind();
+
+    if (matbinding != SoMaterialBindingElement::OVERALL)
+        glInterleavedArrays(GL_C4F_N3F_V3F, 0, 0);
+    else
+        glInterleavedArrays(GL_N3F_V3F, 0, 0);
+
+    glDrawElements(mode, indices.size() / sizeof(uint32_t),
+                   GL_UNSIGNED_INT, NULL);
+
+    vertices.release();
+    indices.release();
+
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_NORMAL_ARRAY);
+}
+
+void MeshRenderer::Private::renderFacesGLArray(SoGLRenderAction *action)
+{
+    renderGLArray(action, GL_TRIANGLES);
+}
+
+void MeshRenderer::Private::renderCoordsGLArray(SoGLRenderAction *action)
+{
+    renderGLArray(action, GL_POINTS);
+}
+#elif defined RENDER_GLARRAYS
+class MeshRenderer::Private {
+public:
+    std::vector<int32_t> index_array;
+    std::vector<float> vertex_array;
+    const SbColor * pcolors;
+    SoMaterialBindingElement::Binding matbinding;
+
+    Private()
+      : pcolors(0)
+      , matbinding(SoMaterialBindingElement::OVERALL)
+    {
+    }
+
+    bool canRenderGLArray(SoGLRenderAction *) const;
+    void generateGLArrays(SoGLRenderAction* action,
+        SoMaterialBindingElement::Binding matbind,
+        std::vector<float>& vertex, std::vector<int32_t>& index);
+    void renderFacesGLArray(SoGLRenderAction *action);
+    void renderCoordsGLArray(SoGLRenderAction *action);
+};
+
+bool MeshRenderer::Private::canRenderGLArray(SoGLRenderAction *) const
+{
+    return true;
+}
+
+void MeshRenderer::Private::generateGLArrays(SoGLRenderAction*,
+                                             SoMaterialBindingElement::Binding matbind,
+                                             std::vector<float>& vertex, std::vector<int32_t>& index)
+{
+    if (vertex.empty() || index.empty())
+        return;
+
+    this->index_array.resize(0);
+    this->vertex_array.resize(0);
+
+    this->index_array.swap(index);
+    this->vertex_array.swap(vertex);
+    this->matbinding = matbind;
+}
+
+void MeshRenderer::Private::renderFacesGLArray(SoGLRenderAction *action)
+{
+#if 0 // use Inventor's coordIndex saves memory but the rendering is very slow then
+    const cc_glglue * glue = cc_glglue_instance(action->getCacheContext());
+    PFNGLPRIMITIVERESTARTINDEXPROC glPrimitiveRestartIndex = (PFNGLPRIMITIVERESTARTINDEXPROC)
+        cc_glglue_getprocaddress(glue, "glPrimitiveRestartIndex");
+
+    int cnt = coordIndex.getNum();
+
+    glEnableClientState(GL_NORMAL_ARRAY);
+    glEnableClientState(GL_VERTEX_ARRAY);
+
+    // https://www.opengl.org/discussion_boards/archive/index.php/t-180767.html
+    // https://www.khronos.org/opengl/wiki/Vertex_Rendering#Primitive_Restart
+    glPrimitiveRestartIndex(0xffffffff);
+    glEnable(GL_PRIMITIVE_RESTART);
+    //glEnable(GL_PRIMITIVE_RESTART_FIXED_INDEX);
+
+    glInterleavedArrays(GL_N3F_V3F, 0, &(vertex_array[0]));
+    glDrawElements(GL_TRIANGLES, cnt, GL_UNSIGNED_INT, coordIndex.getValues(0));
+
+    glDisable(GL_PRIMITIVE_RESTART);
+    //glDisable(GL_PRIMITIVE_RESTART_FIXED_INDEX);
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_NORMAL_ARRAY);
+#else // Needs more memory but makes it very fast
+    (void)action;
+    int cnt = index_array.size();
+
+    glEnableClientState(GL_NORMAL_ARRAY);
+    glEnableClientState(GL_VERTEX_ARRAY);
+
+    if (matbinding != SoMaterialBindingElement::OVERALL)
+        glInterleavedArrays(GL_C4F_N3F_V3F, 0, &(vertex_array[0]));
+    else
+        glInterleavedArrays(GL_N3F_V3F, 0, &(vertex_array[0]));
+    glDrawElements(GL_TRIANGLES, cnt, GL_UNSIGNED_INT, &(index_array[0]));
+
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_NORMAL_ARRAY);
+#endif
+}
+
+void MeshRenderer::Private::renderCoordsGLArray(SoGLRenderAction *)
+{
+    int cnt = index_array.size();
+
+    glEnableClientState(GL_NORMAL_ARRAY);
+    glEnableClientState(GL_VERTEX_ARRAY);
+
+    if (matbinding != SoMaterialBindingElement::OVERALL)
+        glInterleavedArrays(GL_C4F_N3F_V3F, 0, &(vertex_array[0]));
+    else
+        glInterleavedArrays(GL_N3F_V3F, 0, &(vertex_array[0]));
+    glDrawElements(GL_POINTS, cnt, GL_UNSIGNED_INT, &(index_array[0]));
+
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_NORMAL_ARRAY);
+}
+#else
+class MeshRenderer::Private {
+public:
+    const SbColor * pcolors;
+    SoMaterialBindingElement::Binding matbinding;
+
+    Private()
+      : pcolors(0)
+      , matbinding(SoMaterialBindingElement::OVERALL)
+    {
+    }
+
+    bool canRenderGLArray(SoGLRenderAction *) const {
+        return false;
+    }
+    void generateGLArrays(SoGLRenderAction*,
+        SoMaterialBindingElement::Binding,
+        std::vector<float>&, std::vector<int32_t>&)
+    {
+    }
+    void renderFacesGLArray(SoGLRenderAction *)
+    {
+    }
+    void renderCoordsGLArray(SoGLRenderAction *)
+    {
+    }
+};
+#endif
+
+MeshRenderer::MeshRenderer()
+  : p(new Private)
+{
+}
+
+MeshRenderer::~MeshRenderer()
+{
+    delete p;
+}
+
+void MeshRenderer::generateGLArrays(SoGLRenderAction* action, SoMaterialBindingElement::Binding matbind,
+                                    std::vector<float>& vertex, std::vector<int32_t>& index)
+{
+    SoGLLazyElement* gl = SoGLLazyElement::getInstance(action->getState());
+    if (gl) {
+        p->pcolors = gl->getDiffusePointer();
+    }
+    p->generateGLArrays(action, matbind, vertex, index);
+}
+
+// Implementation                            | FPS
+// ================================================
+// drawCoords (every 4th vertex)             | 20.0
+// renderCoordsGLArray (all vertexes)        | 20.0
+// 
+void MeshRenderer::renderCoordsGLArray(SoGLRenderAction *action)
+{
+    p->renderCoordsGLArray(action);
+}
+
+//****************************************************************************
+// renderFacesGLArray: normal and coord from vertex_array;
+// no texture, color, highlight or selection but highest possible speed;
+// all vertices written in one go!
+//
+// Benchmark tests with an 256 MB STL file:
+//
+// Implementation                            | FPS
+// ================================================
+// OpenInventor (SoIndexedFaceSet)           |  3.0
+// Custom OpenInventor (SoFCMeshObjectShape) |  8.5
+// With GL_PRIMITIVE_RESTART                 |  0.9
+// With GL_PRIMITIVE_RESTART_FIXED_INDEX     |  0.9
+// Without GL_PRIMITIVE_RESTART              |  8.5
+// Vertex-Array-Object (RENDER_GL_VAO)       | 60.0
+void MeshRenderer::renderFacesGLArray(SoGLRenderAction *action)
+{
+    p->renderFacesGLArray(action);
+}
+
+bool MeshRenderer::canRenderGLArray(SoGLRenderAction *action) const
+{
+    return p->canRenderGLArray(action);
+}
+
+bool MeshRenderer::matchMaterial(SoState* state) const
+{
+    SoMaterialBindingElement::Binding matbind =
+        SoMaterialBindingElement::get(state);
+    const SbColor * pcolors = 0;
+    SoGLLazyElement* gl = SoGLLazyElement::getInstance(state);
+    if (gl) {
+        pcolors = gl->getDiffusePointer();
+    }
+    return p->matbinding == matbind && p->pcolors == pcolors;
+}
+
+bool MeshRenderer::shouldRenderDirectly(bool direct)
+{
+#ifdef RENDER_GL_VAO
+    Q_UNUSED(direct);
+    return false;
+#else
+    return direct;
+#endif
+}
+
+// ----------------------------------------------------------------------------
+
+SO_ENGINE_SOURCE(SoFCMaterialEngine);
+
+SoFCMaterialEngine::SoFCMaterialEngine()
+{
+    SO_ENGINE_CONSTRUCTOR(SoFCMaterialEngine);
+
+    SO_ENGINE_ADD_INPUT(diffuseColor, (SbColor(0.0, 0.0, 0.0)));
+    SO_ENGINE_ADD_OUTPUT(trigger, SoSFBool);
+}
+
+SoFCMaterialEngine::~SoFCMaterialEngine()
+{
+}
+
+void SoFCMaterialEngine::initClass()
+{
+    SO_ENGINE_INIT_CLASS(SoFCMaterialEngine, SoEngine, "Engine");
+}
+
+void SoFCMaterialEngine::inputChanged(SoField *)
+{
+    SO_ENGINE_OUTPUT(trigger, SoSFBool, setValue(true));
+}
+
+void SoFCMaterialEngine::evaluate()
+{
+    // do nothing here
+}
+
+// ----------------------------------------------------------------------------
 
 SO_NODE_SOURCE(SoFCIndexedFaceSet);
 
@@ -55,9 +551,13 @@ void SoFCIndexedFaceSet::initClass()
     SO_NODE_INIT_CLASS(SoFCIndexedFaceSet, SoIndexedFaceSet, "IndexedFaceSet");
 }
 
-SoFCIndexedFaceSet::SoFCIndexedFaceSet() : renderTriangleLimit(100000), selectBuf(0)
+SoFCIndexedFaceSet::SoFCIndexedFaceSet()
+  : renderTriangleLimit(100000)
+  , selectBuf(0)
 {
     SO_NODE_CONSTRUCTOR(SoFCIndexedFaceSet);
+    SO_NODE_ADD_FIELD(updateGLArray, (false));
+    updateGLArray.setFieldType(SoField::EVENTOUT_FIELD);
     setName(SoFCIndexedFaceSet::getClassTypeId().getName());
 }
 
@@ -69,17 +569,76 @@ void SoFCIndexedFaceSet::GLRender(SoGLRenderAction *action)
     if (this->coordIndex.getNum() < 3)
         return;
 
-    if (!this->shouldGLRender(action))
+    if (!this->shouldGLRender(action)) {
+        // Transparency is handled inside 'shouldGLRender' but the base class
+        // somehow misses to reset the blending mode. This causes SoGLLazyElement
+        // not to switch on and off GL_BLEND mode and thus transparency doesn't
+        // work as expected. Calling SoMaterialBundle::sendFirst seems to fix the
+        // problem.
+        SoMaterialBundle mb(action);
+        mb.sendFirst();
         return;
+    }
 
     SoState * state = action->getState();
     SbBool mode = Gui::SoFCInteractiveElement::get(state);
 
+#if defined(RENDER_GL_VAO)
+    if (mode == false || render.matchMaterial(state)) {
+#else
     unsigned int num = this->coordIndex.getNum()/4;
     if (mode == false || num <= this->renderTriangleLimit) {
+#endif
+#if defined (RENDER_GLARRAYS) || defined(RENDER_GL_VAO)
+
+        SbBool matchCtx = render.canRenderGLArray(action);
+#if 0
+        SoMaterialBindingElement::Binding matbind =
+            SoMaterialBindingElement::get(state);
+
+        if (matbind == SoMaterialBindingElement::OVERALL && matchCtx) {
+            SoMaterialBundle mb(action);
+            mb.sendFirst();
+            if (updateGLArray) {
+                updateGLArray = false;
+                generateGLArrays(action);
+            }
+            render.renderFacesGLArray(action);
+        }
+        else {
+            inherited::GLRender(action);
+        }
+#else
+        // get the VBO status of the viewer
+        SbBool hasVBO = true;
+        //Gui::SoGLVBOActivatedElement::get(state, hasVBO);
+        if (!matchCtx)
+            hasVBO = false;
+
+        if (hasVBO && updateGLArray.getValue()) {
+            updateGLArray = false;
+            generateGLArrays(action);
+        }
+
+        if (hasVBO && render.matchMaterial(state)) {
+            SoMaterialBundle mb(action);
+            mb.sendFirst();
+            render.renderFacesGLArray(action);
+        }
+        else {
+            inherited::GLRender(action);
+        }
+#endif
+#else
         inherited::GLRender(action);
+#endif
     }
     else {
+#if 0 && defined (RENDER_GLARRAYS)
+        SoMaterialBundle mb(action);
+        mb.sendFirst();
+        render.renderCoordsGLArray(action);
+#else
         SoMaterialBindingElement::Binding matbind =
             SoMaterialBindingElement::get(state);
         int32_t binding = (int32_t)(matbind);
@@ -108,6 +667,7 @@ void SoFCIndexedFaceSet::GLRender(SoGLRenderAction *action)
                    normals, nindices, &mb, mindices, binding, &tb, tindices);
         // Disable caching for this node
         SoGLCacheContextElement::shouldAutoCache(state, SoGLCacheContextElement::DONT_AUTO_CACHE);
+#endif
     }
 }
 
@@ -117,10 +677,10 @@ void SoFCIndexedFaceSet::drawCoords(const SoGLCoordinateElement * const vertexli
                                     const SbVec3f *normals,
                                     const int32_t *normalindices,
                                     SoMaterialBundle *materials,
-                                    const int32_t *matindices,
+                                    const int32_t * /*matindices*/,
                                     const int32_t binding,
-                                    const SoTextureCoordinateBundle * const texcoords,
-                                    const int32_t *texindices)
+                                    const SoTextureCoordinateBundle * const /*texcoords*/,
+                                    const int32_t * /*texindices*/)
 {
     const SbVec3f * coords3d = 0;
     coords3d = vertexlist->getArrayPtr3();
@@ -187,6 +747,195 @@ void SoFCIndexedFaceSet::drawCoords(const SoGLCoordinateElement * const vertexli
         viptr++; index++; normalindices++;
     }
     glEnd();
+}
+
+void SoFCIndexedFaceSet::invalidate()
+{
+    updateGLArray = true;
+}
+
+void SoFCIndexedFaceSet::generateGLArrays(SoGLRenderAction * action)
+{
+    const SoCoordinateElement * coords;
+    const SbVec3f * normals;
+    const int32_t * cindices;
+    const SbColor * pcolors = 0;
+    const float * transp = 0;
+    int numindices, numcolors = 0, numtransp = 0;
+    const int32_t * nindices;
+    const int32_t * tindices;
+    const int32_t * mindices;
+    SbBool normalCacheUsed;
+
+    SbBool sendNormals = true;
+
+    SoState* state = action->getState();
+    this->getVertexData(state, coords, normals, cindices,
+                        nindices, tindices, mindices, numindices,
+                        sendNormals, normalCacheUsed);
+
+    const SbVec3f * points = coords->getArrayPtr3();
+
+    SoMaterialBindingElement::Binding matbind =
+        SoMaterialBindingElement::get(state);
+    SoGLLazyElement* gl = SoGLLazyElement::getInstance(state);
+    if (gl) {
+        pcolors = gl->getDiffusePointer();
+        numcolors = gl->getNumDiffuse();
+        transp = gl->getTransparencyPointer();
+        numtransp = gl->getNumTransparencies();
+        Q_UNUSED(numtransp);
+    }
+
+    std::vector<float> face_vertices;
+    std::vector<int32_t> face_indices;
+
+    std::size_t numTria = numindices / 4;
+
+    if (!mindices && matbind == SoMaterialBindingElement::PER_VERTEX_INDEXED) {
+        mindices = cindices;
+    }
+
+    SoNormalBindingElement::Binding normbind = SoNormalBindingElement::get(state);
+    if (normbind == SoNormalBindingElement::PER_VERTEX_INDEXED) {
+        if (matbind == SoMaterialBindingElement::PER_FACE) {
+            face_vertices.reserve(3 * numTria * 10); // duplicate each vertex (rgba, normal, vertex)
+            face_indices.resize(3 * numTria);
+
+            if (numcolors != static_cast<int>(numTria)) {
+                SoDebugError::postWarning("SoFCIndexedFaceSet::generateGLArrays",
+                                          "The number of faces (%d) doesn't match with the number of colors (%d).", numTria, numcolors);
+            }
+
+            // the nindices must have the length of numindices
+            int32_t vertex = 0;
+            int index = 0;
+            float t = transp[0];
+            for (std::size_t i=0; i<numTria; i++) {
+                const SbColor& c = pcolors[i];
+                for (int j=0; j<3; j++) {
+                    face_vertices.push_back(c[0]);
+                    face_vertices.push_back(c[1]);
+                    face_vertices.push_back(c[2]);
+                    face_vertices.push_back(t);
+
+                    const SbVec3f& n = normals[nindices[index]];
+                    face_vertices.push_back(n[0]);
+                    face_vertices.push_back(n[1]);
+                    face_vertices.push_back(n[2]);
+
+                    const SbVec3f& p = points[cindices[index]];
+                    face_vertices.push_back(p[0]);
+                    face_vertices.push_back(p[1]);
+                    face_vertices.push_back(p[2]);
+
+                    face_indices[vertex] = vertex;
+                    vertex++;
+                    index++;
+                }
+                index++;
+            }
+        }
+        else if (matbind == SoMaterialBindingElement::PER_VERTEX_INDEXED) {
+            face_vertices.reserve(3 * numTria * 10); // duplicate each vertex (rgba, normal, vertex)
+            face_indices.resize(3 * numTria);
+
+            if (numcolors != coords->getNum()) {
+                SoDebugError::postWarning("SoFCIndexedFaceSet::generateGLArrays",
+                                          "The number of points (%d) doesn't match with the number of colors (%d).", coords->getNum(), numcolors);
+            }
+
+            // the nindices must have the length of numindices
+            int32_t vertex = 0;
+            int index = 0;
+            float t = transp[0];
+            for (std::size_t i=0; i<numTria; i++) {
+                for (int j=0; j<3; j++) {
+                    const SbColor& c = pcolors[mindices[index]];
+                    face_vertices.push_back(c[0]);
+                    face_vertices.push_back(c[1]);
+                    face_vertices.push_back(c[2]);
+                    face_vertices.push_back(t);
+
+                    const SbVec3f& n = normals[nindices[index]];
+                    face_vertices.push_back(n[0]);
+                    face_vertices.push_back(n[1]);
+                    face_vertices.push_back(n[2]);
+
+                    const SbVec3f& p = points[cindices[index]];
+                    face_vertices.push_back(p[0]);
+                    face_vertices.push_back(p[1]);
+                    face_vertices.push_back(p[2]);
+
+                    face_indices[vertex] = vertex;
+                    vertex++;
+                    index++;
+                }
+                index++;
+            }
+        }
+        else {
+            // only an overall material
+            matbind = SoMaterialBindingElement::OVERALL;
+
+            face_vertices.reserve(3 * numTria * 6); // duplicate each vertex (normal, vertex)
+            face_indices.resize(3 * numTria);
+
+            // the nindices must have the length of numindices
+            int32_t vertex = 0;
+            int index = 0;
+            for (std::size_t i=0; i<numTria; i++) {
+                for (int j=0; j<3; j++) {
+                    const SbVec3f& n = normals[nindices[index]];
+                    face_vertices.push_back(n[0]);
+                    face_vertices.push_back(n[1]);
+                    face_vertices.push_back(n[2]);
+
+                    const SbVec3f& p = points[cindices[index]];
+                    face_vertices.push_back(p[0]);
+                    face_vertices.push_back(p[1]);
+                    face_vertices.push_back(p[2]);
+
+                    face_indices[vertex] = vertex;
+                    vertex++;
+                    index++;
+                }
+                index++;
+            }
+        }
+    }
+    else if (normbind == SoNormalBindingElement::PER_VERTEX) {
+        // only an overall material
+        matbind = SoMaterialBindingElement::OVERALL;
+
+        std::size_t numPts = coords->getNum();
+        face_vertices.reserve(6 * numPts);
+        for (std::size_t i=0; i<numPts; i++) {
+            const SbVec3f& n = normals[i];
+            face_vertices.push_back(n[0]);
+            face_vertices.push_back(n[1]);
+            face_vertices.push_back(n[2]);
+
+            const SbVec3f& p = coords->get3(i);
+            face_vertices.push_back(p[0]);
+            face_vertices.push_back(p[1]);
+            face_vertices.push_back(p[2]);
+
+        }
+
+        face_indices.reserve(3 * numTria);
+
+        int index = 0;
+        for (std::size_t i=0; i<numTria; i++) {
+            for (int j=0; j<3; j++) {
+                face_indices.push_back(cindices[index]);
+                index++;
+            }
+            index++;
+        }
+    }
+
+    render.generateGLArrays(action, matbind, face_vertices, face_indices);
 }
 
 void SoFCIndexedFaceSet::doAction(SoAction * action)
@@ -267,7 +1016,12 @@ void SoFCIndexedFaceSet::startSelection(SoAction * action)
     //glGetDoublev(GL_PROJECTION_MATRIX ,mp);
     glPushMatrix();
     glLoadIdentity();
-    gluPickMatrix(x, y, w, h, viewport);
+    // See https://www.opengl.org/discussion_boards/showthread.php/184308-gluPickMatrix-Implementation?p=1259884&viewfull=1#post1259884
+    //gluPickMatrix(x, y, w, h, viewport);
+    if (w > 0 && h > 0) {
+        glTranslatef((viewport[2] - 2 * (x - viewport[0])) / w, (viewport[3] - 2 * (y - viewport[1])) / h, 0);
+        glScalef(viewport[2] / w, viewport[3] / h, 1.0);
+    }
     glMultMatrixf(/*mp*/(float*)proj);
     glMatrixMode(GL_MODELVIEW);
     glPushMatrix();
@@ -343,7 +1097,7 @@ void SoFCIndexedFaceSet::startVisibility(SoAction * action)
     glLoadMatrixf((float*)view);
 }
 
-void SoFCIndexedFaceSet::stopVisibility(SoAction * action)
+void SoFCIndexedFaceSet::stopVisibility(SoAction * /*action*/)
 {
     // restoring the original projection matrix
     glPopMatrix();

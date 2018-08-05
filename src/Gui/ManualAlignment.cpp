@@ -28,7 +28,6 @@
 # include <QLabel>
 # include <QMenu>
 # include <QMessageBox>
-# include <QGLWidget>
 # include <QPainter>
 # include <QSplitter>
 # include <QStatusBar>
@@ -296,7 +295,7 @@ MovableGroup& MovableGroupModel::activeGroup()
 {
     // Make sure that the array is not empty
     if (this->_groups.empty())
-        throw Base::Exception("Empty group");
+        throw Base::RuntimeError("Empty group");
     return *(this->_groups.begin());
 }
 
@@ -304,8 +303,8 @@ const MovableGroup& MovableGroupModel::activeGroup() const
 {
     // Make sure that the array is not empty
     if (this->_groups.empty())
-        throw Base::Exception("Empty group");
-    return *(this->_groups.begin());
+        throw Base::RuntimeError("Empty group");
+    return this->_groups.front();
 }
 
 void MovableGroupModel::continueAlignment()
@@ -329,6 +328,13 @@ int MovableGroupModel::count() const
     return this->_groups.size();
 }
 
+const MovableGroup& MovableGroupModel::getGroup(int i) const
+{
+    if (i >= count())
+        throw Base::IndexError("Index out of range");
+    return this->_groups[i];
+}
+
 // ------------------------------------------------------------------
 
 namespace Gui {
@@ -337,15 +343,40 @@ class AlignmentView : public Gui::AbstractSplitView
 public:
     QLabel* myLabel;
 
-    AlignmentView(Gui::Document* pcDocument, QWidget* parent, QGLWidget* shareWidget=0, Qt::WindowFlags wflags=0)
+    AlignmentView(Gui::Document* pcDocument, QWidget* parent, Qt::WindowFlags wflags=0)
         : AbstractSplitView(pcDocument, parent, wflags)
     {
+        //anti-aliasing settings
+        bool smoothing = false;
+        bool glformat = false;
+        int samples = View3DInventorViewer::getNumSamples();
+        QtGLFormat f;
+
+        if (samples > 1) {
+            glformat = true;
+#if !defined(HAVE_QT5_OPENGL)
+            f.setSampleBuffers(true);
+#endif
+            f.setSamples(samples);
+        }
+        else if (samples > 0) {
+            smoothing = true;
+        }
+
         QSplitter* mainSplitter=0;
         mainSplitter = new QSplitter(Qt::Horizontal, this);
-        _viewer.push_back(new View3DInventorViewer(mainSplitter, shareWidget));
-        _viewer.back()->setDocument(pcDocument);
-        _viewer.push_back(new View3DInventorViewer(mainSplitter, shareWidget));
-        _viewer.back()->setDocument(pcDocument);
+        if (glformat) {
+            _viewer.push_back(new View3DInventorViewer(f, mainSplitter));
+            _viewer.back()->setDocument(pcDocument);
+            _viewer.push_back(new View3DInventorViewer(f, mainSplitter));
+            _viewer.back()->setDocument(pcDocument);
+        }
+        else {
+            _viewer.push_back(new View3DInventorViewer(mainSplitter));
+            _viewer.back()->setDocument(pcDocument);
+            _viewer.push_back(new View3DInventorViewer(mainSplitter));
+            _viewer.back()->setDocument(pcDocument);
+        }
 
         QFrame* vbox = new QFrame(this);
         QVBoxLayout* layout = new QVBoxLayout();
@@ -373,6 +404,11 @@ public:
 
         // apply the user settings
         setupSettings();
+
+        if (smoothing) {
+            for (std::vector<int>::size_type i = 0; i != _viewer.size(); i++)
+                _viewer[i]->getSoRenderManager()->getGLRenderAction()->setSmoothing(true);
+        }
 
         static_cast<SoGroup*>(getViewer(0)->getSoRenderManager()->getSceneGraph())->
             addChild(setupHeadUpDisplay(tr("Movable object")));
@@ -488,6 +524,8 @@ public:
     void copyCameraSettings(SoCamera* cam1, SbRotation& rot_cam1, SbVec3f& pos_cam1,
                             SoCamera* cam2, SbRotation& rot_cam2, SbVec3f& pos_cam2)
     {
+        Q_UNUSED(pos_cam2);
+ 
         // recompute the diff we have applied to the camera's orientation
         SbRotation rot = cam1->orientation.getValue();
         SbRotation dif = rot * rot_cam1.inverse();
@@ -757,15 +795,8 @@ void ManualAlignment::startAlignment(Base::Type mousemodel)
     if (myAlignModel.isEmpty())
         return;
 
-    QGLWidget* shareWidget = 0;
-    std::list<MDIView*> theViews = myDocument->getMDIViewsOfType(View3DInventor::getClassTypeId());
-    if (!theViews.empty()) {
-        shareWidget = qobject_cast<QGLWidget*>(static_cast<View3DInventor*>
-            (theViews.front())->getViewer()->getGLWidget());
-    }
-
-    // create a splitted window for picking the points
-    myViewer = new AlignmentView(myDocument,Gui::getMainWindow(),shareWidget);
+    // create a split window for picking the points
+    myViewer = new AlignmentView(myDocument,Gui::getMainWindow());
     myViewer->setWindowTitle(tr("Alignment[*]"));
     myViewer->setWindowIcon(QApplication::windowIcon());
     myViewer->resize(400, 300);
@@ -1167,6 +1198,8 @@ void ManualAlignment::onCancel()
 
 void ManualAlignment::probePickedCallback(void * ud, SoEventCallback * n)
 {
+    Q_UNUSED(ud); 
+
     Gui::View3DInventorViewer* view  = reinterpret_cast<Gui::View3DInventorViewer*>(n->getUserData());
     const SoEvent* ev = n->getEvent();
     if (ev->getTypeId() == SoMouseButtonEvent::getClassTypeId()) {

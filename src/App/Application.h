@@ -77,7 +77,7 @@ public:
     App::Document* newDocument(const char * Name=0l, const char * UserName=0l);
     /// Closes the document \a name and removes it from the application.
     bool closeDocument(const char* name);
-    /// find a unique docuement name
+    /// find a unique document name
     std::string getUniqueDocumentName(const char *Name) const;
     /// Open an existing document from a file
     App::Document* openDocument(const char * FileName=0l);
@@ -124,7 +124,7 @@ public:
 
 
     /** @name Signals of the document
-     * This signals are an agregation of all document. If you only 
+     * This signals are an aggregation of all document. If you only 
      * the signal of a special document connect to the document itself
      */
     //@{
@@ -164,7 +164,7 @@ public:
     /** Gets a parameter group by a full qualified path
      * It's an easy method to get a group:
      * \code
-     * // geting standard parameter
+     * // getting standard parameter
      * ParameterGrp::handle hGrp = App::GetApplication().GetParameterGroupByPath("User parameter:BaseApp/Preferences/Mod/Raytracing");
      * std::string cDir             = hGrp->GetASCII("ProjectPath", "");
      * std::string cCameraName      = hGrp->GetASCII("CameraName", "TempCamera.inc");
@@ -230,7 +230,7 @@ public:
     static void destructObserver(void);
     static void processCmdLineFiles(void);
     static std::list<std::string> getCmdLineFiles();
-    static void processFiles(const std::list<std::string>&);
+    static std::list<std::string> processFiles(const std::list<std::string>&);
     static void runApplication(void);
     friend Application &GetApplication(void);
     static std::map<std::string,std::string> &Config(void){return mConfig;}
@@ -292,6 +292,7 @@ private:
 
     // static python wrapper of the exported functions
     static PyObject* sGetParam          (PyObject *self,PyObject *args,PyObject *kwd);
+    static PyObject* sSaveParameter     (PyObject *self,PyObject *args,PyObject *kwd);
     static PyObject* sGetVersion        (PyObject *self,PyObject *args,PyObject *kwd);
     static PyObject* sGetConfig         (PyObject *self,PyObject *args,PyObject *kwd);
     static PyObject* sSetConfig         (PyObject *self,PyObject *args,PyObject *kwd);
@@ -305,6 +306,8 @@ private:
     static PyObject* sGetExportType     (PyObject *self,PyObject *args,PyObject *kwd);
     static PyObject* sGetResourceDir    (PyObject *self,PyObject *args,PyObject *kwd);
     static PyObject* sGetUserAppDataDir (PyObject *self,PyObject *args,PyObject *kwd);
+    static PyObject* sGetUserMacroDir   (PyObject *self,PyObject *args,PyObject *kwd);
+    static PyObject* sGetHelpDir        (PyObject *self,PyObject *args,PyObject *kwd);
     static PyObject* sGetHomePath       (PyObject *self,PyObject *args,PyObject *kwd);
 
     static PyObject* sLoadFile          (PyObject *self,PyObject *args,PyObject *kwd);
@@ -321,6 +324,9 @@ private:
     static PyObject* sRemoveDocObserver (PyObject *self,PyObject *args,PyObject *kwd);
     static PyObject* sTranslateUnit     (PyObject *self,PyObject *args,PyObject *kwd);
 
+    static PyObject *sSetLogLevel       (PyObject *self,PyObject *args,PyObject *kwd);
+    static PyObject *sGetLogLevel       (PyObject *self,PyObject *args,PyObject *kwd);
+
     static PyMethodDef    Methods[]; 
 
     friend class ApplicationObserver;
@@ -336,9 +342,12 @@ private:
     static void ParseOptions(int argc, char ** argv);
     /// checks if the environment is allreight
     //static void CheckEnv(void);
-    // search for the home path
+    /// Search for the FreeCAD home path based on argv[0]
+    /*!
+     * There are multiple implementations of this method per-OS
+     */
     static std::string FindHomePath(const char* sCall);
-    /// print the help massage
+    /// Print the help message
     static void PrintInitHelp(void);
     /// figure out some things
     static void ExtractUserPath();
@@ -370,7 +379,7 @@ private:
     static Base::ConsoleObserverFile *_pConsoleObserverFile;
 };
 
-/// Singleton getter of the Applicaton
+/// Singleton getter of the Application
 inline App::Application &GetApplication(void){
     return *App::Application::_pcSingleton;
 }

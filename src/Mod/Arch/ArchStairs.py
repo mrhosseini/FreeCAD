@@ -31,16 +31,32 @@ if FreeCAD.GuiUp:
     import FreeCADGui
     from PySide import QtCore, QtGui
     from DraftTools import translate
+    from PySide.QtCore import QT_TRANSLATE_NOOP
 else:
+    # \cond
     def translate(ctxt,txt):
         return txt
+    def QT_TRANSLATE_NOOP(ctxt,txt):
+        return txt
+    # \endcond
+
+## @package ArchStairs
+#  \ingroup ARCH
+#  \brief The Stairs object and tools
+#
+#  This module provides tools to build Stairs objects.
 
 
 def makeStairs(baseobj=None,length=None,width=None,height=None,steps=None,name="Stairs"):
+
     """makeStairs([baseobj,length,width,height,steps]): creates a Stairs
     objects with given attributes."""
+
+    if not FreeCAD.ActiveDocument:
+        FreeCAD.Console.PrintError("No active document. Aborting\n")
+        return
     p = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/Arch")
-    obj = FreeCAD.ActiveDocument.addObject("Part::FeaturePython",name)
+    obj = FreeCAD.ActiveDocument.addObject("Part::FeaturePython","Stairs")
     obj.Label = translate("Arch",name)
     _Stairs(obj)
     if FreeCAD.GuiUp:
@@ -65,77 +81,113 @@ def makeStairs(baseobj=None,length=None,width=None,height=None,steps=None,name="
 
 
 class _CommandStairs:
+
     "the Arch Stairs command definition"
+
     def GetResources(self):
+
         return {'Pixmap'  : 'Arch_Stairs',
-                'MenuText': QtCore.QT_TRANSLATE_NOOP("Arch_Stairs","Stairs"),
+                'MenuText': QT_TRANSLATE_NOOP("Arch_Stairs","Stairs"),
                 'Accel': "S, R",
-                'ToolTip': QtCore.QT_TRANSLATE_NOOP("Arch_Space","Creates a stairs object")}
+                'ToolTip': QT_TRANSLATE_NOOP("Arch_Space","Creates a stairs object")}
 
     def IsActive(self):
+
         return not FreeCAD.ActiveDocument is None
 
     def Activated(self):
+
         p = FreeCAD.ParamGet("User parameter:BaseApp/Preferences/Mod/Arch")
         FreeCAD.ActiveDocument.openTransaction(translate("Arch","Create Stairs"))
         FreeCADGui.addModule("Arch")
         if len(FreeCADGui.Selection.getSelection()) == 1:
             n = FreeCADGui.Selection.getSelection()[0].Name
-            FreeCADGui.doCommand("Arch.makeStairs(baseobj=FreeCAD.ActiveDocument."+n+")")
+            FreeCADGui.doCommand("obj = Arch.makeStairs(baseobj=FreeCAD.ActiveDocument."+n+")")
         else:
-            FreeCADGui.doCommand("Arch.makeStairs(steps="+str(p.GetInt("StairsSteps",17))+")")
+            FreeCADGui.doCommand("obj = Arch.makeStairs(steps="+str(p.GetInt("StairsSteps",17))+")")
+        FreeCADGui.addModule("Draft")
+        FreeCADGui.doCommand("Draft.autogroup(obj)")
         FreeCAD.ActiveDocument.commitTransaction()
         FreeCAD.ActiveDocument.recompute()
 
 
 class _Stairs(ArchComponent.Component):
+
     "A stairs object"
+
     def __init__(self,obj):
+
         ArchComponent.Component.__init__(self,obj)
+        self.setProperties(obj)
+        obj.IfcRole = "Stair"
+
+    def setProperties(self,obj):
 
         # http://en.wikipedia.org/wiki/Stairs
 
+        pl = obj.PropertiesList
+
         # base properties
-        obj.addProperty("App::PropertyLength","Length","Arch","The length of these stairs, if no baseline is defined")
-        obj.addProperty("App::PropertyLength","Width","Arch","The width of these stairs")
-        obj.addProperty("App::PropertyLength","Height","Arch","The total height of these stairs")
-        obj.addProperty("App::PropertyEnumeration","Align","Arch","The alignment of these stairs on their baseline, if applicable")
+        if not "Length" in pl:
+            obj.addProperty("App::PropertyLength","Length","Stairs",QT_TRANSLATE_NOOP("App::Property","The length of these stairs, if no baseline is defined"))
+        if not "Width" in pl:
+            obj.addProperty("App::PropertyLength","Width","Stairs",QT_TRANSLATE_NOOP("App::Property","The width of these stairs"))
+        if not "Height" in pl:
+            obj.addProperty("App::PropertyLength","Height","Stairs",QT_TRANSLATE_NOOP("App::Property","The total height of these stairs"))
+        if not "Align" in pl:
+            obj.addProperty("App::PropertyEnumeration","Align","Stairs",QT_TRANSLATE_NOOP("App::Property","The alignment of these stairs on their baseline, if applicable"))
+            obj.Align = ['Left','Right','Center']
 
         # steps properties
-        obj.addProperty("App::PropertyInteger","NumberOfSteps","Steps","The number of risers in these stairs")
-        obj.addProperty("App::PropertyLength","TreadDepth","Steps","The depth of the treads of these stairs")
-        obj.addProperty("App::PropertyLength","RiserHeight","Steps","The height of the risers of these stairs")
-        obj.addProperty("App::PropertyLength","Nosing","Steps","The size of the nosing")
-        obj.addProperty("App::PropertyLength","TreadThickness","Steps","The thickness of the treads")
-        obj.addProperty("App::PropertyFloat","BlondelRatio","Steps","The Blondel ratio, must be between 62 and 64cm or 24.5 and 25.5in")
+        if not "NumberOfSteps" in pl:
+            obj.addProperty("App::PropertyInteger","NumberOfSteps","Steps",QT_TRANSLATE_NOOP("App::Property","The number of risers in these stairs"))
+        if not "TreadDepth" in pl:
+            obj.addProperty("App::PropertyLength","TreadDepth","Steps",QT_TRANSLATE_NOOP("App::Property","The depth of the treads of these stairs"))
+            obj.setEditorMode("TreadDepth",1)
+        if not "RiserHeight" in pl:
+            obj.addProperty("App::PropertyLength","RiserHeight","Steps",QT_TRANSLATE_NOOP("App::Property","The height of the risers of these stairs"))
+            obj.setEditorMode("RiserHeight",1)
+        if not "Nosing" in pl:
+            obj.addProperty("App::PropertyLength","Nosing","Steps",QT_TRANSLATE_NOOP("App::Property","The size of the nosing"))
+        if not "TreadThickness" in pl:
+            obj.addProperty("App::PropertyLength","TreadThickness","Steps",QT_TRANSLATE_NOOP("App::Property","The thickness of the treads"))
+        if not "BlondelRatio" in pl:
+            obj.addProperty("App::PropertyFloat","BlondelRatio","Steps",QT_TRANSLATE_NOOP("App::Property","The Blondel ratio indicates comfortable stairs and should be between 62 and 64cm or 24.5 and 25.5in"))
+            obj.setEditorMode("BlondelRatio",1)
 
         # structural properties
-        obj.addProperty("App::PropertyEnumeration","Landings","Structure","The type of landings of these stairs")
-        obj.addProperty("App::PropertyEnumeration","Winders","Structure","The type of winders in these stairs")
-        obj.addProperty("App::PropertyEnumeration","Structure","Structure","The type of structure of these stairs")
-        obj.addProperty("App::PropertyLength","StructureThickness","Structure","The thickness of the massive structure or of the stringers")
-        obj.addProperty("App::PropertyLength","StringerWidth","Structure","The width of the stringers")
-        obj.addProperty("App::PropertyLength","StructureOffset","Structure","The offset between the border of the stairs and the structure")
+        if not "Landings" in pl:
+            obj.addProperty("App::PropertyEnumeration","Landings","Structure",QT_TRANSLATE_NOOP("App::Property","The type of landings of these stairs"))
+            obj.Landings = ["None","At center","At each corner"]
+        if not "Winders" in pl:
+            obj.addProperty("App::PropertyEnumeration","Winders","Structure",QT_TRANSLATE_NOOP("App::Property","The type of winders in these stairs"))
+            obj.Winders = ["None","All","Corners strict","Corners relaxed"]
+        if not "Structure" in pl:
+            obj.addProperty("App::PropertyEnumeration","Structure","Structure",QT_TRANSLATE_NOOP("App::Property","The type of structure of these stairs"))
+            obj.Structure = ["None","Massive","One stringer","Two stringers"]
+        if not "StructureThickness" in pl:
+            obj.addProperty("App::PropertyLength","StructureThickness","Structure",QT_TRANSLATE_NOOP("App::Property","The thickness of the massive structure or of the stringers"))
+        if not "StringerWidth" in pl:
+            obj.addProperty("App::PropertyLength","StringerWidth","Structure",QT_TRANSLATE_NOOP("App::Property","The width of the stringers"))
+        if not "StructureOffset" in pl:
+            obj.addProperty("App::PropertyLength","StructureOffset","Structure",QT_TRANSLATE_NOOP("App::Property","The offset between the border of the stairs and the structure"))
+        if not "StringerOverlap" in pl:
+            obj.addProperty("App::PropertyLength","StringerOverlap","Structure",QT_TRANSLATE_NOOP("App::Property","The overlap of the stringers above the bottom of the treads"))
 
-        obj.Align = ['Left','Right','Center']
-        obj.Landings = ["None","At center","At each corner"]
-        obj.Winders = ["None","All","Corners strict","Corners relaxed"]
-        obj.Structure = ["None","Massive","One stringer","Two stringers"]
-        obj.setEditorMode("TreadDepth",1)
-        obj.setEditorMode("RiserHeight",1)
-        obj.setEditorMode("BlondelRatio",1)
         self.Type = "Stairs"
-        self.Role = ["Stair","Stair Flight"]
-        self.Role = "Stair"
 
+    def onDocumentRestored(self,obj):
+
+        ArchComponent.Component.onDocumentRestored(self,obj)
+        self.setProperties(obj)
 
     def execute(self,obj):
 
         "constructs the shape of the stairs"
-        
+
         if self.clone(obj):
             return
-        
+
         import Part
         self.steps = []
         self.pseudosteps = []
@@ -167,7 +219,7 @@ class _Stairs(ArchComponent.Component):
                     return
                 if (len(obj.Base.Shape.Edges) == 1):
                     edge = obj.Base.Shape.Edges[0]
-                    if isinstance(edge.Curve,Part.Line):
+                    if isinstance(edge.Curve,(Part.LineSegment,Part.Line)):
                         if obj.Landings == "At center":
                             landings = 1
                             self.makeStraightStairsWithLanding(obj,edge)
@@ -182,7 +234,7 @@ class _Stairs(ArchComponent.Component):
             else:
                 if not obj.Length.Value:
                     return
-                edge = Part.Line(Vector(0,0,0),Vector(obj.Length.Value,0,0)).toShape()
+                edge = Part.LineSegment(Vector(0,0,0),Vector(obj.Length.Value,0,0)).toShape()
                 if obj.Landings == "At center":
                     landings = 1
                     self.makeStraightStairsWithLanding(obj,edge)
@@ -218,6 +270,7 @@ class _Stairs(ArchComponent.Component):
 
 
     def align(self,basepoint,align,widthvec):
+
         "moves a given basepoint according to the alignment"
         if align == "Center":
             basepoint = basepoint.add(DraftVecUtils.scale(widthvec,-0.5))
@@ -248,7 +301,7 @@ class _Stairs(ArchComponent.Component):
         fLength = float(l-obj.Width.Value)/(numberofsteps-2)
         fHeight = float(h)/numberofsteps
         a = math.atan(fHeight/fLength)
-        print "landing data:",fLength,":",fHeight
+        print("landing data:",fLength,":",fHeight)
 
         # step
         p1 = self.align(vBase,obj.Align,vWidth)
@@ -339,6 +392,10 @@ class _Stairs(ArchComponent.Component):
 
         "builds a simple, straight staircase from a straight edge"
 
+        # Upgrade obj if it is from an older version of FreeCAD
+        if not(hasattr(obj, "StringerOverlap")):
+            obj.addProperty("App::PropertyLength","StringerOverlap","Structure",QT_TRANSLATE_NOOP("App::Property","The overlap of the stringers above the bottom of the treads"))
+
         # general data
         import Part,DraftGeomUtils
         if not numberofsteps:
@@ -355,7 +412,7 @@ class _Stairs(ArchComponent.Component):
         vBase = edge.Vertexes[0].Point
         vNose = DraftVecUtils.scaleTo(vLength,-abs(obj.Nosing.Value))
         a = math.atan(vHeight.Length/vLength.Length)
-        #print "stair data:",vLength.Length,":",vHeight.Length
+        #print("stair data:",vLength.Length,":",vHeight.Length)
 
         # steps
         for i in range(numberofsteps-1):
@@ -392,7 +449,7 @@ class _Stairs(ArchComponent.Component):
                 h = DraftVecUtils.scaleTo(vLength,-resLength)
                 lProfile.append(lProfile[-1].add(Vector(h.x,h.y,-resHeight2)))
                 lProfile.append(vBase)
-                #print lProfile
+                #print(lProfile)
                 pol = Part.makePolygon(lProfile)
                 struct = Part.Face(pol)
                 evec = vWidth
@@ -405,12 +462,18 @@ class _Stairs(ArchComponent.Component):
             if obj.StringerWidth.Value and obj.StructureThickness.Value:
                 hyp = math.sqrt(vHeight.Length**2 + vLength.Length**2)
                 l1 = Vector(vLength).multiply(numberofsteps-1)
-                h1 = Vector(vHeight).multiply(numberofsteps-1).add(Vector(0,0,-abs(obj.TreadThickness.Value)))
+                h1 = Vector(vHeight).multiply(numberofsteps-1).add(Vector(0,0,-abs(obj.TreadThickness.Value)+obj.StringerOverlap.Value))
                 p1 = vBase.add(l1).add(h1)
                 p1 = self.align(p1,obj.Align,vWidth)
-                lProfile.append(p1)
+                if obj.StringerOverlap.Value <= float(h)/numberofsteps:
+                    lProfile.append(p1)
+                else:
+                    p1b = vBase.add(l1).add(Vector(0,0,float(h)))
+                    p1a = p1b.add(Vector(vLength).multiply((p1b.z-p1.z)/vHeight.Length))
+                    lProfile.append(p1a)
+                    lProfile.append(p1b)
                 h2 = (obj.StructureThickness.Value/vLength.Length)*hyp
-                lProfile.append(lProfile[-1].add(Vector(0,0,-abs(h2))))
+                lProfile.append(p1.add(Vector(0,0,-abs(h2))))
                 h3 = lProfile[-1].z-vBase.z
                 l3 = (h3/vHeight.Length)*vLength.Length
                 v3 = DraftVecUtils.scaleTo(vLength,-l3)
@@ -419,7 +482,7 @@ class _Stairs(ArchComponent.Component):
                 v4 = DraftVecUtils.scaleTo(vLength,-l4)
                 lProfile.append(lProfile[-1].add(v4))
                 lProfile.append(lProfile[0])
-                #print lProfile
+                #print(lProfile)
                 pol = Part.makePolygon(lProfile)
                 pol = Part.Face(pol)
                 evec = DraftVecUtils.scaleTo(vWidth,obj.StringerWidth.Value)
@@ -464,31 +527,37 @@ class _Stairs(ArchComponent.Component):
         else:
             h = obj.Height.Value
         hstep = h/obj.NumberOfSteps
-        landing = obj.NumberOfSteps/2
+        landing = int(obj.NumberOfSteps/2)
         p2 = p1.add(DraftVecUtils.scale(vLength,landing-1).add(Vector(0,0,landing*hstep)))
         p3 = p2.add(DraftVecUtils.scaleTo(vLength,obj.Width.Value))
         p4 = p3.add(DraftVecUtils.scale(vLength,obj.NumberOfSteps-(landing+1)).add(Vector(0,0,(obj.NumberOfSteps-landing)*hstep)))
-        self.makeStraightStairs(obj,Part.Line(p1,p2).toShape(),landing)
-        self.makeStraightLanding(obj,Part.Line(p2,p3).toShape())
-        self.makeStraightStairs(obj,Part.Line(p3,p4).toShape(),obj.NumberOfSteps-landing)
+        self.makeStraightStairs(obj,Part.LineSegment(p1,p2).toShape(),landing)
+        self.makeStraightLanding(obj,Part.LineSegment(p2,p3).toShape())
+        self.makeStraightStairs(obj,Part.LineSegment(p3,p4).toShape(),obj.NumberOfSteps-landing)
 
 
     def makeCurvedStairs(self,obj,edge):
-        print "Not yet implemented!"
+
+        print("Not yet implemented!")
 
     def makeCurvedStairsWithLanding(self,obj,edge):
-        print "Not yet implemented!"
 
+        print("Not yet implemented!")
 
 
 class _ViewProviderStairs(ArchComponent.ViewProviderComponent):
+
     "A View Provider for Stairs"
+
     def __init__(self,vobj):
+
         ArchComponent.ViewProviderComponent.__init__(self,vobj)
 
     def getIcon(self):
+
         import Arch_rc
         return ":/icons/Arch_Stairs_Tree.svg"
+
 
 if FreeCAD.GuiUp:
     FreeCADGui.addCommand('Arch_Stairs',_CommandStairs())

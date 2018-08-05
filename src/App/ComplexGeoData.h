@@ -62,6 +62,10 @@ class AppExport ComplexGeoData: public Base::Persistence, public Base::Handled
 public:
     struct Line  {uint32_t I1; uint32_t I2;};
     struct Facet {uint32_t I1; uint32_t I2; uint32_t I3;};
+    struct Domain {
+        std::vector<Base::Vector3d> points;
+        std::vector<Facet> facets;
+    };
 
     /// Constructor
     ComplexGeoData(void);
@@ -84,13 +88,13 @@ public:
     virtual void getLinesFromSubelement(
         const Segment*,
         std::vector<Base::Vector3d> &Points,
-        std::vector<Line> &lines) const {}
+        std::vector<Line> &lines) const;
     /** Get faces from segment */
     virtual void getFacesFromSubelement(
         const Segment*,
         std::vector<Base::Vector3d> &Points,
         std::vector<Base::Vector3d> &PointNormals,
-        std::vector<Facet> &faces) const {}
+        std::vector<Facet> &faces) const;
     //@}
 
     /** @name Placement control */
@@ -133,19 +137,23 @@ public:
     virtual Base::BoundBox3d getBoundBox(void)const=0;
     /** Get point from line object intersection  */
     virtual Base::Vector3d getPointFromLineIntersection(
-        const Base::Vector3f& Base,
-        const Base::Vector3f& Dir) const
-    { return Base::Vector3d(); }
+        const Base::Vector3f& base,
+        const Base::Vector3f& dir) const;
     /** Get points from object with given accuracy */
     virtual void getPoints(std::vector<Base::Vector3d> &Points,
         std::vector<Base::Vector3d> &Normals,
-        float Accuracy, uint16_t flags=0) const {}
+        float Accuracy, uint16_t flags=0) const;
     /** Get lines from object with given accuracy */
     virtual void getLines(std::vector<Base::Vector3d> &Points,std::vector<Line> &lines,
-        float Accuracy, uint16_t flags=0) const {}
+        float Accuracy, uint16_t flags=0) const;
     /** Get faces from object with given accuracy */
     virtual void getFaces(std::vector<Base::Vector3d> &Points,std::vector<Facet> &faces,
-        float Accuracy, uint16_t flags=0) const {}
+        float Accuracy, uint16_t flags=0) const;
+    /** Get the center of gravity
+     * If this method is implemented then true is returned and the center of gravity.
+     * The default implementation only returns false.
+     */
+    virtual bool getCenterOfGravity(Base::Vector3d& center) const;
     //@}
 
 protected:
